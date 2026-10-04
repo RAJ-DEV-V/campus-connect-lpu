@@ -124,6 +124,7 @@ export default function AdminDashboardPage() {
   const [uploadType, setUploadType] = useState<string>('Notes');
   const [uploadDescription, setUploadDescription] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadStage, setUploadStage] = useState<string>('');
@@ -132,6 +133,7 @@ export default function AdminDashboardPage() {
   // Edit Material State
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
+  const [isDraggingEditFile, setIsDraggingEditFile] = useState(false);
   const [updatingMaterial, setUpdatingMaterial] = useState(false);
 
   // User Filter State
@@ -1678,29 +1680,125 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              {/* File Upload */}
+              {/* File Upload with Drag & Drop */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Upload Document or Image (PDF, JPG, PNG, WEBP, DOCX) <span className="text-rose-500">*</span>
                 </label>
-                <div className="border-2 border-dashed border-slate-200 hover:border-lpu-500 rounded-2xl p-5 text-center transition-colors">
+                <div 
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingFile(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    setIsDraggingFile(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingFile(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      const file = e.dataTransfer.files[0];
+                      const validExts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.doc', '.docx'];
+                      const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
+                      if (validExts.includes(fileExt) || file.type.startsWith('image/') || file.type === 'application/pdf') {
+                        setUploadFile(file);
+                        if (!uploadTitle.trim()) {
+                          const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+                          setUploadTitle(cleanName);
+                        }
+                      } else {
+                        alert('Please drop a valid document or image (PDF, JPG, PNG, WEBP, DOCX).');
+                      }
+                    }
+                  }}
+                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                    isDraggingFile
+                      ? 'border-lpu-500 bg-orange-50/80 scale-[1.01] shadow-lg shadow-orange-500/10'
+                      : uploadFile
+                      ? 'border-emerald-400 bg-emerald-50/40 hover:border-emerald-500'
+                      : 'border-slate-300 hover:border-lpu-500 hover:bg-slate-50/60'
+                  }`}
+                >
                   <input
                     type="file"
                     id="pdfUploadInput"
                     accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-                    required
-                    onChange={(e) => setUploadFile(e.target.files ? e.target.files[0] : null)}
+                    required={!uploadFile}
+                    onChange={(e) => {
+                      const file = e.target.files ? e.target.files[0] : null;
+                      setUploadFile(file);
+                      if (file && !uploadTitle.trim()) {
+                        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+                        setUploadTitle(cleanName);
+                      }
+                    }}
                     className="hidden"
                   />
-                  <label htmlFor="pdfUploadInput" className="cursor-pointer flex flex-col items-center">
-                    <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                    <span className="text-xs font-bold text-slate-700">
-                      {uploadFile ? uploadFile.name : 'Choose a file to upload (PDF, JPG, PNG, WEBP, DOCX)'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 mt-1">
-                      {uploadFile ? `${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB` : 'Direct Resumable Google Drive Upload (Supports 50MB+)'}
-                    </span>
+                  <label htmlFor="pdfUploadInput" className="cursor-pointer flex flex-col items-center select-none">
+                    {isDraggingFile ? (
+                      <>
+                        <Upload className="w-10 h-10 text-lpu-600 animate-bounce mb-2" />
+                        <span className="text-sm font-extrabold text-lpu-700">
+                          Drop file here to upload
+                        </span>
+                        <span className="text-[11px] text-orange-600 font-semibold mt-1">
+                          Release to select this file
+                        </span>
+                      </>
+                    ) : uploadFile ? (
+                      <>
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-2">
+                          <CheckCircle2 className="w-6 h-6" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-800 break-all max-w-md">
+                          {uploadFile.name}
+                        </span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[11px] font-mono text-emerald-600 font-bold bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                            {(uploadFile.size / (1024 * 1024)).toFixed(2)} MB
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            • Click or drag another file to replace
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mb-2 group-hover:bg-orange-50 group-hover:text-lpu-600 transition-colors">
+                          <Upload className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-700">
+                          <strong className="text-lpu-600 hover:underline">Choose a file</strong> or drag &amp; drop it here
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-1">
+                          PDF, JPG, PNG, WEBP, DOCX (Direct Resumable Google Drive Upload, Supports 50MB+)
+                        </span>
+                      </>
+                    )}
                   </label>
+                  {uploadFile && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUploadFile(null);
+                        const input = document.getElementById('pdfUploadInput') as HTMLInputElement;
+                        if (input) input.value = '';
+                      }}
+                      className="mt-3 text-[11px] text-rose-500 hover:text-rose-700 font-bold hover:underline inline-flex items-center gap-1"
+                    >
+                      <X className="w-3.5 h-3.5" /> Remove file
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2678,12 +2776,43 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              {/* Replace Document File */}
+              {/* Replace Document File with Drag & Drop */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Replace File Document (Optional)
                 </label>
-                <div className="border border-dashed border-slate-300 rounded-xl p-3 text-center bg-slate-50">
+                <div 
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingEditFile(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    setIsDraggingEditFile(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingEditFile(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      setEditFile(e.dataTransfer.files[0]);
+                    }
+                  }}
+                  className={`border border-dashed rounded-xl p-3.5 text-center transition-all ${
+                    isDraggingEditFile
+                      ? 'border-lpu-500 bg-orange-50'
+                      : editFile
+                      ? 'border-emerald-400 bg-emerald-50/50'
+                      : 'border-slate-300 bg-slate-50 hover:border-lpu-500'
+                  }`}
+                >
                   <input
                     type="file"
                     id="replaceFileInput"
@@ -2692,10 +2821,12 @@ export default function AdminDashboardPage() {
                     className="hidden"
                   />
                   <label htmlFor="replaceFileInput" className="cursor-pointer block text-xs font-bold text-slate-700">
-                    {editFile ? (
+                    {isDraggingEditFile ? (
+                      <span className="text-lpu-600 font-bold">Drop replacement file here</span>
+                    ) : editFile ? (
                       <span className="text-emerald-700">{editFile.name} (Ready to replace)</span>
                     ) : (
-                      <span className="text-slate-500">Click to choose replacement file (Current: {editingMaterial.file_size})</span>
+                      <span className="text-slate-500">Click or drag &amp; drop to replace file (Current: {editingMaterial.file_size})</span>
                     )}
                   </label>
                 </div>
