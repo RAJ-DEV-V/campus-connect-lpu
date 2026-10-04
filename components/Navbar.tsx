@@ -58,12 +58,39 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
+      // 1. Call server-side logout to clear session and Supabase cookies
       await fetch('/api/auth/logout', { method: 'POST' });
+
+      // 2. Invalidate Supabase client session if available
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        if (supabase) {
+          await supabase.auth.signOut();
+        }
+      } catch (clientErr) {
+        // Silently continue if client is not configured
+      }
+
+      // 3. Purge browser client-side storage
+      try {
+        if (typeof window !== 'undefined') {
+          Object.keys(localStorage).forEach((key) => {
+            if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
+              localStorage.removeItem(key);
+            }
+          });
+          sessionStorage.clear();
+        }
+      } catch (storageErr) {}
+
       setUser(null);
-      router.push('/login');
-      router.refresh();
+
+      // 4. Hard navigate to /login to flush all React and router state
+      window.location.href = '/login';
     } catch (e) {
       console.error('Logout error', e);
+      window.location.href = '/login';
     }
   };
 

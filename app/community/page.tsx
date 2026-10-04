@@ -306,7 +306,7 @@ export default function CommunityVerificationPage() {
 
         </div>
 
-        {/* Verification Transparency (Prompt strict restriction: never claim WhatsApp API verified membership) */}
+        {/* Verification Transparency */}
         <div className="mt-8 pt-6 border-t border-slate-100">
           <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-orange-50/60 border border-orange-200/60 text-[11px] text-slate-600 leading-relaxed">
             <Info className="w-4 h-4 text-lpu-600 shrink-0 mt-0.5" />
@@ -315,6 +315,37 @@ export default function CommunityVerificationPage() {
               Submitting an approved Campus Connect community invite link unlocks permanent access to notes, mid-term papers, end-term papers, and PYQs.
             </div>
           </div>
+        </div>
+
+        <div className="mt-4 text-center">
+          <button
+            onClick={async () => {
+              try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                try {
+                  const { createClient } = await import('@/lib/supabase/client');
+                  const supabase = createClient();
+                  if (supabase) await supabase.auth.signOut();
+                } catch (e) {}
+                try {
+                  if (typeof window !== 'undefined') {
+                    Object.keys(localStorage).forEach((k) => {
+                      if (k.startsWith('sb-') || k.includes('supabase') || k.includes('auth')) {
+                        localStorage.removeItem(k);
+                      }
+                    });
+                    sessionStorage.clear();
+                  }
+                } catch (e) {}
+                window.location.href = '/login';
+              } catch (err) {
+                window.location.href = '/login';
+              }
+            }}
+            className="text-xs text-slate-400 hover:text-rose-600 font-semibold transition-colors"
+          >
+            Sign out or switch account
+          </button>
         </div>
 
       </div>

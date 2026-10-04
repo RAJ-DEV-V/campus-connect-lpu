@@ -908,8 +908,27 @@ export default function AdminDashboardPage() {
           </button>
           <button
             onClick={async () => {
-              await fetch('/api/auth/logout', { method: 'POST' });
-              router.push('/login');
+              try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                try {
+                  const { createClient } = await import('@/lib/supabase/client');
+                  const supabase = createClient();
+                  if (supabase) await supabase.auth.signOut();
+                } catch (e) {}
+                try {
+                  if (typeof window !== 'undefined') {
+                    Object.keys(localStorage).forEach((k) => {
+                      if (k.startsWith('sb-') || k.includes('supabase') || k.includes('auth')) {
+                        localStorage.removeItem(k);
+                      }
+                    });
+                    sessionStorage.clear();
+                  }
+                } catch (e) {}
+                window.location.href = '/login';
+              } catch (err) {
+                window.location.href = '/login';
+              }
             }}
             className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
           >
