@@ -80,50 +80,64 @@ export default function DocumentViewerModal({
   const loadPdfJs = (): Promise<any> => {
     return new Promise((resolve, reject) => {
       if (typeof window === 'undefined') return reject(new Error('Window undefined'));
+
+      const setupWorkerAndResolve = (lib: any) => {
+        try {
+          if (lib && lib.GlobalWorkerOptions) {
+            lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          }
+        } catch (e) {
+          console.warn('Worker configuration notice:', e);
+        }
+        resolve(lib);
+      };
+
       if ((window as any).pdfjsLib) {
-        return resolve((window as any).pdfjsLib);
+        return setupWorkerAndResolve((window as any).pdfjsLib);
       }
+
       const existingScript = document.getElementById('pdfjs-dist-script') as HTMLScriptElement;
       if (existingScript) {
-        existingScript.addEventListener('load', () => {
-          const lib = (window as any).pdfjsLib;
-          if (lib) {
-            lib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
-            resolve(lib);
-          } else {
-            reject(new Error('pdfjsLib not defined'));
+        let attempts = 0;
+        const interval = setInterval(() => {
+          attempts++;
+          if ((window as any).pdfjsLib) {
+            clearInterval(interval);
+            setupWorkerAndResolve((window as any).pdfjsLib);
+          } else if (attempts > 40) {
+            clearInterval(interval);
+            reject(new Error('Timeout waiting for pdfjsLib'));
           }
-        });
+        }, 100);
         return;
       }
+
       const script = document.createElement('script');
       script.id = 'pdfjs-dist-script';
-      script.src = '/pdf.min.js';
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
       script.async = true;
       script.onload = () => {
         const lib = (window as any).pdfjsLib;
         if (lib) {
-          lib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
-          resolve(lib);
+          setupWorkerAndResolve(lib);
         } else {
-          reject(new Error('pdfjsLib not defined after load'));
+          reject(new Error('pdfjsLib not defined after CDN load'));
         }
       };
       script.onerror = () => {
-        // Fallback to CDN if local bundle fails
-        const cdnScript = document.createElement('script');
-        cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-        cdnScript.onload = () => {
+        // Fallback to local /pdf.min.js
+        const localScript = document.createElement('script');
+        localScript.src = '/pdf.min.js';
+        localScript.onload = () => {
           const lib = (window as any).pdfjsLib;
           if (lib) {
-            lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            resolve(lib);
+            setupWorkerAndResolve(lib);
           } else {
-            reject(new Error('CDN PDF.js failed'));
+            reject(new Error('Local pdfjsLib not defined'));
           }
         };
-        cdnScript.onerror = reject;
-        document.head.appendChild(cdnScript);
+        localScript.onerror = reject;
+        document.head.appendChild(localScript);
       };
       document.head.appendChild(script);
     });
@@ -330,7 +344,13 @@ export default function DocumentViewerModal({
             const pdfjsLib = await loadPdfJs();
             if (isCancelled) return;
 
-            const doc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+            const loadingTask = pdfjsLib.getDocument({
+              data: new Uint8Array(arrayBuffer),
+              cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+              cMapPacked: true,
+              standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',
+            });
+            const doc = await loadingTask.promise;
             if (isCancelled) return;
 
             setPdfDoc(doc);
@@ -344,6 +364,12 @@ export default function DocumentViewerModal({
               setLoading(false);
               return;
             }
+            if (material.file_url.startsWith('http')) {
+              setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(material.file_url)}&embedded=true`);
+              setLoading(false);
+              return;
+            }
+            setError('Could not render document preview.');
             setLoading(false);
             return;
           }
@@ -357,6 +383,14 @@ export default function DocumentViewerModal({
           return;
         }
 
+        // Fallback for public HTTP files to Google Docs embedded viewer
+        if (material.file_url.startsWith('http')) {
+          setIsImageType(false);
+          setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(material.file_url)}&embedded=true`);
+          setLoading(false);
+          return;
+        }
+
         throw new Error(`Failed to load document: HTTP ${response.status}`);
       } catch (err: any) {
         if (isCancelled) return;
@@ -364,6 +398,12 @@ export default function DocumentViewerModal({
         if (driveId) {
           setIsImageType(false);
           setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
+          setLoading(false);
+          return;
+        }
+        if (material.file_url.startsWith('http')) {
+          setIsImageType(false);
+          setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(material.file_url)}&embedded=true`);
           setLoading(false);
           return;
         }
@@ -402,17 +442,20 @@ export default function DocumentViewerModal({
         const context = canvas.getContext('2d');
         if (!context) return;
 
-        const container = viewerContainerRef.current;
-        const containerWidth = container ? container.clientWidth - 32 : (window.innerWidth - 32);
+        const container = viewportRef.current || viewerContainerRef.current;
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+        const containerWidth = container ? container.clientWidth : (typeof window !== 'undefined' ? window.innerWidth : 800);
         const unscaledViewport = page.getViewport({ scale: 1 });
 
         // Calculate responsive scale based on viewport width & debounced zoom percentage
-        const targetWidth = Math.max(260, Math.min(containerWidth, 800));
+        const horizontalPadding = isMobile ? 16 : 48;
+        const targetWidth = Math.max(260, Math.min(containerWidth - horizontalPadding, isMobile ? window.innerWidth - 16 : 850));
         const baseScale = targetWidth / unscaledViewport.width;
         const finalScale = baseScale * (debouncedZoom / 100);
 
         const viewport = page.getViewport({ scale: finalScale, rotation });
-        const pixelRatio = window.devicePixelRatio || 1;
+        // Cap pixelRatio at 2 on mobile to conserve GPU/Canvas memory
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
         canvas.width = Math.floor(viewport.width * pixelRatio);
         canvas.height = Math.floor(viewport.height * pixelRatio);
@@ -487,36 +530,38 @@ export default function DocumentViewerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/90 backdrop-blur-xs animate-in fade-in duration-200">
       
-      {/* Document Viewer Container (Fullscreen target) */}
+      {/* Document Viewer Container (Mobile edge-to-edge full screen, Desktop centered card) */}
       <div 
         ref={viewerContainerRef}
-        className={`bg-slate-900 rounded-2xl w-full flex flex-col shadow-2xl overflow-hidden border border-slate-800 transition-all ${
-          isFullscreen ? 'h-screen w-screen rounded-none' : 'max-w-5xl h-[92vh]'
+        className={`bg-slate-900 w-full flex flex-col shadow-2xl overflow-hidden transition-all ${
+          isFullscreen 
+            ? 'h-screen w-screen rounded-none border-0' 
+            : 'h-[100dvh] sm:h-[92vh] sm:max-w-5xl rounded-none sm:rounded-2xl border-0 sm:border border-slate-800'
         }`}
       >
         
         {/* Top Control Header */}
-        <div className="px-4 sm:px-6 py-3.5 bg-slate-950 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 shrink-0">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 bg-slate-950 text-white flex items-center justify-between gap-2 border-b border-slate-800 shrink-0">
           
           {/* Material Identity */}
-          <div className="flex items-center gap-3 truncate max-w-[280px] sm:max-w-md">
-            <div className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
-              <BookOpen className="w-4 h-4" />
+          <div className="flex items-center gap-2 sm:gap-3 truncate min-w-0 max-w-[150px] xs:max-w-[200px] sm:max-w-md">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
-            <div className="truncate">
-              <h3 className="font-bold text-sm text-white truncate leading-tight">
+            <div className="truncate min-w-0">
+              <h3 className="font-bold text-xs sm:text-sm text-white truncate leading-tight">
                 {material.title}
               </h3>
-              <p className="text-[11px] text-slate-400 truncate">
-                {material.subject_code} • {material.subject} • Year {material.year} • {material.material_type}
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">
+                {material.subject_code} • Year {material.year}
               </p>
             </div>
           </div>
 
           {/* Controls Bar */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             
             {/* Page Navigation */}
             {totalPages > 1 && (
@@ -527,10 +572,10 @@ export default function DocumentViewerModal({
                   className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
                   title="Previous Page"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
-                <span className="px-2 text-[11px] font-mono text-slate-300">
-                  {currentPage} / {totalPages}
+                <span className="px-1.5 text-[10px] sm:text-[11px] font-mono text-slate-300">
+                  {currentPage}/{totalPages}
                 </span>
                 <button
                   onClick={handleNextPage}
@@ -538,7 +583,7 @@ export default function DocumentViewerModal({
                   className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
                   title="Next Page"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               </div>
             )}
@@ -548,14 +593,14 @@ export default function DocumentViewerModal({
               <button
                 onClick={handleZoomOut}
                 disabled={zoomLevel <= 40}
-                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
+                className="p-1 sm:p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
                 title="Zoom Out (-25%)"
               >
-                <ZoomOut className="w-3.5 h-3.5" />
+                <ZoomOut className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </button>
               <button
                 onClick={handleResetZoom}
-                className="px-2 py-1 text-[11px] font-mono text-slate-200 hover:text-white cursor-pointer select-none"
+                className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-mono text-slate-200 hover:text-white cursor-pointer select-none"
                 title="Two-finger pinch on touchpad or Ctrl + Scroll to zoom. Click to reset (100%)"
               >
                 {zoomLevel}%
@@ -563,26 +608,26 @@ export default function DocumentViewerModal({
               <button
                 onClick={handleZoomIn}
                 disabled={zoomLevel >= 300}
-                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
+                className="p-1 sm:p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
                 title="Zoom In (+25%)"
               >
-                <ZoomIn className="w-3.5 h-3.5" />
+                <ZoomIn className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </button>
             </div>
 
             {/* Rotation Control */}
             <button
               onClick={handleRotate}
-              className="p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
+              className="p-1.5 sm:p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
               title="Rotate 90 degrees"
             >
-              <RotateCw className="w-3.5 h-3.5" />
+              <RotateCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </button>
 
-            {/* Document Viewer Fullscreen */}
+            {/* Document Viewer Fullscreen (Desktop/Tablet only since mobile is already 100dvh full screen) */}
             <button
               onClick={toggleViewerFullscreen}
-              className="p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
+              className="hidden sm:inline-flex p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
               title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Document Viewer'}
             >
               {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
@@ -603,26 +648,18 @@ export default function DocumentViewerModal({
                     }
                   }
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white text-xs font-bold shadow-xs transition-all active:scale-98"
+                className="flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white text-xs font-bold shadow-xs transition-all active:scale-98"
                 title="Download this document"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Download</span>
               </button>
-            ) : (
-              <div 
-                className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-950/60 border border-amber-800/60 px-2.5 py-1 rounded-xl"
-                title="Downloads have been disabled globally by the administrator"
-              >
-                <ShieldAlert className="w-3 h-3 text-amber-400" />
-                Preview Only Mode
-              </div>
-            )}
+            ) : null}
 
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-1"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-0.5 sm:ml-1"
               aria-label="Close Preview"
             >
               <X className="w-5 h-5" />
@@ -648,7 +685,7 @@ export default function DocumentViewerModal({
               <p className="text-xs font-semibold">Loading document inside viewer...</p>
             </div>
           ) : error ? (
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-8 max-w-md text-center">
+            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 sm:p-8 max-w-md text-center mx-4">
               <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto mb-3" />
               <p className="text-sm font-semibold text-slate-200">{error}</p>
               {canDownload && (
@@ -672,22 +709,22 @@ export default function DocumentViewerModal({
               <img
                 src={previewBlobUrl}
                 alt={material.title}
-                className="max-w-full max-h-full rounded-lg shadow-2xl object-contain bg-white"
+                className="max-w-full max-h-full rounded-none sm:rounded-lg shadow-2xl object-contain bg-white"
               />
             </div>
           ) : driveEmbedUrl ? (
-            <div className="w-full h-full overflow-auto flex items-start justify-center p-2 sm:p-4 select-none">
+            <div className="w-full h-full overflow-auto flex items-start justify-center p-0 sm:p-4 select-none">
               <div 
-                className="w-full h-full relative rounded-xl overflow-hidden bg-black shadow-2xl transition-transform duration-100 ease-out origin-top"
+                className="w-full h-full relative rounded-none sm:rounded-xl overflow-hidden bg-black shadow-2xl transition-transform duration-100 ease-out origin-top"
                 style={{
                   transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                  minHeight: '600px',
+                  minHeight: '500px',
                 }}
               >
                 <iframe
                   src={driveEmbedUrl}
                   title={material.title}
-                  className="w-full h-full rounded-xl border-0 bg-black min-h-[600px]"
+                  className="w-full h-full rounded-none sm:rounded-xl border-0 bg-black min-h-[500px]"
                   sandbox="allow-scripts allow-same-origin allow-forms"
                 />
                 {/* Security Shield: Covers and blocks the Google Drive top-right pop-out button */}
@@ -704,7 +741,7 @@ export default function DocumentViewerModal({
             </div>
           ) : pdfDoc ? (
             <div 
-              className="w-full h-full overflow-auto flex items-start justify-center p-2 sm:p-4 transition-transform duration-75 ease-out"
+              className="w-full h-full overflow-auto flex items-start justify-center p-1 sm:p-4 transition-transform duration-75 ease-out"
               style={{
                 transform: `scale(${zoomLevel / debouncedZoom}) rotate(${rotation}deg)`,
                 transformOrigin: 'top center',
@@ -712,31 +749,11 @@ export default function DocumentViewerModal({
             >
               <canvas
                 ref={canvasRef}
-                className="rounded-xl shadow-2xl bg-white max-w-full"
+                className="rounded-lg sm:rounded-xl shadow-2xl bg-white max-w-full"
                 style={{
                   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
                 }}
               />
-            </div>
-          ) : previewBlobUrl ? (
-            <div 
-              className="w-full h-full flex flex-col items-center justify-center p-1 sm:p-2 transition-transform duration-100 ease-out"
-              style={{
-                transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                transformOrigin: 'center center',
-              }}
-            >
-              <object
-                data={previewBlobUrl}
-                type="application/pdf"
-                className="w-full h-full rounded-xl bg-white shadow-2xl"
-              >
-                <iframe
-                  src={`${previewBlobUrl}#toolbar=0`}
-                  title={material.title}
-                  className="w-full h-full rounded-xl border-0 bg-white"
-                />
-              </object>
             </div>
           ) : (
             <div className="text-xs text-slate-400">Loading document...</div>

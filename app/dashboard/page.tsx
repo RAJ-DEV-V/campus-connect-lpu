@@ -20,7 +20,7 @@ import {
   GraduationCap
 } from 'lucide-react';
 import MaterialCard from '@/components/MaterialCard';
-import PdfPreviewModal from '@/components/PdfPreviewModal';
+import DocumentViewerModal from '@/components/DocumentViewerModal';
 import { Material } from '@/lib/db/types';
 
 export default function DashboardPage() {
@@ -359,17 +359,11 @@ export default function DashboardPage() {
       </section>
 
       {/* PDF In-browser Preview Modal */}
-      <PdfPreviewModal
+      <DocumentViewerModal
         material={previewMaterial}
+        allowDownloads={true}
+        isAdminOrOwner={Boolean(user?.isAdmin || user?.isOwner)}
         onClose={() => setPreviewMaterial(null)}
-        onDownload={(m) => {
-          const link = document.createElement('a');
-          link.href = `/api/materials/${m.id}/download`;
-          link.setAttribute('download', `${m.subject_code}_${m.title}.pdf`);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }}
       />
 
     </div>
