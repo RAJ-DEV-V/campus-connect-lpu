@@ -190,7 +190,8 @@ export class SupabaseDatabaseStore {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
+        if (data.length === 0) return [];
         // Compute verified counts
         const linksWithCounts: CommunityVerificationLink[] = [];
         for (const link of data) {
@@ -238,8 +239,11 @@ export class SupabaseDatabaseStore {
         .ilike('invite_code', clean)
         .limit(1);
 
-      if (!error && data && data.length > 0) {
-        return data[0] as CommunityVerificationLink;
+      if (!error) {
+        if (data && data.length > 0) {
+          return data[0] as CommunityVerificationLink;
+        }
+        return null;
       }
     } catch {}
     return this.localFallback.findActiveLinkByCode(clean);
@@ -271,17 +275,24 @@ export class SupabaseDatabaseStore {
   }): Promise<CommunityVerificationLink> {
     const local = this.localFallback.createCommunityVerificationLink(data);
     try {
+      const insertPayload: any = {
+        name: data.name,
+        invite_url: data.invite_url,
+        invite_code: data.invite_code,
+        type: data.type,
+        is_active: data.is_active ?? true,
+      };
+
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(local.id)) {
+        insertPayload.id = local.id;
+      }
+      if (data.created_by) {
+        insertPayload.created_by = data.created_by;
+      }
+
       const { data: created, error } = await this.client
         .from('community_verification_links')
-        .insert({
-          id: local.id,
-          name: data.name,
-          invite_url: data.invite_url,
-          invite_code: data.invite_code,
-          type: data.type,
-          is_active: data.is_active ?? true,
-          created_by: data.created_by,
-        })
+        .insert(insertPayload)
         .select('*')
         .single();
 
@@ -318,10 +329,11 @@ export class SupabaseDatabaseStore {
   async deleteCommunityVerificationLink(id: string): Promise<boolean> {
     const local = this.localFallback.deleteCommunityVerificationLink(id);
     try {
-      await this.client
+      const { error } = await this.client
         .from('community_verification_links')
         .delete()
         .eq('id', id);
+      if (!error) return true;
     } catch {}
     return local;
   }
@@ -361,13 +373,21 @@ export class SupabaseDatabaseStore {
     const term = userIdOrEmail.toLowerCase().trim();
     if (term === 'mishra.rajvansh11@gmail.com') return 'owner';
     try {
-      const { data } = await this.client
-        .from('admins')
-        .select('role')
-        .or(`user_id.eq.${userIdOrEmail},email.ilike.${term}`)
-        .limit(1);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdOrEmail.trim());
 
-      if (data && data.length > 0) return data[0].role as any;
+      let query = this.client
+        .from('admins')
+        .select('role');
+
+      if (isUuid) {
+        query = query.or(`user_id.eq.${userIdOrEmail.trim()},id.eq.${userIdOrEmail.trim()}`);
+      } else {
+        query = query.ilike('email', term);
+      }
+
+      const { data, error } = await query.limit(1);
+
+      if (!error && data && data.length > 0) return data[0].role as any;
     } catch {}
     return this.localFallback.getUserRole(userIdOrEmail);
   }
@@ -422,13 +442,17 @@ export class SupabaseDatabaseStore {
       throw new Error('Owner account privileges cannot be removed.');
     }
 
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(adminIdOrEmail.trim());
+
     try {
       // Check target record in Supabase
-      const { data: target } = await this.client
-        .from('admins')
-        .select('*')
-        .or(`id.eq.${adminIdOrEmail},email.ilike.${clean}`)
-        .maybeSingle();
+      let checkQuery = this.client.from('admins').select('*');
+      if (isUuid) {
+        checkQuery = checkQuery.or(`id.eq.${adminIdOrEmail.trim()},user_id.eq.${adminIdOrEmail.trim()}`);
+      } else {
+        checkQuery = checkQuery.ilike('email', clean);
+      }
+      const { data: target } = await checkQuery.maybeSingle();
 
       if (target && (target.email?.toLowerCase() === 'mishra.rajvansh11@gmail.com' || target.role === 'owner')) {
         throw new Error('Owner account cannot be removed.');
@@ -439,10 +463,13 @@ export class SupabaseDatabaseStore {
 
     const localSuccess = this.localFallback.removeAdmin(adminIdOrEmail);
     try {
-      await this.client
-        .from('admins')
-        .delete()
-        .or(`id.eq.${adminIdOrEmail},email.ilike.${clean}`);
+      let delQuery = this.client.from('admins').delete();
+      if (isUuid) {
+        delQuery = delQuery.or(`id.eq.${adminIdOrEmail.trim()},user_id.eq.${adminIdOrEmail.trim()}`);
+      } else {
+        delQuery = delQuery.ilike('email', clean);
+      }
+      await delQuery;
     } catch {}
     return localSuccess;
   }

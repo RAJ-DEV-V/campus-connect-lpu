@@ -26,30 +26,7 @@ function getDefaultData(): DatabaseSchema {
   const twelveDaysAgo = new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString();
   const fortyDaysAgo = new Date(now.getTime() - 40 * 24 * 60 * 60 * 1000).toISOString();
 
-  const community_verification_links: CommunityVerificationLink[] = [
-    {
-      id: 'link_cc_main',
-      name: 'Campus Connect Main Community',
-      invite_url: 'https://chat.whatsapp.com/campus-connect-lpu-2026',
-      invite_code: 'campus-connect-lpu-2026',
-      type: 'community',
-      is_active: true,
-      created_at: '2026-08-01T10:00:00.000Z',
-      updated_at: '2026-08-01T10:00:00.000Z',
-      created_by: 'mishra.rajvansh11@gmail.com',
-    },
-    {
-      id: 'link_freshers_2026',
-      name: 'Freshers 2026 Academic Circle',
-      invite_url: 'https://chat.whatsapp.com/LPUFreshers2026StudyHub',
-      invite_code: 'LPUFreshers2026StudyHub',
-      type: 'freshers_group',
-      is_active: true,
-      created_at: '2026-08-10T11:30:00.000Z',
-      updated_at: '2026-08-10T11:30:00.000Z',
-      created_by: 'mishra.rajvansh11@gmail.com',
-    },
-  ];
+  const community_verification_links: CommunityVerificationLink[] = [];
 
   const users: User[] = [
     {

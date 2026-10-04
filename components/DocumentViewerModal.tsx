@@ -523,12 +523,22 @@ export default function DocumentViewerModal({
               />
             </div>
           ) : driveEmbedUrl ? (
-            <div className="w-full h-full flex flex-col items-center justify-center p-0">
+            <div className="w-full h-full relative rounded-xl overflow-hidden bg-black shadow-2xl flex items-center justify-center p-0 select-none">
               <iframe
                 src={driveEmbedUrl}
                 title={material.title}
-                className="w-full h-full rounded-xl border-0 bg-white"
-                allow="autoplay"
+                className="w-full h-full rounded-xl border-0 bg-black"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
+              {/* Security Shield: Covers and blocks the Google Drive top-right pop-out button */}
+              <div 
+                className="absolute top-0 right-0 w-16 h-14 bg-black z-30 pointer-events-auto cursor-default rounded-tr-xl"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+                onContextMenu={(e) => e.preventDefault()}
+                title=""
               />
             </div>
           ) : pdfDoc ? (

@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. COMMUNITY VERIFICATION LINKS TABLE
 -- Approved WhatsApp invite links with strictly extracted invite codes
 CREATE TABLE IF NOT EXISTS public.community_verification_links (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     invite_url TEXT NOT NULL,
     invite_code TEXT UNIQUE NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.community_verification_links (
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL
+    created_by TEXT
 );
 
 -- 2. USERS TABLE
