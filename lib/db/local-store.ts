@@ -36,7 +36,7 @@ function getDefaultData(): DatabaseSchema {
       is_active: true,
       created_at: '2026-08-01T10:00:00.000Z',
       updated_at: '2026-08-01T10:00:00.000Z',
-      created_by: 'admin@lpu.in',
+      created_by: 'mishra.rajvansh11@gmail.com',
     },
     {
       id: 'link_freshers_2026',
@@ -47,7 +47,7 @@ function getDefaultData(): DatabaseSchema {
       is_active: true,
       created_at: '2026-08-10T11:30:00.000Z',
       updated_at: '2026-08-10T11:30:00.000Z',
-      created_by: 'admin@lpu.in',
+      created_by: 'mishra.rajvansh11@gmail.com',
     },
   ];
 
@@ -62,16 +62,6 @@ function getDefaultData(): DatabaseSchema {
       last_login: now.toISOString(),
       last_active_at: now.toISOString(),
     },
-    {
-      id: '52383f20-6cc9-407c-99fb-58b306a35dfc',
-      name: 'Campus Admin',
-      email: 'admin@lpu.in',
-      avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-      community_joined: true,
-      created_at: now.toISOString(),
-      last_login: now.toISOString(),
-      last_active_at: now.toISOString(),
-    },
   ];
 
   const admins: Admin[] = [
@@ -80,13 +70,6 @@ function getDefaultData(): DatabaseSchema {
       user_id: 'b8b62eee-0e01-4163-9123-ab931e254027',
       email: 'mishra.rajvansh11@gmail.com',
       role: 'owner',
-      created_at: '2026-07-01T09:00:00.000Z',
-    },
-    {
-      id: 'adm_01',
-      user_id: '52383f20-6cc9-407c-99fb-58b306a35dfc',
-      email: 'admin@lpu.in',
-      role: 'admin',
       created_at: '2026-07-01T09:00:00.000Z',
     },
   ];
@@ -644,7 +627,7 @@ export class LocalDatabaseStore {
           material_title: mat?.title || 'Unknown Material',
           material_subject: mat?.subject || mat?.subject_code || 'Unknown Subject',
           user_name: user?.name || 'Verified Student',
-          user_email: user?.email || 'student@lpu.in',
+          user_email: user?.email || '',
         };
       });
 

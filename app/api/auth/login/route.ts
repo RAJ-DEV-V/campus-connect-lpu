@@ -5,43 +5,26 @@ import { getUserByEmail, getUserById, upsertUser, isAdmin as checkIsAdmin } from
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, name, avatar_url, preset } = body;
+    const { email, name, avatar_url } = body;
 
-    let targetEmail = email;
-    let targetName = name;
-    let targetAvatar = avatar_url;
-
-    // Handle presets for rapid testing & evaluation
-    if (preset === 'student_rajvansh') {
-      targetEmail = 'rajvansh.lpu@gmail.com';
-      targetName = 'Rajvansh Kumar';
-      targetAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150';
-    } else if (preset === 'student_new') {
-      targetEmail = 'amanpreet.k@lpu.in';
-      targetName = 'Amanpreet Kaur';
-      targetAvatar = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150';
-    } else if (preset === 'owner' || targetEmail === 'mishra.rajvansh11@gmail.com') {
-      targetEmail = 'mishra.rajvansh11@gmail.com';
-      targetName = targetName || 'Rajvansh Mishra (Owner)';
-      targetAvatar = targetAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150';
-    } else if (preset === 'admin') {
-      targetEmail = 'admin@lpu.in';
-      targetName = 'Campus Admin';
-      targetAvatar = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150';
-    }
-
-    if (!targetEmail) {
+    if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    const displayName = targetName || targetEmail.split('@')[0];
+    // Explicitly reject any test / demo accounts
+    const cleanEmail = String(email).toLowerCase().trim();
+    if (cleanEmail === 'admin@lpu.in' || cleanEmail === 'amanpreet.k@lpu.in') {
+      return NextResponse.json({ error: 'Unauthorized demo account' }, { status: 403 });
+    }
+
+    const displayName = name || cleanEmail.split('@')[0];
     const { token, user, isAdmin, isOwner, role } = await loginWithGoogleProfile({
-      email: targetEmail,
+      email: cleanEmail,
       name: displayName,
-      avatar_url: targetAvatar,
+      avatar_url: avatar_url,
     });
 
-    // Flow logic:
+    // Destination routing:
     // If admin or owner -> /admin
     // If community_joined = true -> Study Material Library
     // If community_joined = false -> Community Verification

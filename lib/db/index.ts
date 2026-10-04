@@ -106,8 +106,6 @@ export async function isAdmin(userIdOrEmail: string): Promise<boolean> {
   const clean = userIdOrEmail.toLowerCase().trim();
   if (
     clean === 'mishra.rajvansh11@gmail.com' ||
-    clean === 'admin@lpu.in' ||
-    clean === 'usr_admin_lpu_01' ||
     clean === 'usr_owner_rajvansh'
   ) {
     return true;

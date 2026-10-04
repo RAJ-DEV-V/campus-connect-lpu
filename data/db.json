@@ -9,16 +9,6 @@
       "created_at": "2026-10-04T07:57:55.077Z",
       "last_login": "2026-10-04T07:57:55.077Z",
       "last_active_at": "2026-10-04T09:32:37.391Z"
-    },
-    {
-      "id": "52383f20-6cc9-407c-99fb-58b306a35dfc",
-      "name": "Campus Admin",
-      "email": "admin@lpu.in",
-      "avatar_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
-      "community_joined": true,
-      "created_at": "2026-10-04T07:57:55.077Z",
-      "last_login": "2026-10-04T07:57:55.077Z",
-      "last_active_at": "2026-10-04T07:57:55.077Z"
     }
   ],
   "materials": [
@@ -65,12 +55,6 @@
       "downloaded_at": "2026-10-04T09:19:15.074Z"
     },
     {
-      "id": "dld_1791105554782_lpt5",
-      "user_id": "usr_test_student",
-      "material_id": "d178663d-74ad-4779-afec-22d1358ab8b9",
-      "downloaded_at": "2026-10-04T09:19:14.782Z"
-    },
-    {
       "id": "dld_1791105176787_dwa4",
       "user_id": "b8b62eee-0e01-4163-9123-ab931e254027",
       "material_id": "d178663d-74ad-4779-afec-22d1358ab8b9",
@@ -96,13 +80,6 @@
       "email": "mishra.rajvansh11@gmail.com",
       "role": "owner",
       "created_at": "2026-07-01T09:00:00.000Z"
-    },
-    {
-      "id": "adm_01",
-      "user_id": "52383f20-6cc9-407c-99fb-58b306a35dfc",
-      "email": "admin@lpu.in",
-      "role": "admin",
-      "created_at": "2026-07-01T09:00:00.000Z"
     }
   ],
   "community_verification_links": [
@@ -115,7 +92,7 @@
       "is_active": true,
       "created_at": "2026-08-01T10:00:00.000Z",
       "updated_at": "2026-08-01T10:00:00.000Z",
-      "created_by": "admin@lpu.in"
+      "created_by": "mishra.rajvansh11@gmail.com"
     },
     {
       "id": "link_freshers_2026",
@@ -126,7 +103,7 @@
       "is_active": true,
       "created_at": "2026-08-10T11:30:00.000Z",
       "updated_at": "2026-08-10T11:30:00.000Z",
-      "created_by": "admin@lpu.in"
+      "created_by": "mishra.rajvansh11@gmail.com"
     }
   ],
   "app_settings": {

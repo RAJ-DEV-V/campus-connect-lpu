@@ -685,7 +685,7 @@ export class SupabaseDatabaseStore {
         material_title: d.materials?.title || 'Study Material',
         material_subject: d.materials?.subject || 'Subject',
         user_name: d.users?.name || 'Student',
-        user_email: d.users?.email || 'student@lpu.in',
+        user_email: d.users?.email || '',
       }));
 
       return {

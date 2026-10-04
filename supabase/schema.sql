@@ -283,11 +283,10 @@ TO authenticated
 USING (EXISTS (SELECT 1 FROM public.admins WHERE admins.email = auth.jwt()->>'email' OR admins.user_id = auth.uid()))
 WITH CHECK (EXISTS (SELECT 1 FROM public.admins WHERE admins.email = auth.jwt()->>'email' OR admins.user_id = auth.uid()));
 
--- Seed Admins (Owner & initial admin)
+-- Seed Owner Admin
 INSERT INTO public.admins (email, role)
 VALUES 
-    ('mishra.rajvansh11@gmail.com', 'owner'),
-    ('admin@lpu.in', 'admin')
+    ('mishra.rajvansh11@gmail.com', 'owner')
 ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role;
 
 -- 9. SUPABASE STORAGE BUCKET CONFIGURATION

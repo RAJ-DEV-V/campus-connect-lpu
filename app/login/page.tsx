@@ -4,13 +4,7 @@ import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   GraduationCap, 
-  Sparkles, 
-  ShieldCheck, 
-  ArrowRight, 
-  CheckCircle2, 
-  UserCheck, 
-  Lock,
-  UserPlus
+  Lock
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -22,9 +16,6 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [errorDetails, setErrorDetails] = useState<{ title: string; desc: string; isConfigError?: boolean } | null>(null);
-  const [customMode, setCustomMode] = useState(false);
-  const [customName, setCustomName] = useState('');
-  const [customEmail, setCustomEmail] = useState('');
 
   React.useEffect(() => {
     // 1. Check query parameters
@@ -70,81 +61,35 @@ function LoginContent() {
     try {
       const supabase = createClient();
 
-      if (supabase) {
-        const origin = window.location.origin;
-        const callbackUrl = `${origin}/auth/callback${
-          redirectTarget ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''
-        }`;
-
-        const { error: oauthError } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: callbackUrl,
-            queryParams: {
-              access_type: 'offline',
-              prompt: 'consent',
-            },
-          },
-        });
-
-        if (oauthError) {
-          throw oauthError;
-        }
-        return; // Browser will redirect to Google
+      if (!supabase) {
+        throw new Error('Supabase client is not configured. Please check environment configuration.');
       }
 
-      // If Supabase credentials are not configured in environment yet, fallback to instant authentication
-      await executeLogin('student_rajvansh');
+      const origin = window.location.origin;
+      const callbackUrl = `${origin}/auth/callback${
+        redirectTarget ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''
+      }`;
+
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: callbackUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (oauthError) {
+        throw oauthError;
+      }
+      return; // Browser will redirect to Google
     } catch (err: any) {
       console.error('Google OAuth error:', err);
       setError(err.message || 'Google authentication failed. Please try again.');
       setLoading(false);
     }
-  };
-
-  const executeLogin = async (presetOrData: any) => {
-    setLoading(true);
-    setError('');
-
-    try {
-      const payload = typeof presetOrData === 'string'
-        ? { preset: presetOrData }
-        : presetOrData;
-
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Authentication failed');
-      }
-
-      if (redirectTarget && data.user.community_joined) {
-        router.push(redirectTarget);
-      } else {
-        router.push(data.redirectUrl);
-      }
-      router.refresh();
-    } catch (err: any) {
-      setError(err.message || 'Login encountered an issue');
-      setLoading(false);
-    }
-  };
-
-  const handleCustomSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customEmail || !customName) {
-      setError('Please provide your name and email.');
-      return;
-    }
-    executeLogin({
-      name: customName,
-      email: customEmail,
-      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customName)}`,
-    });
   };
 
   return (
@@ -218,136 +163,6 @@ function LoginContent() {
             </svg>
             <span>{loading ? 'Connecting to Google...' : 'Continue with Google'}</span>
           </button>
-
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-slate-200"></div>
-            <span className="flex-shrink mx-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Quick Test Profiles
-            </span>
-            <div className="flex-grow border-t border-slate-200"></div>
-          </div>
-
-          {/* Quick Demo Options for Evaluation */}
-          <div className="space-y-2">
-            
-            {/* Student 1: Verified Member */}
-            <button
-              onClick={() => executeLogin('student_rajvansh')}
-              disabled={loading}
-              className="w-full p-3 rounded-xl border border-slate-200 hover:border-orange-300 hover:bg-orange-50/50 flex items-center justify-between text-left transition-all text-xs group"
-            >
-              <div className="flex items-center gap-2.5">
-                <img
-                  src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100"
-                  alt="Rajvansh"
-                  className="w-8 h-8 rounded-full border border-orange-200"
-                />
-                <div>
-                  <div className="font-bold text-slate-900 group-hover:text-lpu-600">
-                    Rajvansh Kumar
-                  </div>
-                  <div className="text-[11px] text-slate-500">rajvansh.lpu@gmail.com</div>
-                </div>
-              </div>
-              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                Verified Student
-              </span>
-            </button>
-
-            {/* Student 2: New Unverified */}
-            <button
-              onClick={() => executeLogin('student_new')}
-              disabled={loading}
-              className="w-full p-3 rounded-xl border border-slate-200 hover:border-orange-300 hover:bg-orange-50/50 flex items-center justify-between text-left transition-all text-xs group"
-            >
-              <div className="flex items-center gap-2.5">
-                <img
-                  src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100"
-                  alt="Amanpreet"
-                  className="w-8 h-8 rounded-full border border-amber-200"
-                />
-                <div>
-                  <div className="font-bold text-slate-900 group-hover:text-lpu-600">
-                    Amanpreet Kaur
-                  </div>
-                  <div className="text-[11px] text-slate-500">amanpreet.k@lpu.in</div>
-                </div>
-              </div>
-              <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                Step 3 Test (New)
-              </span>
-            </button>
-
-            {/* Admin Profile */}
-            <button
-              onClick={() => executeLogin('admin')}
-              disabled={loading}
-              className="w-full p-3 rounded-xl border border-slate-200 hover:border-red-300 hover:bg-red-50/40 flex items-center justify-between text-left transition-all text-xs group"
-            >
-              <div className="flex items-center gap-2.5">
-                <img
-                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100"
-                  alt="Admin"
-                  className="w-8 h-8 rounded-full border border-red-200"
-                />
-                <div>
-                  <div className="font-bold text-slate-900 group-hover:text-red-600 flex items-center gap-1">
-                    Campus Admin <ShieldCheck className="w-3.5 h-3.5 text-red-500" />
-                  </div>
-                  <div className="text-[11px] text-slate-500">admin@lpu.in</div>
-                </div>
-              </div>
-              <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
-                Admin Panel Access
-              </span>
-            </button>
-          </div>
-
-          {/* Custom Student Sign-in Toggle */}
-          <div className="pt-2 text-center">
-            <button
-              onClick={() => setCustomMode(!customMode)}
-              className="text-xs text-slate-500 hover:text-lpu-600 font-medium inline-flex items-center gap-1"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              {customMode ? 'Hide Custom Profile Form' : 'Use Another Student Email'}
-            </button>
-          </div>
-
-          {customMode && (
-            <form onSubmit={handleCustomSubmit} className="pt-3 border-t border-slate-100 space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="e.g. Sahil Verma"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Student Email</label>
-                <input
-                  type="email"
-                  value={customEmail}
-                  onChange={(e) => setCustomEmail(e.target.value)}
-                  placeholder="e.g. sahil.12201934@lpu.in"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-colors"
-              >
-                Sign In With Custom Student
-              </button>
-            </form>
-          )}
-
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-100 text-center">
