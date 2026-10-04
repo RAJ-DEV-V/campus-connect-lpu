@@ -57,6 +57,51 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         });
       }
 
+      // Attempt to stream file directly from Google Drive for native PDF.js rendering
+      try {
+        const driveDownloadUrls = [
+          `https://drive.google.com/uc?export=download&id=${driveId}`,
+          `https://drive.usercontent.google.com/download?id=${driveId}&export=download`,
+        ];
+
+        for (const dlUrl of driveDownloadUrls) {
+          const driveRes = await fetch(dlUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            },
+          });
+
+          if (driveRes.ok) {
+            const contentType = driveRes.headers.get('content-type') || '';
+            if (!contentType.includes('text/html')) {
+              const arrayBuffer = await driveRes.arrayBuffer();
+              const buffer = Buffer.from(arrayBuffer);
+              let mimeType = 'application/pdf';
+              if (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+                mimeType = 'application/pdf';
+              } else if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+                mimeType = 'image/jpeg';
+              } else if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+                mimeType = 'image/png';
+              }
+
+              return new NextResponse(buffer, {
+                status: 200,
+                headers: {
+                  'Content-Type': mimeType,
+                  'Content-Disposition': 'inline',
+                  'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+                  'Access-Control-Allow-Origin': '*',
+                  'X-Content-Type-Options': 'nosniff',
+                },
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Direct stream from Drive failed, falling back to redirect:', err);
+      }
+
       // Redirect direct browser requests to Google Drive native preview
       return NextResponse.redirect(drivePreviewUrl, 307);
     }

@@ -34,6 +34,7 @@ export default function DocumentViewerModal({
   onDownload,
 }: DocumentViewerModalProps) {
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [debouncedZoom, setDebouncedZoom] = useState<number>(100);
   const [rotation, setRotation] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -46,9 +47,32 @@ export default function DocumentViewerModal({
   const [isImageType, setIsImageType] = useState<boolean>(false);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
 
+  // Panning state for zoomed views
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number; scrollLeft: number; scrollTop: number }>({
+    x: 0,
+    y: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+  });
+
   const viewerContainerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
+  const zoomLevelRef = useRef<number>(zoomLevel);
+
+  useEffect(() => {
+    zoomLevelRef.current = zoomLevel;
+  }, [zoomLevel]);
+
+  // Debounce zoom level for PDF.js canvas re-rendering to keep trackpad pinch at 60fps
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedZoom(zoomLevel);
+    }, 160);
+    return () => clearTimeout(handler);
+  }, [zoomLevel]);
 
   const canDownload = allowDownloads || isAdminOrOwner;
 
@@ -132,6 +156,111 @@ export default function DocumentViewerModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
+  // Handle two-finger trackpad / mouse pad pinch-to-zoom (Wheel with ctrlKey) and touch pinch
+  useEffect(() => {
+    const container = viewerContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Touchpad pinch-to-zoom on Windows/Mac and Ctrl + mouse wheel both set e.ctrlKey = true
+      if (e.ctrlKey) {
+        e.preventDefault();
+        // deltaY < 0 is pinch out (zoom in), deltaY > 0 is pinch in (zoom out)
+        const zoomDelta = -e.deltaY * 0.45;
+        setZoomLevel((prev) => {
+          const next = Math.round(prev + zoomDelta);
+          return Math.min(Math.max(next, 40), 300);
+        });
+      }
+    };
+
+    // Safari on Mac trackpad gesture events
+    const handleGestureStart = (e: any) => {
+      e.preventDefault();
+    };
+    const handleGestureChange = (e: any) => {
+      e.preventDefault();
+      if (e.scale) {
+        setZoomLevel((prev) => {
+          const next = Math.round(prev * e.scale);
+          return Math.min(Math.max(next, 40), 300);
+        });
+      }
+    };
+
+    // Touchscreen 2-finger pinch
+    let initialTouchDist = 0;
+    let initialTouchZoom = 100;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        initialTouchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialTouchZoom = zoomLevelRef.current;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && initialTouchDist > 0) {
+        e.preventDefault();
+        const currentDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const scaleFactor = currentDist / initialTouchDist;
+        const nextZoom = Math.min(Math.max(Math.round(initialTouchZoom * scaleFactor), 40), 300);
+        setZoomLevel(nextZoom);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      initialTouchDist = 0;
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    container.addEventListener('gesturestart', handleGestureStart as any, { passive: false } as any);
+    container.addEventListener('gesturechange', handleGestureChange as any, { passive: false } as any);
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      container.removeEventListener('gesturestart', handleGestureStart as any);
+      container.removeEventListener('gesturechange', handleGestureChange as any);
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
+
+  // Mouse drag-to-pan handlers for zoomed documents
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel <= 100 || !viewportRef.current) return;
+    if (e.button !== 0) return; // Only left mouse button
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: viewportRef.current.scrollLeft,
+      scrollTop: viewportRef.current.scrollTop,
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !viewportRef.current) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    viewportRef.current.scrollLeft = dragStart.scrollLeft - dx;
+    viewportRef.current.scrollTop = dragStart.scrollTop - dy;
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
   // Load document binary stream
   useEffect(() => {
     if (!material) return;
@@ -164,65 +293,80 @@ export default function DocumentViewerModal({
           /\.(png|jpe?g|webp|gif|svg)$/i.test(material.title) ||
           material.material_type?.toLowerCase().includes('image');
 
-        if (driveId) {
-          if (isImage) {
+        if (driveId && isImage) {
+          setIsImageType(true);
+          setPreviewBlobUrl(`https://lh3.googleusercontent.com/d/${driveId}`);
+          setLoading(false);
+          return;
+        }
+
+        // Try streaming the document binary via /api/materials/[id]/preview
+        const response = await fetch(`/api/materials/${material.id}/preview`, {
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') || '';
+          const blob = await response.blob();
+          if (isCancelled) return;
+
+          localBlobUrl = URL.createObjectURL(blob);
+          setPreviewBlobUrl(localBlobUrl);
+
+          // Check if image
+          if (contentType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(material.file_url)) {
             setIsImageType(true);
-            setPreviewBlobUrl(`https://lh3.googleusercontent.com/d/${driveId}`);
             setLoading(false);
             return;
           }
 
+          setIsImageType(false);
+
+          // PDF document: load with PDF.js for canvas rendering
+          try {
+            const arrayBuffer = await blob.arrayBuffer();
+            if (isCancelled) return;
+
+            const pdfjsLib = await loadPdfJs();
+            if (isCancelled) return;
+
+            const doc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+            if (isCancelled) return;
+
+            setPdfDoc(doc);
+            setTotalPages(doc.numPages || 1);
+            setLoading(false);
+            return;
+          } catch (pdfErr) {
+            console.warn('PDF.js canvas init failed, checking fallback:', pdfErr);
+            if (driveId) {
+              setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
+              setLoading(false);
+              return;
+            }
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Fallback for Google Drive files if stream API response is not ok
+        if (driveId) {
           setIsImageType(false);
           setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
           setLoading(false);
           return;
         }
 
-        const response = await fetch(`/api/materials/${material.id}/preview`, {
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to load document: HTTP ${response.status}`);
-        }
-
-        const contentType = response.headers.get('content-type') || '';
-        const blob = await response.blob();
+        throw new Error(`Failed to load document: HTTP ${response.status}`);
+      } catch (err: any) {
         if (isCancelled) return;
-
-        localBlobUrl = URL.createObjectURL(blob);
-        setPreviewBlobUrl(localBlobUrl);
-
-        // Check if image
-        if (contentType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(material.file_url)) {
-          setIsImageType(true);
+        const driveId = extractDriveId(material.file_url);
+        if (driveId) {
+          setIsImageType(false);
+          setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
           setLoading(false);
           return;
         }
-
-        setIsImageType(false);
-
-        // PDF document: load with PDF.js for canvas rendering
-        try {
-          const arrayBuffer = await blob.arrayBuffer();
-          if (isCancelled) return;
-
-          const pdfjsLib = await loadPdfJs();
-          if (isCancelled) return;
-
-          const doc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
-          if (isCancelled) return;
-
-          setPdfDoc(doc);
-          setTotalPages(doc.numPages || 1);
-          setLoading(false);
-        } catch (pdfErr) {
-          console.warn('PDF.js canvas init failed, falling back to embedded object:', pdfErr);
-          // If canvas loading encounters an issue, fallback smoothly to previewBlobUrl
-          setLoading(false);
-        }
-      } catch (err: any) {
-        if (isCancelled) return;
         console.error('Error loading document preview:', err);
         setError('Failed to load document preview. Please try again or download if allowed.');
         setLoading(false);
@@ -262,10 +406,10 @@ export default function DocumentViewerModal({
         const containerWidth = container ? container.clientWidth - 32 : (window.innerWidth - 32);
         const unscaledViewport = page.getViewport({ scale: 1 });
 
-        // Calculate responsive scale based on viewport width & zoom percentage
+        // Calculate responsive scale based on viewport width & debounced zoom percentage
         const targetWidth = Math.max(260, Math.min(containerWidth, 800));
         const baseScale = targetWidth / unscaledViewport.width;
-        const finalScale = baseScale * (zoomLevel / 100);
+        const finalScale = baseScale * (debouncedZoom / 100);
 
         const viewport = page.getViewport({ scale: finalScale, rotation });
         const pixelRatio = window.devicePixelRatio || 1;
@@ -298,7 +442,7 @@ export default function DocumentViewerModal({
         renderTaskRef.current.cancel();
       }
     };
-  }, [pdfDoc, currentPage, zoomLevel, rotation, isImageType]);
+  }, [pdfDoc, currentPage, debouncedZoom, rotation, isImageType]);
 
   if (!material) return null;
 
@@ -315,11 +459,11 @@ export default function DocumentViewerModal({
   };
 
   const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(prev + 25, 250));
+    setZoomLevel((prev) => Math.min(prev + 25, 300));
   };
 
   const handleZoomOut = () => {
-    setZoomLevel((prev) => Math.max(prev - 25, 50));
+    setZoomLevel((prev) => Math.max(prev - 25, 40));
   };
 
   const handleResetZoom = () => {
@@ -403,7 +547,7 @@ export default function DocumentViewerModal({
             <div className="flex items-center bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/60 text-xs">
               <button
                 onClick={handleZoomOut}
-                disabled={zoomLevel <= 50}
+                disabled={zoomLevel <= 40}
                 className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
                 title="Zoom Out (-25%)"
               >
@@ -411,14 +555,14 @@ export default function DocumentViewerModal({
               </button>
               <button
                 onClick={handleResetZoom}
-                className="px-2 py-1 text-[11px] font-mono text-slate-200 hover:text-white"
-                title="Reset Zoom (100%)"
+                className="px-2 py-1 text-[11px] font-mono text-slate-200 hover:text-white cursor-pointer select-none"
+                title="Two-finger pinch on touchpad or Ctrl + Scroll to zoom. Click to reset (100%)"
               >
                 {zoomLevel}%
               </button>
               <button
                 onClick={handleZoomIn}
-                disabled={zoomLevel >= 250}
+                disabled={zoomLevel >= 300}
                 className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
                 title="Zoom In (+25%)"
               >
@@ -487,8 +631,17 @@ export default function DocumentViewerModal({
           </div>
         </div>
 
-        {/* Embedded Document Viewport */}
-        <div className="flex-1 bg-slate-900/90 relative overflow-auto flex items-center justify-center p-2 sm:p-4 select-none">
+        {/* Embedded Document Viewport with Mouse Pad / Trackpad Zoom and Pan */}
+        <div 
+          ref={viewportRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          className={`flex-1 bg-slate-900/90 relative overflow-auto flex items-center justify-center p-2 sm:p-4 select-none ${
+            zoomLevel > 100 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+          }`}
+        >
           {loading ? (
             <div className="flex flex-col items-center justify-center text-slate-400">
               <div className="w-10 h-10 border-4 border-lpu-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -509,7 +662,7 @@ export default function DocumentViewerModal({
             </div>
           ) : isImageType && previewBlobUrl ? (
             <div 
-              className="w-full h-full overflow-auto flex items-center justify-center transition-transform duration-200"
+              className="w-full h-full overflow-auto flex items-center justify-center transition-transform duration-100 ease-out"
               style={{
                 transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
                 transformOrigin: 'center center',
@@ -523,26 +676,40 @@ export default function DocumentViewerModal({
               />
             </div>
           ) : driveEmbedUrl ? (
-            <div className="w-full h-full relative rounded-xl overflow-hidden bg-black shadow-2xl flex items-center justify-center p-0 select-none">
-              <iframe
-                src={driveEmbedUrl}
-                title={material.title}
-                className="w-full h-full rounded-xl border-0 bg-black"
-                sandbox="allow-scripts allow-same-origin allow-forms"
-              />
-              {/* Security Shield: Covers and blocks the Google Drive top-right pop-out button */}
+            <div className="w-full h-full overflow-auto flex items-start justify-center p-2 sm:p-4 select-none">
               <div 
-                className="absolute top-0 right-0 w-16 h-14 bg-black z-30 pointer-events-auto cursor-default rounded-tr-xl"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
+                className="w-full h-full relative rounded-xl overflow-hidden bg-black shadow-2xl transition-transform duration-100 ease-out origin-top"
+                style={{
+                  transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+                  minHeight: '600px',
                 }}
-                onContextMenu={(e) => e.preventDefault()}
-                title=""
-              />
+              >
+                <iframe
+                  src={driveEmbedUrl}
+                  title={material.title}
+                  className="w-full h-full rounded-xl border-0 bg-black min-h-[600px]"
+                  sandbox="allow-scripts allow-same-origin allow-forms"
+                />
+                {/* Security Shield: Covers and blocks the Google Drive top-right pop-out button */}
+                <div 
+                  className="absolute top-0 right-0 w-16 h-14 bg-black z-30 pointer-events-auto cursor-default rounded-tr-xl"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
+                  title=""
+                />
+              </div>
             </div>
           ) : pdfDoc ? (
-            <div className="w-full h-full overflow-auto flex items-center justify-center p-2 sm:p-4">
+            <div 
+              className="w-full h-full overflow-auto flex items-start justify-center p-2 sm:p-4 transition-transform duration-75 ease-out"
+              style={{
+                transform: `scale(${zoomLevel / debouncedZoom}) rotate(${rotation}deg)`,
+                transformOrigin: 'top center',
+              }}
+            >
               <canvas
                 ref={canvasRef}
                 className="rounded-xl shadow-2xl bg-white max-w-full"
@@ -553,7 +720,7 @@ export default function DocumentViewerModal({
             </div>
           ) : previewBlobUrl ? (
             <div 
-              className="w-full h-full flex flex-col items-center justify-center p-1 sm:p-2 transition-transform duration-200"
+              className="w-full h-full flex flex-col items-center justify-center p-1 sm:p-2 transition-transform duration-100 ease-out"
               style={{
                 transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
                 transformOrigin: 'center center',
@@ -590,6 +757,10 @@ export default function DocumentViewerModal({
             <span>•</span>
             <span className="text-[11px]">
               Uploaded {new Date(material.created_at).toLocaleDateString()}
+            </span>
+            <span className="text-slate-600 hidden sm:inline">•</span>
+            <span className="text-[11px] text-slate-400 hidden sm:inline">
+              Trackpad 2-finger pinch / Ctrl + Scroll to zoom
             </span>
           </div>
 
