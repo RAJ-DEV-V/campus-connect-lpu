@@ -42,6 +42,7 @@ export default function DocumentViewerModal({
   const [error, setError] = useState<string | null>(null);
 
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [driveEmbedUrl, setDriveEmbedUrl] = useState<string | null>(null);
   const [isImageType, setIsImageType] = useState<boolean>(false);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
 
@@ -140,11 +141,43 @@ export default function DocumentViewerModal({
     setLoading(true);
     setError(null);
     setPdfDoc(null);
+    setDriveEmbedUrl(null);
     setCurrentPage(1);
     setTotalPages(1);
 
+    const extractDriveId = (url: string): string | null => {
+      if (!url) return null;
+      const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (idMatch) return idMatch[1];
+      const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (fileMatch) return fileMatch[1];
+      const dMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (dMatch) return dMatch[1];
+      return null;
+    };
+
     const loadDocument = async () => {
       try {
+        const driveId = extractDriveId(material.file_url);
+        const isImage = 
+          /\.(png|jpe?g|webp|gif|svg)$/i.test(material.file_url) ||
+          /\.(png|jpe?g|webp|gif|svg)$/i.test(material.title) ||
+          material.material_type?.toLowerCase().includes('image');
+
+        if (driveId) {
+          if (isImage) {
+            setIsImageType(true);
+            setPreviewBlobUrl(`https://lh3.googleusercontent.com/d/${driveId}`);
+            setLoading(false);
+            return;
+          }
+
+          setIsImageType(false);
+          setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
+          setLoading(false);
+          return;
+        }
+
         const response = await fetch(`/api/materials/${material.id}/preview`, {
           credentials: 'include',
         });
@@ -414,7 +447,18 @@ export default function DocumentViewerModal({
             {/* Download Button */}
             {canDownload ? (
               <button
-                onClick={() => onDownload && onDownload(material)}
+                onClick={() => {
+                  if (onDownload) {
+                    onDownload(material);
+                  } else {
+                    const match = material.file_url.match(/[?&]id=([a-zA-Z0-9_-]+)/) || material.file_url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                    if (match) {
+                      window.open(`https://drive.google.com/uc?export=download&id=${match[1]}`, '_blank');
+                    } else {
+                      window.open(`/api/materials/${material.id}/download`, '_blank');
+                    }
+                  }
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white text-xs font-bold shadow-xs transition-all active:scale-98"
                 title="Download this document"
               >
@@ -476,6 +520,15 @@ export default function DocumentViewerModal({
                 src={previewBlobUrl}
                 alt={material.title}
                 className="max-w-full max-h-full rounded-lg shadow-2xl object-contain bg-white"
+              />
+            </div>
+          ) : driveEmbedUrl ? (
+            <div className="w-full h-full flex flex-col items-center justify-center p-0">
+              <iframe
+                src={driveEmbedUrl}
+                title={material.title}
+                className="w-full h-full rounded-xl border-0 bg-white"
+                allow="autoplay"
               />
             </div>
           ) : pdfDoc ? (

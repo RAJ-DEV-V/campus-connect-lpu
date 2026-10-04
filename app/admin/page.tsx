@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { Material, AdminStats, CommunityVerificationLink, Admin } from '@/lib/db/types';
 import { formatYearName } from '@/components/MaterialCard';
+import { uploadToGoogleDriveResumable } from '@/lib/google-drive-client';
 
 interface UserActivityRecord {
   id: string;
@@ -124,6 +125,8 @@ export default function AdminDashboardPage() {
   const [uploadDescription, setUploadDescription] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadStage, setUploadStage] = useState<string>('');
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Edit Material State
@@ -428,36 +431,74 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     setUploading(true);
     setUploadMessage(null);
+    setUploadProgress(0);
+    setUploadStage('');
 
     if (!uploadFile) {
-      setUploadMessage({ type: 'error', text: 'Please select a document or PDF file to upload.' });
+      setUploadMessage({ type: 'error', text: 'Please select a document or image file to upload.' });
       setUploading(false);
       return;
     }
 
     try {
-      const formData = new FormData();
-      formData.append('title', uploadTitle);
-      formData.append('subject', uploadSubject);
-      formData.append('subject_code', uploadSubjectCode);
-      formData.append('year', uploadYear.toString());
-      formData.append('material_type', uploadType);
-      formData.append('description', uploadDescription);
-      formData.append('file', uploadFile);
+      setUploadStage('Authorizing with Google Drive...');
 
-      const res = await fetch('/api/materials/upload', {
-        method: 'POST',
-        body: formData,
+      // 1. Direct browser-to-Google Drive resumable upload (bypasses Vercel 4.5MB request limit)
+      const driveResult = await uploadToGoogleDriveResumable({
+        file: uploadFile,
+        title: uploadTitle,
+        subjectCode: uploadSubjectCode,
+        year: uploadYear,
+        materialType: uploadType,
+        description: uploadDescription,
+        onProgress: (percent, loaded, total) => {
+          setUploadProgress(percent);
+          const loadedMb = (loaded / (1024 * 1024)).toFixed(1);
+          const totalMb = (total / (1024 * 1024)).toFixed(1);
+          setUploadStage(`Uploading to Google Drive: ${percent}% (${loadedMb} of ${totalMb} MB)`);
+        },
       });
 
-      const data = await res.json();
+      setUploadStage('Saving study material to library database...');
+      setUploadProgress(100);
+
+      // 2. Register metadata and Google Drive file ID in Supabase
+      const res = await fetch('/api/materials/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: uploadTitle,
+          subject: uploadSubject,
+          subject_code: uploadSubjectCode,
+          year: uploadYear,
+          material_type: uploadType,
+          description: uploadDescription,
+          file_url: driveResult.fileUrl,
+          file_size: driveResult.fileSizeFormatted,
+          drive_file_id: driveResult.fileId,
+          file_name: driveResult.fileName,
+          mime_type: driveResult.mimeType,
+        }),
+      });
+
+      // Safely parse server response as text first to guard against non-JSON server pages
+      let data: any = null;
+      const resText = await res.text();
+      try {
+        data = JSON.parse(resText);
+      } catch {
+        throw new Error(`Server returned unexpected response (status ${res.status}): ${resText.slice(0, 150)}`);
+      }
+
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Upload failed');
+        throw new Error(data?.error || `Upload registration failed with status ${res.status}`);
       }
 
       setUploadMessage({
         type: 'success',
-        text: `"${uploadTitle}" uploaded successfully to ${formatYearName(uploadYear)}!`,
+        text: `"${uploadTitle}" (${driveResult.fileSizeFormatted}) uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!`,
       });
 
       // Reset form
@@ -466,13 +507,20 @@ export default function AdminDashboardPage() {
       setUploadSubjectCode('');
       setUploadDescription('');
       setUploadFile(null);
+      setUploadProgress(0);
+      setUploadStage('');
 
       // Refresh list, analytics & stats
       await Promise.all([loadMaterials(), loadStats(), loadAnalytics()]);
     } catch (err: any) {
-      setUploadMessage({ type: 'error', text: err.message || 'Failed to upload material' });
+      console.error('Study material upload failed:', err);
+      setUploadMessage({ 
+        type: 'error', 
+        text: err.message || 'Failed to upload material to Google Drive. Please retry.' 
+      });
     } finally {
       setUploading(false);
+      setUploadStage('');
     }
   };
 
@@ -505,32 +553,57 @@ export default function AdminDashboardPage() {
     setUpdatingMaterial(true);
 
     try {
-      const formData = new FormData();
-      formData.append('title', editingMaterial.title);
-      formData.append('description', editingMaterial.description || '');
-      formData.append('subject', editingMaterial.subject);
-      formData.append('subject_code', editingMaterial.subject_code);
-      formData.append('year', editingMaterial.year.toString());
-      formData.append('material_type', editingMaterial.material_type);
+      let replacementUrl: string | undefined;
+      let replacementSize: string | undefined;
+
+      // If replacement file provided, upload directly to Google Drive
       if (editFile) {
-        formData.append('file', editFile);
+        const driveResult = await uploadToGoogleDriveResumable({
+          file: editFile,
+          title: editingMaterial.title,
+          subjectCode: editingMaterial.subject_code,
+          year: editingMaterial.year,
+          materialType: editingMaterial.material_type,
+          description: editingMaterial.description,
+        });
+        replacementUrl = driveResult.fileUrl;
+        replacementSize = driveResult.fileSizeFormatted;
       }
 
       const res = await fetch(`/api/materials/${editingMaterial.id}`, {
         method: 'PATCH',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: editingMaterial.title,
+          description: editingMaterial.description || '',
+          subject: editingMaterial.subject,
+          subject_code: editingMaterial.subject_code,
+          year: editingMaterial.year,
+          material_type: editingMaterial.material_type,
+          ...(replacementUrl ? { file_url: replacementUrl, file_size: replacementSize } : {}),
+        }),
       });
 
-      if (res.ok) {
+      const resText = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(resText);
+      } catch {
+        throw new Error(`Server returned unexpected response (status ${res.status}): ${resText.slice(0, 150)}`);
+      }
+
+      if (res.ok && data?.success) {
         setEditingMaterial(null);
         setEditFile(null);
         await Promise.all([loadMaterials(), loadAnalytics()]);
       } else {
-        const data = await res.json();
-        alert(data.error || 'Update failed');
+        alert(data?.error || 'Update failed');
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Update material error:', e);
+      alert(e.message || 'Failed to update material');
     } finally {
       setUpdatingMaterial(false);
     }
@@ -1608,13 +1681,13 @@ export default function AdminDashboardPage() {
               {/* File Upload */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Upload Document (PDF, DOCX) <span className="text-rose-500">*</span>
+                  Upload Document or Image (PDF, JPG, PNG, WEBP, DOCX) <span className="text-rose-500">*</span>
                 </label>
                 <div className="border-2 border-dashed border-slate-200 hover:border-lpu-500 rounded-2xl p-5 text-center transition-colors">
                   <input
                     type="file"
                     id="pdfUploadInput"
-                    accept=".pdf,.doc,.docx"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
                     required
                     onChange={(e) => setUploadFile(e.target.files ? e.target.files[0] : null)}
                     className="hidden"
@@ -1622,14 +1695,36 @@ export default function AdminDashboardPage() {
                   <label htmlFor="pdfUploadInput" className="cursor-pointer flex flex-col items-center">
                     <Upload className="w-8 h-8 text-slate-400 mb-2" />
                     <span className="text-xs font-bold text-slate-700">
-                      {uploadFile ? uploadFile.name : 'Choose a file to upload (PDF, DOC, DOCX)'}
+                      {uploadFile ? uploadFile.name : 'Choose a file to upload (PDF, JPG, PNG, WEBP, DOCX)'}
                     </span>
                     <span className="text-[10px] text-slate-400 mt-1">
-                      {uploadFile ? `${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB` : 'Real student document required (Max 50MB)'}
+                      {uploadFile ? `${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB` : 'Direct Resumable Google Drive Upload (Supports 50MB+)'}
                     </span>
                   </label>
                 </div>
               </div>
+
+              {/* Upload Progress Indicator */}
+              {uploading && (
+                <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 animate-in fade-in">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span className="flex items-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-lpu-600 border-t-transparent rounded-full animate-spin" />
+                      {uploadStage || 'Uploading to Google Drive...'}
+                    </span>
+                    <span className="font-mono text-lpu-600">{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-lpu-600 to-amber-500 transition-all duration-300 rounded-full"
+                      style={{ width: `${Math.max(5, uploadProgress)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Streaming directly from browser to Google Drive API. Avoid closing this tab during upload.
+                  </p>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -1639,7 +1734,7 @@ export default function AdminDashboardPage() {
                 {uploading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Publishing Document...
+                    {uploadProgress > 0 ? `Uploading (${uploadProgress}%)...` : 'Connecting to Google Drive...'}
                   </>
                 ) : (
                   <>
@@ -2592,7 +2687,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="file"
                     id="replaceFileInput"
-                    accept=".pdf,.doc,.docx"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
                     onChange={(e) => setEditFile(e.target.files ? e.target.files[0] : null)}
                     className="hidden"
                   />
