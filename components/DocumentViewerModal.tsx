@@ -43,10 +43,66 @@ export default function DocumentViewerModal({
 
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [isImageType, setIsImageType] = useState<boolean>(false);
+  const [pdfDoc, setPdfDoc] = useState<any>(null);
 
   const viewerContainerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderTaskRef = useRef<any>(null);
 
   const canDownload = allowDownloads || isAdminOrOwner;
+
+  // Helper to dynamically load Mozilla PDF.js without bundling issues
+  const loadPdfJs = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined') return reject(new Error('Window undefined'));
+      if ((window as any).pdfjsLib) {
+        return resolve((window as any).pdfjsLib);
+      }
+      const existingScript = document.getElementById('pdfjs-dist-script') as HTMLScriptElement;
+      if (existingScript) {
+        existingScript.addEventListener('load', () => {
+          const lib = (window as any).pdfjsLib;
+          if (lib) {
+            lib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+            resolve(lib);
+          } else {
+            reject(new Error('pdfjsLib not defined'));
+          }
+        });
+        return;
+      }
+      const script = document.createElement('script');
+      script.id = 'pdfjs-dist-script';
+      script.src = '/pdf.min.js';
+      script.async = true;
+      script.onload = () => {
+        const lib = (window as any).pdfjsLib;
+        if (lib) {
+          lib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+          resolve(lib);
+        } else {
+          reject(new Error('pdfjsLib not defined after load'));
+        }
+      };
+      script.onerror = () => {
+        // Fallback to CDN if local bundle fails
+        const cdnScript = document.createElement('script');
+        cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        cdnScript.onload = () => {
+          const lib = (window as any).pdfjsLib;
+          if (lib) {
+            lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            resolve(lib);
+          } else {
+            reject(new Error('CDN PDF.js failed'));
+          }
+        };
+        cdnScript.onerror = reject;
+        document.head.appendChild(cdnScript);
+      };
+      document.head.appendChild(script);
+    });
+  };
 
   // Listen for fullscreen change events
   useEffect(() => {
@@ -75,7 +131,7 @@ export default function DocumentViewerModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Load and render document (PDF or Image)
+  // Load document binary stream
   useEffect(() => {
     if (!material) return;
 
@@ -83,12 +139,12 @@ export default function DocumentViewerModal({
     let localBlobUrl: string | null = null;
     setLoading(true);
     setError(null);
+    setPdfDoc(null);
     setCurrentPage(1);
     setTotalPages(1);
 
     const loadDocument = async () => {
       try {
-        // Fetch binary data directly from authorized preview endpoint
         const response = await fetch(`/api/materials/${material.id}/preview`, {
           credentials: 'include',
         });
@@ -112,8 +168,26 @@ export default function DocumentViewerModal({
         }
 
         setIsImageType(false);
-        // The binary stream is a valid PDF; set blob URL for native embed display
-        setLoading(false);
+
+        // PDF document: load with PDF.js for canvas rendering
+        try {
+          const arrayBuffer = await blob.arrayBuffer();
+          if (isCancelled) return;
+
+          const pdfjsLib = await loadPdfJs();
+          if (isCancelled) return;
+
+          const doc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+          if (isCancelled) return;
+
+          setPdfDoc(doc);
+          setTotalPages(doc.numPages || 1);
+          setLoading(false);
+        } catch (pdfErr) {
+          console.warn('PDF.js canvas init failed, falling back to embedded object:', pdfErr);
+          // If canvas loading encounters an issue, fallback smoothly to previewBlobUrl
+          setLoading(false);
+        }
       } catch (err: any) {
         if (isCancelled) return;
         console.error('Error loading document preview:', err);
@@ -131,6 +205,67 @@ export default function DocumentViewerModal({
       }
     };
   }, [material]);
+
+  // Render current PDF page onto high-resolution HTML5 canvas
+  useEffect(() => {
+    if (!pdfDoc || !canvasRef.current || isImageType) return;
+    let isCancelled = false;
+
+    const renderPage = async () => {
+      try {
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel();
+        }
+
+        const page = await pdfDoc.getPage(currentPage);
+        if (isCancelled) return;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const context = canvas.getContext('2d');
+        if (!context) return;
+
+        const container = viewerContainerRef.current;
+        const containerWidth = container ? container.clientWidth - 32 : (window.innerWidth - 32);
+        const unscaledViewport = page.getViewport({ scale: 1 });
+
+        // Calculate responsive scale based on viewport width & zoom percentage
+        const targetWidth = Math.max(260, Math.min(containerWidth, 800));
+        const baseScale = targetWidth / unscaledViewport.width;
+        const finalScale = baseScale * (zoomLevel / 100);
+
+        const viewport = page.getViewport({ scale: finalScale, rotation });
+        const pixelRatio = window.devicePixelRatio || 1;
+
+        canvas.width = Math.floor(viewport.width * pixelRatio);
+        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+        const renderTask = page.render({
+          canvasContext: context,
+          viewport: viewport,
+        });
+
+        renderTaskRef.current = renderTask;
+        await renderTask.promise;
+      } catch (err: any) {
+        if (err?.name === 'RenderingCancelledException') return;
+        console.warn('Page render notice:', err);
+      }
+    };
+
+    renderPage();
+
+    return () => {
+      isCancelled = true;
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+      }
+    };
+  }, [pdfDoc, currentPage, zoomLevel, rotation, isImageType]);
 
   if (!material) return null;
 
@@ -341,6 +476,16 @@ export default function DocumentViewerModal({
                 src={previewBlobUrl}
                 alt={material.title}
                 className="max-w-full max-h-full rounded-lg shadow-2xl object-contain bg-white"
+              />
+            </div>
+          ) : pdfDoc ? (
+            <div className="w-full h-full overflow-auto flex items-center justify-center p-2 sm:p-4">
+              <canvas
+                ref={canvasRef}
+                className="rounded-xl shadow-2xl bg-white max-w-full"
+                style={{
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+                }}
               />
             </div>
           ) : previewBlobUrl ? (
