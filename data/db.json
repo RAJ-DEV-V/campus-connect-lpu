@@ -1,0 +1,137 @@
+{
+  "users": [
+    {
+      "id": "b8b62eee-0e01-4163-9123-ab931e254027",
+      "name": "RAJVANSH MISHRA",
+      "email": "mishra.rajvansh11@gmail.com",
+      "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocJyb9oN_ZcToffuuEiGwaa7suNwrweCYI9iU0GXGBCZjQEZtQ=s96-c",
+      "community_joined": true,
+      "created_at": "2026-10-04T07:57:55.077Z",
+      "last_login": "2026-10-04T07:57:55.077Z",
+      "last_active_at": "2026-10-04T09:32:37.391Z"
+    },
+    {
+      "id": "52383f20-6cc9-407c-99fb-58b306a35dfc",
+      "name": "Campus Admin",
+      "email": "admin@lpu.in",
+      "avatar_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
+      "community_joined": true,
+      "created_at": "2026-10-04T07:57:55.077Z",
+      "last_login": "2026-10-04T07:57:55.077Z",
+      "last_active_at": "2026-10-04T07:57:55.077Z"
+    }
+  ],
+  "materials": [
+    {
+      "id": "d178663d-74ad-4779-afec-22d1358ab8b9",
+      "title": "UNIT 1",
+      "description": "UNIT 1 OF FIRST SEM",
+      "subject": "MTH401",
+      "subject_code": "MTH401",
+      "year": 1,
+      "material_type": "Notes",
+      "file_url": "https://hfywrezcwyfwsixqdsye.supabase.co/storage/v1/object/public/study-materials/year-1/MTH401/notes/1791102753119-frmCourseSyllabusIPDownload__2_.pdf",
+      "file_size": "146.8 KB",
+      "download_count": 6,
+      "created_at": "2026-10-04T08:32:33.804061+00:00",
+      "updated_at": "2026-10-04T08:32:33.804061+00:00"
+    },
+    {
+      "id": "d8b71e3c-f90b-45ef-af11-1c41b7cf18af",
+      "title": "DSDS",
+      "description": "SDDS",
+      "subject": "FFDDS",
+      "subject_code": "DSD",
+      "year": 1,
+      "material_type": "Notes",
+      "file_url": "https://hfywrezcwyfwsixqdsye.supabase.co/storage/v1/object/public/study-materials/year-1/DSD/notes/1791100675556-Screenshot_2026-09-27_170251.pdf",
+      "file_size": "10.6 KB",
+      "download_count": 0,
+      "created_at": "2026-10-04T07:57:56.276418+00:00",
+      "updated_at": "2026-10-04T07:57:56.276418+00:00"
+    }
+  ],
+  "downloads": [
+    {
+      "id": "dld_1791105567968_0icp",
+      "user_id": "b8b62eee-0e01-4163-9123-ab931e254027",
+      "material_id": "d178663d-74ad-4779-afec-22d1358ab8b9",
+      "downloaded_at": "2026-10-04T09:19:27.968Z"
+    },
+    {
+      "id": "dld_1791105555074_mtur",
+      "user_id": "b8b62eee-0e01-4163-9123-ab931e254027",
+      "material_id": "d178663d-74ad-4779-afec-22d1358ab8b9",
+      "downloaded_at": "2026-10-04T09:19:15.074Z"
+    },
+    {
+      "id": "dld_1791105554782_lpt5",
+      "user_id": "usr_test_student",
+      "material_id": "d178663d-74ad-4779-afec-22d1358ab8b9",
+      "downloaded_at": "2026-10-04T09:19:14.782Z"
+    },
+    {
+      "id": "dld_1791105176787_dwa4",
+      "user_id": "b8b62eee-0e01-4163-9123-ab931e254027",
+      "material_id": "d178663d-74ad-4779-afec-22d1358ab8b9",
+      "downloaded_at": "2026-10-04T09:12:56.787Z"
+    },
+    {
+      "id": "dld_1791105176066_8yxn",
+      "user_id": "b8b62eee-0e01-4163-9123-ab931e254027",
+      "material_id": "d178663d-74ad-4779-afec-22d1358ab8b9",
+      "downloaded_at": "2026-10-04T09:12:56.066Z"
+    },
+    {
+      "id": "dld_1791103419878_6fby",
+      "user_id": "7a4b7390-2a19-4dc5-aa01-f7fc1a2c6b70",
+      "material_id": "d178663d-74ad-4779-afec-22d1358ab8b9",
+      "downloaded_at": "2026-10-04T08:43:39.879Z"
+    }
+  ],
+  "admins": [
+    {
+      "id": "e24e8988-170d-4553-8ce7-129d97c6165f",
+      "user_id": "b8b62eee-0e01-4163-9123-ab931e254027",
+      "email": "mishra.rajvansh11@gmail.com",
+      "role": "owner",
+      "created_at": "2026-07-01T09:00:00.000Z"
+    },
+    {
+      "id": "adm_01",
+      "user_id": "52383f20-6cc9-407c-99fb-58b306a35dfc",
+      "email": "admin@lpu.in",
+      "role": "admin",
+      "created_at": "2026-07-01T09:00:00.000Z"
+    }
+  ],
+  "community_verification_links": [
+    {
+      "id": "link_cc_main",
+      "name": "Campus Connect Main Community",
+      "invite_url": "https://chat.whatsapp.com/campus-connect-lpu-2026",
+      "invite_code": "campus-connect-lpu-2026",
+      "type": "community",
+      "is_active": true,
+      "created_at": "2026-08-01T10:00:00.000Z",
+      "updated_at": "2026-08-01T10:00:00.000Z",
+      "created_by": "admin@lpu.in"
+    },
+    {
+      "id": "link_freshers_2026",
+      "name": "Freshers 2026 Academic Circle",
+      "invite_url": "https://chat.whatsapp.com/LPUFreshers2026StudyHub",
+      "invite_code": "LPUFreshers2026StudyHub",
+      "type": "freshers_group",
+      "is_active": true,
+      "created_at": "2026-08-10T11:30:00.000Z",
+      "updated_at": "2026-08-10T11:30:00.000Z",
+      "created_by": "admin@lpu.in"
+    }
+  ],
+  "app_settings": {
+    "allow_user_downloads": false,
+    "updated_at": "2026-10-04T09:33:54.502Z",
+    "updated_by": "mishra.rajvansh11@gmail.com"
+  }
+}

@@ -1,0 +1,405 @@
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  X, 
+  Download, 
+  ZoomIn, 
+  ZoomOut, 
+  RotateCw, 
+  Maximize, 
+  Minimize, 
+  ChevronLeft, 
+  ChevronRight,
+  ShieldAlert,
+  HardDrive,
+  BookOpen,
+  AlertTriangle
+} from 'lucide-react';
+import { Material } from '@/lib/db/types';
+
+interface DocumentViewerModalProps {
+  material: Material | null;
+  allowDownloads: boolean;
+  isAdminOrOwner: boolean;
+  onClose: () => void;
+  onDownload?: (material: Material) => void;
+}
+
+export default function DocumentViewerModal({
+  material,
+  allowDownloads,
+  isAdminOrOwner,
+  onClose,
+  onDownload,
+}: DocumentViewerModalProps) {
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [rotation, setRotation] = useState<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [isImageType, setIsImageType] = useState<boolean>(false);
+
+  const viewerContainerRef = useRef<HTMLDivElement>(null);
+
+  const canDownload = allowDownloads || isAdminOrOwner;
+
+  // Listen for fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Handle ESC key to exit fullscreen or close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  // Load and render document (PDF or Image)
+  useEffect(() => {
+    if (!material) return;
+
+    let isCancelled = false;
+    let localBlobUrl: string | null = null;
+    setLoading(true);
+    setError(null);
+    setCurrentPage(1);
+    setTotalPages(1);
+
+    const loadDocument = async () => {
+      try {
+        // Fetch binary data directly from authorized preview endpoint
+        const response = await fetch(`/api/materials/${material.id}/preview`, {
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load document: HTTP ${response.status}`);
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        const blob = await response.blob();
+        if (isCancelled) return;
+
+        localBlobUrl = URL.createObjectURL(blob);
+        setPreviewBlobUrl(localBlobUrl);
+
+        // Check if image
+        if (contentType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(material.file_url)) {
+          setIsImageType(true);
+          setLoading(false);
+          return;
+        }
+
+        setIsImageType(false);
+        // The binary stream is a valid PDF; set blob URL for native embed display
+        setLoading(false);
+      } catch (err: any) {
+        if (isCancelled) return;
+        console.error('Error loading document preview:', err);
+        setError('Failed to load document preview. Please try again or download if allowed.');
+        setLoading(false);
+      }
+    };
+
+    loadDocument();
+
+    return () => {
+      isCancelled = true;
+      if (localBlobUrl) {
+        URL.revokeObjectURL(localBlobUrl);
+      }
+    };
+  }, [material]);
+
+  if (!material) return null;
+
+  const toggleViewerFullscreen = () => {
+    if (!viewerContainerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      viewerContainerRef.current.requestFullscreen().catch((err) => {
+        console.error('Error attempting to enable fullscreen:', err);
+      });
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(prev + 25, 250));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => Math.max(prev - 25, 50));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(100);
+  };
+
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+      
+      {/* Document Viewer Container (Fullscreen target) */}
+      <div 
+        ref={viewerContainerRef}
+        className={`bg-slate-900 rounded-2xl w-full flex flex-col shadow-2xl overflow-hidden border border-slate-800 transition-all ${
+          isFullscreen ? 'h-screen w-screen rounded-none' : 'max-w-5xl h-[92vh]'
+        }`}
+      >
+        
+        {/* Top Control Header */}
+        <div className="px-4 sm:px-6 py-3.5 bg-slate-950 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 shrink-0">
+          
+          {/* Material Identity */}
+          <div className="flex items-center gap-3 truncate max-w-[280px] sm:max-w-md">
+            <div className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
+              <BookOpen className="w-4 h-4" />
+            </div>
+            <div className="truncate">
+              <h3 className="font-bold text-sm text-white truncate leading-tight">
+                {material.title}
+              </h3>
+              <p className="text-[11px] text-slate-400 truncate">
+                {material.subject_code} • {material.subject} • Year {material.year} • {material.material_type}
+              </p>
+            </div>
+          </div>
+
+          {/* Controls Bar */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            
+            {/* Page Navigation */}
+            {totalPages > 1 && (
+              <div className="flex items-center bg-slate-800/80 rounded-xl px-1 py-0.5 border border-slate-700/60 text-xs">
+                <button
+                  onClick={handlePrevPage}
+                  disabled={currentPage <= 1}
+                  className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="px-2 text-[11px] font-mono text-slate-300">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  onClick={handleNextPage}
+                  disabled={currentPage >= totalPages}
+                  className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
+                  title="Next Page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Zoom Controls */}
+            <div className="flex items-center bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/60 text-xs">
+              <button
+                onClick={handleZoomOut}
+                disabled={zoomLevel <= 50}
+                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
+                title="Zoom Out (-25%)"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleResetZoom}
+                className="px-2 py-1 text-[11px] font-mono text-slate-200 hover:text-white"
+                title="Reset Zoom (100%)"
+              >
+                {zoomLevel}%
+              </button>
+              <button
+                onClick={handleZoomIn}
+                disabled={zoomLevel >= 250}
+                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
+                title="Zoom In (+25%)"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Rotation Control */}
+            <button
+              onClick={handleRotate}
+              className="p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
+              title="Rotate 90 degrees"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Document Viewer Fullscreen */}
+            <button
+              onClick={toggleViewerFullscreen}
+              className="p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Document Viewer'}
+            >
+              {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+            </button>
+
+            {/* Download Button */}
+            {canDownload ? (
+              <button
+                onClick={() => onDownload && onDownload(material)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white text-xs font-bold shadow-xs transition-all active:scale-98"
+                title="Download this document"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Download</span>
+              </button>
+            ) : (
+              <div 
+                className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-950/60 border border-amber-800/60 px-2.5 py-1 rounded-xl"
+                title="Downloads have been disabled globally by the administrator"
+              >
+                <ShieldAlert className="w-3 h-3 text-amber-400" />
+                Preview Only Mode
+              </div>
+            )}
+
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-1"
+              aria-label="Close Preview"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* Embedded Document Viewport */}
+        <div className="flex-1 bg-slate-900/90 relative overflow-auto flex items-center justify-center p-2 sm:p-4 select-none">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center text-slate-400">
+              <div className="w-10 h-10 border-4 border-lpu-500 border-t-transparent rounded-full animate-spin mb-3" />
+              <p className="text-xs font-semibold">Loading document inside viewer...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-8 max-w-md text-center">
+              <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-slate-200">{error}</p>
+              {canDownload && (
+                <button
+                  onClick={() => onDownload && onDownload(material)}
+                  className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-lpu-600 to-amber-500 text-white font-bold text-xs"
+                >
+                  Download Document
+                </button>
+              )}
+            </div>
+          ) : isImageType && previewBlobUrl ? (
+            <div 
+              className="w-full h-full overflow-auto flex items-center justify-center transition-transform duration-200"
+              style={{
+                transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+                transformOrigin: 'center center',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewBlobUrl}
+                alt={material.title}
+                className="max-w-full max-h-full rounded-lg shadow-2xl object-contain bg-white"
+              />
+            </div>
+          ) : previewBlobUrl ? (
+            <div 
+              className="w-full h-full flex flex-col items-center justify-center p-1 sm:p-2 transition-transform duration-200"
+              style={{
+                transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+                transformOrigin: 'center center',
+              }}
+            >
+              <object
+                data={previewBlobUrl}
+                type="application/pdf"
+                className="w-full h-full rounded-xl bg-white shadow-2xl"
+              >
+                <iframe
+                  src={`${previewBlobUrl}#toolbar=0`}
+                  title={material.title}
+                  className="w-full h-full rounded-xl border-0 bg-white"
+                />
+              </object>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-400">Loading document...</div>
+          )}
+        </div>
+
+        {/* Bottom Information & Security Bar */}
+        <div className="px-4 sm:px-6 py-2.5 bg-slate-950 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2 shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1 text-[11px]">
+              <HardDrive className="w-3 h-3 text-slate-500" />
+              {material.file_size}
+            </span>
+            <span>•</span>
+            <span className="text-[11px]">
+              {material.download_count} total downloads
+            </span>
+            <span>•</span>
+            <span className="text-[11px]">
+              Uploaded {new Date(material.created_at).toLocaleDateString()}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px]">
+            {canDownload ? (
+              <span className="text-emerald-400 font-medium">
+                ✓ Full Access: Reading & Downloads Enabled
+              </span>
+            ) : (
+              <span className="text-amber-400 font-medium flex items-center gap-1">
+                <ShieldAlert className="w-3 h-3 text-amber-400" />
+                Global Policy: Reading & Zoom Enabled (Download Prohibited)
+              </span>
+            )}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
