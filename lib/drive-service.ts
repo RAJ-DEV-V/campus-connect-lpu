@@ -180,6 +180,7 @@ export function isMaterialPreviewable(material: {
   title?: string;
   mime_type?: string | null;
   material_type?: string;
+  file_size?: string | null;
 }): boolean {
   if (!material) return false;
 
@@ -227,6 +228,8 @@ export function isMaterialPreviewable(material: {
         const anyPreviewable = parsed.some((item) => {
           const itemUrl = (item.url || '').toLowerCase();
           const itemName = (item.title || item.name || '').toLowerCase();
+          const itemSize = parseFileSizeToMb(item.size);
+          if (itemSize !== null && itemSize > 30) return false;
           return !nonPreviewableExtensions.some((ext) => itemName.endsWith(ext) || itemUrl.includes(ext));
         });
         return anyPreviewable;
@@ -234,6 +237,32 @@ export function isMaterialPreviewable(material: {
     } catch {}
   }
 
+  // Google Drive preview limit protection:
+  // Google Drive preview API fails with "This file is too large to preview" for files > ~25-30MB.
+  // When a file is oversize, return false so the application displays the clean Download Hub and permits downloading!
+  const mbSize = parseFileSizeToMb((material as any).file_size);
+  if (mbSize !== null && mbSize > 30) {
+    return false;
+  }
+
   return true;
+}
+
+/**
+ * Parses file size strings like "122.4 MB", "129.6 MB", "500 KB", "1.2 GB" into numeric Megabytes (MB).
+ */
+export function parseFileSizeToMb(sizeStr: string | null | undefined): number | null {
+  if (!sizeStr || typeof sizeStr !== 'string') return null;
+  const match = sizeStr.trim().match(/^([0-9.]+)\s*(bytes|b|kb|mb|gb|tb)?$/i);
+  if (!match) return null;
+  const val = parseFloat(match[1]);
+  if (isNaN(val)) return null;
+  const unit = (match[2] || 'b').toLowerCase();
+  if (unit === 'gb') return val * 1024;
+  if (unit === 'mb') return val;
+  if (unit === 'kb') return val / 1024;
+  if (unit === 'b' || unit === 'bytes') return val / (1024 * 1024);
+  if (unit === 'tb') return val * 1024 * 1024;
+  return val;
 }
 

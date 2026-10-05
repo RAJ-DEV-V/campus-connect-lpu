@@ -26,12 +26,43 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
 
+    // Check if client wants JSON response or direct file stream
+    const { searchParams } = new URL(req.url);
+    const returnJson = searchParams.get('json') === 'true';
+
+    let targetFileUrl = material.file_url;
+    let targetTitle = material.title;
+    let targetFileSize = material.file_size;
+
+    if (material.file_url.startsWith('[')) {
+      try {
+        const fileList = JSON.parse(material.file_url);
+        if (Array.isArray(fileList) && fileList.length > 0) {
+          const fileIndex = parseInt(searchParams.get('fileIndex') || '0', 10);
+          const chosen = fileList[fileIndex] || fileList[0];
+          if (chosen && chosen.url) {
+            targetFileUrl = chosen.url;
+            if (chosen.title || chosen.name) targetTitle = `${material.title}_${chosen.title || chosen.name}`;
+            if (chosen.size) targetFileSize = chosen.size;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse multi-file JSON in download route:', e);
+      }
+    }
+
     // SERVER-SIDE ACCESS CONTROL:
     // When allow_user_downloads = false, PDF/previewable documents cannot be downloaded by normal students.
-    // HOWEVER: Files that cannot be previewed in the document viewer (e.g. .zip, .rar, .7z, archives)
+    // HOWEVER: Files that cannot be previewed in the document viewer (e.g. .zip, .rar, .7z, archives, or oversize files > 30MB)
     // are EXEMPT and permitted for normal students to download so they can access the material.
     const settings = await getAppSettings();
-    const canBePreviewed = isMaterialPreviewable(material);
+    const canBePreviewed = isMaterialPreviewable({
+      file_url: targetFileUrl,
+      file_name: targetTitle,
+      mime_type: material.mime_type,
+      material_type: material.material_type,
+      file_size: targetFileSize,
+    });
 
     if (!settings.allow_user_downloads && !isAdminOrOwner && canBePreviewed) {
       return NextResponse.json(
@@ -45,29 +76,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     // 1. Record the download in database & increment download count
     await recordDownload(session.userId, material.id);
-
-    // 2. Check if client wants JSON response or direct file stream
-    const { searchParams } = new URL(req.url);
-    const returnJson = searchParams.get('json') === 'true';
-
-    let targetFileUrl = material.file_url;
-    let targetTitle = material.title;
-
-    if (material.file_url.startsWith('[')) {
-      try {
-        const fileList = JSON.parse(material.file_url);
-        if (Array.isArray(fileList) && fileList.length > 0) {
-          const fileIndex = parseInt(searchParams.get('fileIndex') || '0', 10);
-          const chosen = fileList[fileIndex] || fileList[0];
-          if (chosen && chosen.url) {
-            targetFileUrl = chosen.url;
-            if (chosen.title || chosen.name) targetTitle = `${material.title}_${chosen.title || chosen.name}`;
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to parse multi-file JSON in download route:', e);
-      }
-    }
 
     if (returnJson) {
       return NextResponse.json({

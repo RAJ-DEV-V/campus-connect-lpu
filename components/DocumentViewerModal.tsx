@@ -27,7 +27,7 @@ import {
   Presentation
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
-import { isMaterialPreviewable } from '@/lib/drive-service';
+import { isMaterialPreviewable, parseFileSizeToMb } from '@/lib/drive-service';
 import { getMaterialFileFormat } from '@/components/MaterialCard';
 
 interface DocumentViewerModalProps {
@@ -164,13 +164,34 @@ export default function DocumentViewerModal({
     };
   }, []);
 
+  // Active file inside multi-part bundles or single file
+  const activeFile = multiFiles[activeFileIndex] || null;
+  const activeFileName = activeFile?.title || activeFile?.name || material?.file_name || material?.title || '';
+  const activeFileUrl = activeFile?.url || material?.file_url || '';
+  const activeFileSizeStr = activeFile?.size || material?.file_size || '';
+
   // Strict enforcement: When downloads are OFF globally or via prop, previewable PDF/image documents cannot be downloaded.
   // HOWEVER: If a file cannot be opened in the viewer (e.g. ZIP, RAR, 7Z, archives), or if rendering fails with an error,
-  // normal students are allowed to download it so they are not blocked from the resource.
-  const isPreviewable = material ? isMaterialPreviewable(material) : true;
+  // or if Google Drive cannot preview due to size > 25MB, normal students are allowed to download it so they are not blocked.
+  const isPreviewable = React.useMemo(() => {
+    if (!material) return true;
+    const mb = parseFileSizeToMb(activeFileSizeStr);
+    if (mb !== null && mb > 30) return false;
+    return isMaterialPreviewable({
+      file_name: activeFileName,
+      file_url: activeFileUrl,
+      mime_type: material.mime_type,
+      material_type: material.material_type,
+    });
+  }, [material, activeFileName, activeFileUrl, activeFileSizeStr]);
+
   const fileFormat = React.useMemo(() => {
-    return material ? getMaterialFileFormat(material) : { type: 'pdf' as const, label: 'PDF', ext: '.pdf', icon: FileText, badgeClass: '' };
-  }, [material]);
+    return material ? getMaterialFileFormat({
+      file_name: activeFileName,
+      file_url: activeFileUrl,
+      mime_type: material.mime_type
+    }) : { type: 'pdf' as const, label: 'PDF', ext: '.pdf', icon: FileText, badgeClass: '' };
+  }, [material, activeFileName, activeFileUrl]);
 
   const isDownloadPermitted = serverAllowDownloads !== null 
     ? (serverAllowDownloads && allowDownloads)
@@ -544,11 +565,14 @@ export default function DocumentViewerModal({
         const isDirectPdf = /\.pdf(\?.*)?$/i.test(activeUrl) || /\.pdf$/i.test(activeTitle);
         const isDirectImage = /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(activeUrl) || /\.(png|jpe?g|webp|gif|svg)$/i.test(activeTitle);
 
+        const activeSize = activeFile?.size || material.file_size;
+
         const isCurrentFilePreviewable = isMaterialPreviewable({
           file_name: activeTitle,
           file_url: activeUrl,
           mime_type: material.mime_type,
-        });
+          file_size: activeSize,
+        } as any);
 
         if (!isCurrentFilePreviewable) {
           setLoading(false);
@@ -1025,18 +1049,20 @@ export default function DocumentViewerModal({
                 {fileFormat.label}
               </span>
               <h3 className="text-lg sm:text-xl font-bold text-white mb-2 leading-snug">
-                {material.title}
+                {activeFileName || material.title}
               </h3>
               <p className="text-xs text-slate-400 mb-6 max-w-sm mx-auto leading-relaxed">
-                {material.description || `This ${fileFormat.label} contains downloadable course files. Download to extract and view locally on your device.`}
+                {parseFileSizeToMb(activeFileSizeStr) !== null && (parseFileSizeToMb(activeFileSizeStr) || 0) > 30
+                  ? `This file is ${activeFileSizeStr || 'large'} and exceeds in-browser preview capacity. Download below to open and view the high-quality notes directly on your device.`
+                  : material.description || `This ${fileFormat.label} contains downloadable course files. Download to view locally on your device.`}
               </p>
               <div className="bg-slate-950/80 rounded-2xl p-3 border border-slate-800 mb-6 flex flex-col gap-1 items-center justify-center text-center overflow-hidden">
                 <span className="truncate text-xs font-mono text-slate-300 max-w-xs font-semibold">
-                  {material.file_name || `${material.title}${fileFormat.ext}`}
+                  {activeFileName || material.file_name || `${material.title}${fileFormat.ext}`}
                 </span>
-                {material.file_size && (
-                  <span className="text-[11px] font-mono text-slate-500">
-                    File Size: {material.file_size}
+                {activeFileSizeStr && (
+                  <span className="text-[11px] font-mono text-amber-400 font-medium">
+                    File Size: {activeFileSizeStr}
                   </span>
                 )}
               </div>
@@ -1053,7 +1079,7 @@ export default function DocumentViewerModal({
                   className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white font-bold text-sm shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download {fileFormat.label}</span>
+                  <span>Download File ({activeFileSizeStr || fileFormat.label})</span>
                 </button>
               ) : null}
             </div>
