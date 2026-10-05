@@ -17,7 +17,9 @@ import {
   AlertTriangle,
   Layers,
   FileText,
-  FolderOpen
+  FolderOpen,
+  ExternalLink,
+  Globe
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
 import { isMaterialPreviewable } from '@/lib/drive-service';
@@ -49,6 +51,7 @@ export default function DocumentViewerModal({
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [driveEmbedUrl, setDriveEmbedUrl] = useState<string | null>(null);
   const [isImageType, setIsImageType] = useState<boolean>(false);
+  const [externalLinkUrl, setExternalLinkUrl] = useState<string | null>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
 
@@ -347,6 +350,7 @@ export default function DocumentViewerModal({
     setError(null);
     setPdfDoc(null);
     setDriveEmbedUrl(null);
+    setExternalLinkUrl(null);
     setCurrentPage(1);
     setTotalPages(1);
 
@@ -368,6 +372,16 @@ export default function DocumentViewerModal({
         const activeTitle = activeFile?.title || activeFile?.name || material.title;
 
         const driveId = extractDriveId(activeUrl);
+        const isSupabaseFile = activeUrl.includes('/study-materials/') || activeUrl.includes('supabase.co');
+        const isDirectPdf = /\.pdf(\?.*)?$/i.test(activeUrl) || /\.pdf$/i.test(activeTitle);
+        const isDirectImage = /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(activeUrl) || /\.(png|jpe?g|webp|gif|svg)$/i.test(activeTitle);
+
+        // If it is an external web link (e.g. YouTube, documentation, drive folder, external webpage, notion, github, etc.)
+        if (!driveId && !isSupabaseFile && !isDirectPdf && !isDirectImage && activeUrl.startsWith('http')) {
+          setExternalLinkUrl(activeUrl);
+          setLoading(false);
+          return;
+        }
         const isImage = 
           /\.(png|jpe?g|webp|gif|svg)$/i.test(activeUrl) ||
           /\.(png|jpe?g|webp|gif|svg)$/i.test(activeTitle) ||
@@ -793,6 +807,35 @@ export default function DocumentViewerModal({
             <div className="flex flex-col items-center justify-center text-slate-400">
               <div className="w-10 h-10 border-4 border-lpu-500 border-t-transparent rounded-full animate-spin mb-3" />
               <p className="text-xs font-semibold">Loading document inside viewer...</p>
+            </div>
+          ) : externalLinkUrl ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 max-w-lg text-center mx-4 shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-orange-500/10">
+                <Globe className="w-8 h-8 text-amber-400" />
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-[11px] font-bold text-amber-400 border border-slate-700 mb-3">
+                External Study Resource
+              </span>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2 leading-snug">
+                {material.title}
+              </h3>
+              <p className="text-xs text-slate-400 mb-6 max-w-sm mx-auto leading-relaxed">
+                {material.description || 'This study resource is accessible directly via the external link below.'}
+              </p>
+              <div className="bg-slate-950/80 rounded-2xl p-3 border border-slate-800 mb-6 flex items-center justify-center gap-2 text-center overflow-hidden">
+                <span className="truncate text-xs font-mono text-slate-300 max-w-xs">
+                  {externalLinkUrl}
+                </span>
+              </div>
+              <a
+                href={externalLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white font-bold text-sm shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <span>Open Resource Link</span>
+                <ExternalLink className="w-4 h-4" />
+              </a>
             </div>
           ) : error ? (
             <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 sm:p-8 max-w-md text-center mx-4">

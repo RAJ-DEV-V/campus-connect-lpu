@@ -19,6 +19,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full">
+      <head>
+        <link rel="preconnect" href="https://drive.google.com" />
+        <link rel="preconnect" href="https://lh3.googleusercontent.com" />
+        <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://hfywrezcwyfwsixqdsye.supabase.co" />
+      </head>
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-orange-500 selection:text-white">
         <Navbar />
         <main className="flex-1">{children}</main>
