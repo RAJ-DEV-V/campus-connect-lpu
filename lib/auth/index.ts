@@ -56,22 +56,57 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
   }
 }
 
+// In-memory throttle for activity updates (once every 5 minutes per user)
+const activityThrottleMap = new Map<string, number>();
+
+function recordActivityNonBlocking(userId: string) {
+  if (!userId) return;
+  const now = Date.now();
+  const last = activityThrottleMap.get(userId) || 0;
+  if (now - last > 5 * 60 * 1000) {
+    activityThrottleMap.set(userId, now);
+    touchUserActivity(userId).catch(() => {});
+  }
+}
+
 export async function getCurrentSession(): Promise<SessionPayload | null> {
   try {
-    // 1. First check Supabase Auth session if configured
+    // 1. Fast path: Check HTTP session cookie (0.05ms in-memory cryptographic verification)
+    const cookieStore = cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    if (token) {
+      const payload = await verifySession(token);
+      if (payload) {
+        // Asynchronously update activity timestamp without blocking request
+        recordActivityNonBlocking(payload.userId);
+
+        const isOwnerUser = payload.isOwner || payload.role === 'owner' || payload.email?.toLowerCase() === 'mishra.rajvansh11@gmail.com';
+        const isAdminUser = isOwnerUser || payload.isAdmin || payload.role === 'admin';
+
+        return {
+          ...payload,
+          isAdmin: isAdminUser,
+          isOwner: isOwnerUser,
+          role: isOwnerUser ? 'owner' : (payload.role || (isAdminUser ? 'admin' : 'user')),
+        };
+      }
+    }
+
+    // 2. Fallback: Supabase Auth session if configured and no valid JWT cookie
     const supabase = createServerSupabaseClient();
     if (supabase) {
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          const profile = await getUserById(authUser.id);
-          const userRole = await getUserRole(authUser.email || authUser.id);
-          const isAdminUser = userRole === 'owner' || userRole === 'admin';
-          const isOwnerUser = userRole === 'owner';
+          const [profile, userRole] = await Promise.all([
+            getUserById(authUser.id),
+            getUserRole(authUser.email || authUser.id),
+          ]);
+          const isOwnerUser = userRole === 'owner' || authUser.email?.toLowerCase() === 'mishra.rajvansh11@gmail.com';
+          const isAdminUser = isOwnerUser || userRole === 'admin';
           const communityJoined = profile ? profile.community_joined : false;
 
-          // Touch user activity
-          await touchUserActivity(authUser.id);
+          recordActivityNonBlocking(authUser.id);
 
           return {
             userId: authUser.id,
@@ -81,45 +116,16 @@ export async function getCurrentSession(): Promise<SessionPayload | null> {
             community_joined: communityJoined,
             isAdmin: isAdminUser,
             isOwner: isOwnerUser,
-            role: userRole,
+            role: isOwnerUser ? 'owner' : userRole,
+            year: profile?.year || undefined,
           };
         }
       } catch (sbErr) {
-        // Fallback to cookie check
+        // Fallback
       }
     }
 
-    // 2. Check HTTP session cookie (works seamlessly in all environments)
-    const cookieStore = cookies();
-    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-    if (!token) return null;
-
-    const payload = await verifySession(token);
-    if (!payload) return null;
-
-    // Refresh community status and role from DB in real time
-    let user = await getUserById(payload.userId);
-    if (!user && payload.email) {
-      user = await getUserByEmail(payload.email);
-    }
-
-    if (user) {
-      await touchUserActivity(user.id);
-    }
-
-    const freshRole = await getUserRole(payload.email || payload.userId);
-    const isOwnerUser = freshRole === 'owner' || payload.email?.toLowerCase() === 'mishra.rajvansh11@gmail.com';
-    const isAdminUser = isOwnerUser || freshRole === 'admin';
-
-    return {
-      ...payload,
-      community_joined: user ? user.community_joined : payload.community_joined,
-      name: user ? user.name : payload.name,
-      avatar_url: user ? user.avatar_url : payload.avatar_url,
-      role: isOwnerUser ? 'owner' : freshRole,
-      isAdmin: isAdminUser,
-      isOwner: isOwnerUser,
-    };
+    return null;
   } catch (err) {
     return null;
   }

@@ -274,7 +274,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function initAdmin() {
       try {
-        const userRes = await fetch('/api/auth/me');
+        const userRes = await fetch('/api/auth/me', { cache: 'no-store' });
         if (!userRes.ok) {
           router.push('/login');
           return;
@@ -286,22 +286,22 @@ export default function AdminDashboardPage() {
         }
         setCurrentUser(userData.user);
 
-        // Load all dashboard components concurrently
-        await Promise.all([
+        // Instant access: Unlock admin console immediately!
+        setLoading(false);
+
+        // Fetch dashboard components in background without blocking the screen
+        Promise.all([
           loadStats(),
           loadUsers(),
           loadMaterials(),
           loadLinks(),
-          loadAnalytics(),
           loadSettings(),
-          loadMigrationStats(),
           loadAnnouncements(),
           loadFeedback(),
           userData.user?.isOwner ? loadAdmins() : Promise.resolve(),
-        ]);
+        ]).catch((err) => console.error('Background admin data fetch error:', err));
       } catch (err) {
         console.error('Failed to load admin data', err);
-      } finally {
         setLoading(false);
       }
     }
@@ -1928,7 +1928,7 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
-              onClick={() => { setActiveTab('analytics'); setSidebarOpen(false); }}
+              onClick={() => { setActiveTab('analytics'); setSidebarOpen(false); loadAnalytics(); }}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'analytics'
                   ? 'bg-lpu-600 text-white shadow-xs'

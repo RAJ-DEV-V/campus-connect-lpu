@@ -37,6 +37,65 @@ export const supabase = isSupabaseConfigured
 export class SupabaseDatabaseStore {
   private client = supabase!;
   private localFallback = getLocalDatabase();
+  private academicYearsCache: Record<string, number> = {};
+  private academicYearsCacheTime: number = 0;
+
+  async getUserAcademicYear(userId: string): Promise<number | null> {
+    const now = Date.now();
+    if (this.academicYearsCache[userId] && (now - this.academicYearsCacheTime < 60000)) {
+      return this.academicYearsCache[userId];
+    }
+    try {
+      const { data } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'user_academic_years')
+        .maybeSingle();
+
+      if (data && data.value && typeof data.value === 'object') {
+        const val = data.value as Record<string, any>;
+        for (const [uid, info] of Object.entries(val)) {
+          if (info && typeof info === 'object' && (info as any).year) {
+            this.academicYearsCache[uid] = Number((info as any).year);
+          } else if (typeof info === 'number') {
+            this.academicYearsCache[uid] = info;
+          }
+        }
+        this.academicYearsCacheTime = now;
+        return this.academicYearsCache[userId] || null;
+      }
+    } catch {}
+    return null;
+  }
+
+  async setUserAcademicYear(userId: string, year: number, name?: string): Promise<void> {
+    this.academicYearsCache[userId] = year;
+    try {
+      const { data } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'user_academic_years')
+        .maybeSingle();
+
+      const map = (data?.value && typeof data.value === 'object') ? (data.value as Record<string, any>) : {};
+      map[userId] = {
+        year,
+        name: name || undefined,
+        updated_at: new Date().toISOString()
+      };
+
+      await this.client
+        .from('app_settings')
+        .upsert({
+          key: 'user_academic_years',
+          value: map,
+          updated_at: new Date().toISOString(),
+          updated_by: 'system'
+        });
+    } catch (e) {
+      console.error('Failed to save academic year to app_settings:', e);
+    }
+  }
 
   async getUserById(id: string): Promise<User | null> {
     try {
@@ -50,10 +109,13 @@ export class SupabaseDatabaseStore {
         return this.localFallback.getUserById(id);
       }
       const local = this.localFallback.getUserById(id);
+      const savedYear = await this.getUserAcademicYear(id);
+      const resolvedYear = (data as any).year ?? savedYear ?? local?.year ?? null;
+
       return {
         ...(data as User),
-        year: data.year ?? local?.year ?? null,
-        profile_completed: Boolean(data.name && (data.year ?? local?.year)),
+        year: resolvedYear,
+        profile_completed: Boolean(data.name && resolvedYear),
       };
     } catch {
       return this.localFallback.getUserById(id);
@@ -72,10 +134,13 @@ export class SupabaseDatabaseStore {
         return this.localFallback.getUserByEmail(email);
       }
       const local = this.localFallback.getUserByEmail(email);
+      const savedYear = await this.getUserAcademicYear(data.id);
+      const resolvedYear = (data as any).year ?? savedYear ?? local?.year ?? null;
+
       return {
         ...(data as User),
-        year: data.year ?? local?.year ?? null,
-        profile_completed: Boolean(data.name && (data.year ?? local?.year)),
+        year: resolvedYear,
+        profile_completed: Boolean(data.name && resolvedYear),
       };
     } catch {
       return this.localFallback.getUserByEmail(email);
@@ -701,24 +766,26 @@ export class SupabaseDatabaseStore {
     downloadsByType: Record<string, number>;
   }> {
     try {
-      // Fetch top downloaded materials from Supabase
-      const { data: topMats } = await this.client
-        .from('materials')
-        .select('*')
-        .order('download_count', { ascending: false })
-        .limit(10);
+      // Fetch top downloaded, recent downloads log, and materials concurrently
+      const [topMatsRes, recentDldsRes, allMatsRes] = await Promise.all([
+        this.client
+          .from('materials')
+          .select('*')
+          .order('download_count', { ascending: false })
+          .limit(10),
+        this.client
+          .from('downloads')
+          .select('*, materials (*), users (*)')
+          .order('downloaded_at', { ascending: false })
+          .limit(20),
+        this.client
+          .from('materials')
+          .select('year, material_type, download_count'),
+      ]);
 
-      // Fetch real downloads log with joined material and user records
-      const { data: recentDlds } = await this.client
-        .from('downloads')
-        .select('*, materials (*), users (*)')
-        .order('downloaded_at', { ascending: false })
-        .limit(20);
-
-      // Fetch all materials to compute real year and type download distributions
-      const { data: allMats } = await this.client
-        .from('materials')
-        .select('year, material_type, download_count');
+      const topMats = topMatsRes.data;
+      const recentDlds = recentDldsRes.data;
+      const allMats = allMatsRes.data;
 
       const downloadsByYear: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
       const downloadsByType: Record<string, number> = {
@@ -762,30 +829,43 @@ export class SupabaseDatabaseStore {
 
   async getAdminStats(): Promise<AdminStats> {
     try {
-      const { count: totalUsers } = await this.client.from('users').select('*', { count: 'exact', head: true });
-      const { count: communityConfirmedUsers } = await this.client.from('users').select('*', { count: 'exact', head: true }).eq('community_joined', true);
-      
       const nowTime = Date.now();
       const oneDayAgo = new Date(nowTime - 24 * 60 * 60 * 1000).toISOString();
       const sevenDaysAgo = new Date(nowTime - 7 * 24 * 60 * 60 * 1000).toISOString();
       const thirtyDaysAgo = new Date(nowTime - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      const { count: activeToday } = await this.client.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', oneDayAgo);
-      const { count: activeThisWeek } = await this.client.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', sevenDaysAgo);
-      const { count: activeUsers } = await this.client.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', thirtyDaysAgo);
+      // Execute all metric queries concurrently in parallel
+      const [
+        totalUsersRes,
+        communityUsersRes,
+        activeTodayRes,
+        activeThisWeekRes,
+        activeUsersRes,
+        matsRes,
+        downloadsRes,
+        usersYearRes
+      ] = await Promise.all([
+        this.client.from('users').select('*', { count: 'exact', head: true }),
+        this.client.from('users').select('*', { count: 'exact', head: true }).eq('community_joined', true),
+        this.client.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', oneDayAgo),
+        this.client.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', sevenDaysAgo),
+        this.client.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', thirtyDaysAgo),
+        this.client.from('materials').select('year, material_type, download_count', { count: 'exact' }),
+        this.client.from('downloads').select('*', { count: 'exact', head: true }),
+        this.client.from('users').select('year'),
+      ]);
 
-      // Calculate total materials and real breakdown from Supabase materials table
-      const { data: allMats, count: totalMaterialsCount } = await this.client
-        .from('materials')
-        .select('year, material_type, download_count', { count: 'exact' });
+      const totalUsers = totalUsersRes.count;
+      const communityConfirmedUsers = communityUsersRes.count;
+      const activeToday = activeTodayRes.count;
+      const activeThisWeek = activeThisWeekRes.count;
+      const activeUsers = activeUsersRes.count;
 
+      const allMats = matsRes.data;
+      const totalMaterialsCount = matsRes.count;
       const totalMaterials = totalMaterialsCount || (allMats?.length || 0);
 
-      // Real download count
-      const { count: realDownloadLogCount } = await this.client
-        .from('downloads')
-        .select('*', { count: 'exact', head: true });
-
+      const realDownloadLogCount = downloadsRes.count;
       const materialDownloadSum = (allMats || []).reduce((acc: number, m: any) => acc + (m.download_count || 0), 0);
       const totalDownloads = Math.max(realDownloadLogCount || 0, materialDownloadSum);
 
@@ -807,11 +887,7 @@ export class SupabaseDatabaseStore {
         }
       });
 
-      // Compute student count per academic year
-      const { data: allUsersForYears } = await this.client
-        .from('users')
-        .select('year');
-
+      const allUsersForYears = usersYearRes.data;
       const studentYearBreakdown: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
       (allUsersForYears || []).forEach((u: any) => {
         const y = Number(u.year);
@@ -884,29 +960,57 @@ export class SupabaseDatabaseStore {
 
   // --- Student Profile Update ---
   async updateUserProfile(userId: string, data: { name?: string; year?: number }): Promise<User | null> {
-    const local = this.localFallback.updateUserProfile(userId, data);
     try {
-      const updates: any = {};
-      if (data.name && data.name.trim()) updates.name = data.name.trim();
-      if (data.year !== undefined && [1, 2, 3, 4].includes(data.year)) {
-        updates.year = data.year;
-        updates.profile_completed = Boolean((data.name || local?.name) && data.year);
-      }
-      updates.last_active_at = new Date().toISOString();
-
-      const { data: updatedUser, error } = await this.client
+      // 1. Fetch current user from Supabase
+      const { data: currentUser, error: fetchErr } = await this.client
         .from('users')
-        .update(updates)
-        .eq('id', userId)
         .select('*')
-        .single();
+        .eq('id', userId)
+        .maybeSingle();
 
-      if (!error && updatedUser) {
-        return updatedUser as User;
+      const newName = data.name && data.name.trim() ? data.name.trim() : (currentUser?.name || 'Student');
+      const newYear = data.year && [1, 2, 3, 4].includes(data.year) ? data.year : (currentUser?.year || null);
+
+      if (currentUser) {
+        // Safe updates for columns guaranteed to exist in users table
+        const safeUpdates: any = {
+          last_active_at: new Date().toISOString(),
+        };
+        if (data.name && data.name.trim()) {
+          safeUpdates.name = data.name.trim();
+        }
+
+        const { data: updated } = await this.client
+          .from('users')
+          .update(safeUpdates)
+          .eq('id', userId)
+          .select('*')
+          .single();
+
+        // Persist academic year to app_settings cloud store
+        if (newYear) {
+          await this.setUserAcademicYear(userId, newYear, newName);
+        }
+
+        const baseUser = updated || currentUser;
+        return {
+          id: baseUser.id,
+          name: newName,
+          email: baseUser.email,
+          avatar_url: baseUser.avatar_url,
+          community_joined: baseUser.community_joined,
+          year: newYear,
+          profile_completed: Boolean(newName && newYear),
+          created_at: baseUser.created_at,
+          last_login: baseUser.last_login,
+          last_active_at: new Date().toISOString(),
+        };
       }
     } catch (err) {
-      console.warn('Supabase updateUserProfile fallback:', err);
+      console.warn('Supabase updateUserProfile error:', err);
     }
+
+    const local = this.localFallback.updateUserProfile(userId, data);
     return local;
   }
 

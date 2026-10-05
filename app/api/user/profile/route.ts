@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentSession } from '@/lib/auth';
-import { getUserById, updateUserProfile } from '@/lib/db';
+import { getCurrentSession, signSession, SESSION_COOKIE_NAME } from '@/lib/auth';
+import { updateUserProfile, upsertUser } from '@/lib/db';
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -27,16 +27,27 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const updatedUser = await updateUserProfile(session.userId, {
+    let updatedUser = await updateUserProfile(session.userId, {
       name: name.trim(),
       year: parsedYear,
     });
 
     if (!updatedUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      // Fallback: If student profile record is missing, auto-create/upsert it
+      updatedUser = await upsertUser({
+        id: session.userId,
+        name: name.trim(),
+        email: session.email,
+        avatar_url: session.avatar_url,
+        community_joined: session.community_joined,
+        year: parsedYear,
+      });
     }
 
-    return NextResponse.json({
+    // Refresh JWT session cookie with new name & academic year
+    const token = await signSession(updatedUser, session.isAdmin, session.role);
+
+    const response = NextResponse.json({
       success: true,
       user: {
         id: updatedUser.id,
@@ -46,6 +57,16 @@ export async function PATCH(req: NextRequest) {
         profile_completed: Boolean(updatedUser.name && updatedUser.year),
       },
     });
+
+    response.cookies.set(SESSION_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+    });
+
+    return response;
   } catch (error: any) {
     console.error('Update profile error:', error);
     return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });

@@ -5,37 +5,33 @@ import { getUserById, isAdmin as checkIsAdmin, getUserRole, touchUserActivity } 
 export async function GET() {
   const session = await getCurrentSession();
   if (!session) {
-    return NextResponse.json({ authenticated: false, user: null }, { status: 401 });
+    return NextResponse.json(
+      { authenticated: false, user: null }, 
+      { 
+        status: 401,
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+      }
+    );
   }
 
-  const user = await getUserById(session.userId);
-  if (!user) {
-    return NextResponse.json({ authenticated: false, user: null }, { status: 401 });
-  }
-
-  // Update last_active_at whenever authenticated user accesses the platform
-  await touchUserActivity(user.id);
-
-  const userRole = await getUserRole(user.email || user.id);
-  const isAdmin = userRole === 'owner' || userRole === 'admin';
-  const isOwner = userRole === 'owner';
-
-  return NextResponse.json({
-    authenticated: true,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatar_url: user.avatar_url,
-      community_joined: user.community_joined,
-      year: user.year || null,
-      profile_completed: Boolean(user.name && user.year),
-      created_at: user.created_at,
-      last_login: user.last_login,
-      last_active_at: new Date().toISOString(),
-      role: userRole,
-      isAdmin,
-      isOwner,
+  return NextResponse.json(
+    {
+      authenticated: true,
+      user: {
+        id: session.userId,
+        name: session.name,
+        email: session.email,
+        avatar_url: session.avatar_url,
+        community_joined: session.community_joined,
+        year: session.year || null,
+        profile_completed: Boolean(session.name && session.year),
+        role: session.role || (session.isAdmin ? 'admin' : 'user'),
+        isAdmin: session.isAdmin,
+        isOwner: session.isOwner ?? false,
+      },
     },
-  });
+    {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+    }
+  );
 }
