@@ -24,7 +24,9 @@ export interface WhatsNewItem {
   type: 'announcement' | 'new_material' | 'update' | 'important';
   link_type?: 'library' | 'material' | 'page' | null;
   link_target?: string | null;
+  link?: string | null;
   is_active: boolean;
+  active?: boolean;
   created_at: string;
   created_by?: string | null;
 }
@@ -129,4 +131,27 @@ export interface AppSettings {
   updated_at?: string;
   updated_by?: string;
 }
+
+export type FeedbackRequestType = 'bug_report' | 'missing_subject' | 'general_feedback';
+export type FeedbackRequestStatus = 'pending' | 'in_progress' | 'resolved';
+
+export interface StudentFeedbackRequest {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  user_year?: number;
+  year?: number;
+  type: FeedbackRequestType;
+  subject_code?: string;
+  subject_name?: string;
+  material_type?: string;
+  title: string;
+  description: string;
+  status: FeedbackRequestStatus;
+  created_at: string;
+  resolved_at?: string | null;
+  admin_note?: string | null;
+}
+
 

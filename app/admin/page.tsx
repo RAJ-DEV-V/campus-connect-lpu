@@ -47,9 +47,12 @@ import {
   RotateCcw,
   Check,
   ArrowRight,
-  GraduationCap
+  GraduationCap,
+  Megaphone,
+  MessageSquare,
+  Bug
 } from 'lucide-react';
-import { Material, AdminStats, CommunityVerificationLink, Admin } from '@/lib/db/types';
+import { Material, AdminStats, CommunityVerificationLink, Admin, WhatsNewItem, StudentFeedbackRequest } from '@/lib/db/types';
 import { formatYearName } from '@/components/MaterialCard';
 import { uploadToGoogleDriveResumable } from '@/lib/google-drive-client';
 import { mergeDocumentsToPdf, DocumentItem } from '@/lib/image-to-pdf';
@@ -94,7 +97,7 @@ export default function AdminDashboardPage() {
   
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'materials' | 'upload' | 'users' | 'links' | 'analytics' | 'settings' | 'admin-settings' | 'drive-sync'
+    'dashboard' | 'materials' | 'upload' | 'users' | 'links' | 'analytics' | 'announcements' | 'feedback' | 'settings' | 'admin-settings' | 'drive-sync'
   >('dashboard');
 
   // Stats & Data
@@ -104,6 +107,23 @@ export default function AdminDashboardPage() {
   const [links, setLinks] = useState<CommunityVerificationLink[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [admins, setAdmins] = useState<Admin[]>([]);
+
+  // Announcements State
+  const [announcements, setAnnouncements] = useState<WhatsNewItem[]>([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState<boolean>(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementDesc, setAnnouncementDesc] = useState('');
+  const [announcementType, setAnnouncementType] = useState<string>('announcement');
+  const [announcementLink, setAnnouncementLink] = useState('');
+  const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
+  const [announcementError, setAnnouncementError] = useState('');
+  const [announcementSuccess, setAnnouncementSuccess] = useState('');
+
+  // Student Feedback & Material Requests State
+  const [feedbackList, setFeedbackList] = useState<StudentFeedbackRequest[]>([]);
+  const [loadingFeedback, setLoadingFeedback] = useState<boolean>(false);
+  const [feedbackTypeFilter, setFeedbackTypeFilter] = useState<string>('all');
+  const [feedbackStatusFilter, setFeedbackStatusFilter] = useState<string>('all');
 
   // Platform Global Settings
   const [allowUserDownloads, setAllowUserDownloads] = useState<boolean>(true);
@@ -275,6 +295,8 @@ export default function AdminDashboardPage() {
           loadAnalytics(),
           loadSettings(),
           loadMigrationStats(),
+          loadAnnouncements(),
+          loadFeedback(),
           userData.user?.isOwner ? loadAdmins() : Promise.resolve(),
         ]);
       } catch (err) {
@@ -538,6 +560,137 @@ export default function AdminDashboardPage() {
       if (res.ok) {
         const d = await res.json();
         setAdmins(d.admins || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // --- Announcements Actions ---
+  const loadAnnouncements = async () => {
+    setLoadingAnnouncements(true);
+    try {
+      const res = await fetch('/api/whats-new');
+      if (res.ok) {
+        const d = await res.json();
+        setAnnouncements(d.items || []);
+      }
+    } catch (e) {
+      console.error('Failed to load announcements', e);
+    } finally {
+      setLoadingAnnouncements(false);
+    }
+  };
+
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!announcementTitle.trim() || !announcementDesc.trim()) {
+      setAnnouncementError('Title and description are required.');
+      return;
+    }
+    setCreatingAnnouncement(true);
+    setAnnouncementError('');
+    setAnnouncementSuccess('');
+    try {
+      const res = await fetch('/api/whats-new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: announcementTitle.trim(),
+          description: announcementDesc.trim(),
+          type: announcementType,
+          link: announcementLink.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to publish announcement');
+      }
+      setAnnouncementSuccess('Announcement broadcasted to all student dashboards!');
+      setAnnouncementTitle('');
+      setAnnouncementDesc('');
+      setAnnouncementLink('');
+      setAnnouncementType('announcement');
+      await loadAnnouncements();
+      setTimeout(() => setAnnouncementSuccess(''), 4000);
+    } catch (err: any) {
+      setAnnouncementError(err.message || 'Error publishing announcement');
+    } finally {
+      setCreatingAnnouncement(false);
+    }
+  };
+
+  const handleToggleAnnouncementActive = async (item: WhatsNewItem) => {
+    try {
+      const res = await fetch('/api/whats-new', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: item.id,
+          active: item.active === false ? true : false,
+        }),
+      });
+      if (res.ok) {
+        await loadAnnouncements();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this broadcast announcement?')) return;
+    try {
+      const res = await fetch(`/api/whats-new?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await loadAnnouncements();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // --- Student Feedback & Missing Subject Requests Actions ---
+  const loadFeedback = async () => {
+    setLoadingFeedback(true);
+    try {
+      const res = await fetch('/api/admin/feedback');
+      if (res.ok) {
+        const d = await res.json();
+        setFeedbackList(d.requests || []);
+      }
+    } catch (e) {
+      console.error('Failed to load feedback', e);
+    } finally {
+      setLoadingFeedback(false);
+    }
+  };
+
+  const handleUpdateFeedbackStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch('/api/admin/feedback', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+      if (res.ok) {
+        await loadFeedback();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteFeedback = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this student request record?')) return;
+    try {
+      const res = await fetch(`/api/admin/feedback?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await loadFeedback();
       }
     } catch (e) {
       console.error(e);
@@ -1769,6 +1922,50 @@ export default function AdminDashboardPage() {
             >
               <BarChart2 className="w-4 h-4 shrink-0" />
               <span>Downloads & Analytics</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('announcements'); setSidebarOpen(false); loadAnnouncements(); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                activeTab === 'announcements'
+                  ? 'bg-lpu-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Megaphone className="w-4 h-4 shrink-0 text-amber-500" />
+                <span>Announcements</span>
+              </div>
+              <span className={`text-[10px] px-1.8 py-0.5 rounded-md font-bold ${
+                activeTab === 'announcements' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+              }`}>
+                {announcements.filter(a => a.active !== false).length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('feedback'); setSidebarOpen(false); loadFeedback(); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                activeTab === 'feedback'
+                  ? 'bg-lpu-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <MessageSquare className="w-4 h-4 shrink-0 text-blue-500" />
+                <span>Requests & Feedback</span>
+              </div>
+              {feedbackList.filter(f => f.status === 'pending').length > 0 ? (
+                <span className="text-[10px] px-1.8 py-0.5 rounded-md font-bold bg-rose-500 text-white animate-pulse">
+                  {feedbackList.filter(f => f.status === 'pending').length} new
+                </span>
+              ) : (
+                <span className={`text-[10px] px-1.8 py-0.5 rounded-md font-bold ${
+                  activeTab === 'feedback' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {feedbackList.length}
+                </span>
+              )}
             </button>
 
             <button
@@ -4536,6 +4733,424 @@ export default function AdminDashboardPage() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB: ANNOUNCEMENTS MANAGEMENT                                */}
+        {/* ============================================================ */}
+        {activeTab === 'announcements' && (
+          <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+              <div>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Megaphone className="w-6 h-6 text-amber-500" />
+                  Campus Broadcast Announcements
+                </h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Publish notices, exam announcements, or system alerts visible to all students on their dashboards.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadAnnouncements}
+                className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh Announcements</span>
+              </button>
+            </div>
+
+            {/* Broadcast Creation Card */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-sm">Create New Broadcast Announcement</h3>
+                  <p className="text-[11px] text-slate-500">Visible immediately to students upon publish</p>
+                </div>
+              </div>
+
+              {announcementError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{announcementError}</span>
+                </div>
+              )}
+
+              {announcementSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{announcementSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleCreateAnnouncement} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Announcement Title *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={announcementTitle}
+                      onChange={(e) => setAnnouncementTitle(e.target.value)}
+                      placeholder="e.g. End-Term PYQs & Solutions Added for CSE 2nd Year"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-medium focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Announcement Category
+                    </label>
+                    <select
+                      value={announcementType}
+                      onChange={(e) => setAnnouncementType(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-medium focus:outline-none focus:border-lpu-500 bg-white"
+                    >
+                      <option value="announcement">General Announcement</option>
+                      <option value="important">🚨 Important Alert</option>
+                      <option value="update">✨ Platform Update</option>
+                      <option value="new_material">📚 New Study Material</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Announcement Message / Description *
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={announcementDesc}
+                    onChange={(e) => setAnnouncementDesc(e.target.value)}
+                    placeholder="Provide details for students, examination instructions, or newly available subject resources..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-medium focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Action Link / URL (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={announcementLink}
+                    onChange={(e) => setAnnouncementLink(e.target.value)}
+                    placeholder="https://... or /library?subject=CSE101"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-medium focus:outline-none focus:border-lpu-500"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={creatingAnnouncement}
+                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Megaphone className="w-3.5 h-3.5" />
+                    <span>{creatingAnnouncement ? 'Broadcasting...' : 'Publish Announcement to Students'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Existing Announcements List */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="font-black text-slate-900 text-sm">
+                  Active & Historical Announcements ({announcements.length})
+                </h3>
+                <span className="text-xs text-slate-400">
+                  {announcements.filter(a => a.active !== false).length} currently active
+                </span>
+              </div>
+
+              {loadingAnnouncements ? (
+                <div className="p-8 text-center text-xs text-slate-500">
+                  <div className="w-6 h-6 border-2 border-lpu-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  Loading announcements...
+                </div>
+              ) : announcements.length > 0 ? (
+                <div className="space-y-3">
+                  {announcements.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-4 rounded-xl border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                        item.active !== false
+                          ? 'bg-slate-50/70 border-slate-200'
+                          : 'bg-slate-100/50 border-slate-200/60 opacity-60'
+                      }`}
+                    >
+                      <div className="space-y-1 max-w-2xl">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                            item.active !== false
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            {item.active !== false ? '● Active' : 'Inactive'}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                            {item.type || 'announcement'}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            {new Date(item.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-slate-900 text-sm">{item.title}</h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>
+                        {item.link && (
+                          <div className="pt-1">
+                            <a
+                              href={item.link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-amber-600 hover:text-amber-700 font-semibold inline-flex items-center gap-1"
+                            >
+                              Target Link: <span className="underline max-w-xs truncate">{item.link}</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAnnouncementActive(item)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                            item.active !== false
+                              ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                          }`}
+                        >
+                          {item.active !== false ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAnnouncement(item.id)}
+                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Delete announcement"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  No announcements published yet. Create one above to broadcast to all student dashboards.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB: STUDENT REQUESTS & BUGS                                 */}
+        {/* ============================================================ */}
+        {activeTab === 'feedback' && (
+          <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+              <div>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <MessageSquare className="w-6 h-6 text-blue-600" />
+                  Student Requests &amp; Feedback
+                </h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage student requests for missing subject codes, examination materials, and reported platform bugs.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadFeedback}
+                className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh Requests</span>
+              </button>
+            </div>
+
+            {/* Quick Summary Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Submissions</span>
+                <div className="text-2xl font-black text-slate-900 mt-1">{feedbackList.length}</div>
+              </div>
+              <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 shadow-xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">Missing Subject Requests</span>
+                <div className="text-2xl font-black text-amber-900 mt-1">
+                  {feedbackList.filter(f => f.type === 'missing_subject').length}
+                </div>
+              </div>
+              <div className="bg-rose-50/60 p-4 rounded-2xl border border-rose-200 shadow-xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800">Bug Reports</span>
+                <div className="text-2xl font-black text-rose-900 mt-1">
+                  {feedbackList.filter(f => f.type === 'bug_report').length}
+                </div>
+              </div>
+              <div className="bg-blue-50/60 p-4 rounded-2xl border border-blue-200 shadow-xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800">Pending Action</span>
+                <div className="text-2xl font-black text-blue-900 mt-1">
+                  {feedbackList.filter(f => f.status === 'pending').length}
+                </div>
+              </div>
+            </div>
+
+            {/* Filter and Table Card */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Type:</span>
+                  <select
+                    value={feedbackTypeFilter}
+                    onChange={(e) => setFeedbackTypeFilter(e.target.value)}
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 focus:outline-none"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="missing_subject">Missing Subject Requests</option>
+                    <option value="bug_report">Bug Reports</option>
+                  </select>
+
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-2">Status:</span>
+                  <select
+                    value={feedbackStatusFilter}
+                    onChange={(e) => setFeedbackStatusFilter(e.target.value)}
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 focus:outline-none"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                </div>
+
+                <span className="text-xs text-slate-500 font-medium">
+                  Showing {
+                    feedbackList.filter(f => 
+                      (feedbackTypeFilter === 'all' || f.type === feedbackTypeFilter) &&
+                      (feedbackStatusFilter === 'all' || f.status === feedbackStatusFilter)
+                    ).length
+                  } records
+                </span>
+              </div>
+
+              {loadingFeedback ? (
+                <div className="p-12 text-center text-xs text-slate-500">
+                  <div className="w-6 h-6 border-2 border-lpu-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  Loading student requests...
+                </div>
+              ) : (
+                (() => {
+                  const filtered = feedbackList.filter(f => 
+                    (feedbackTypeFilter === 'all' || f.type === feedbackTypeFilter) &&
+                    (feedbackStatusFilter === 'all' || f.status === feedbackStatusFilter)
+                  );
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="p-12 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        No feedback or requests matching the selected filters.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {filtered.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-5 rounded-2xl border border-slate-200 bg-white shadow-2xs space-y-3"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                item.type === 'missing_subject'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  : 'bg-rose-100 text-rose-800 border border-rose-200'
+                              }`}>
+                                {item.type === 'missing_subject' ? '📚 Missing Subject' : '🐛 Bug Report'}
+                              </span>
+
+                              {item.subject_code && (
+                                <span className="px-2.5 py-0.5 rounded-md font-mono text-xs font-black bg-slate-900 text-white">
+                                  {item.subject_code}
+                                </span>
+                              )}
+
+                              {item.material_type && (
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">
+                                  {item.material_type}
+                                </span>
+                              )}
+
+                              {item.year && (
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">
+                                  {formatYearName(item.year)}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={item.status}
+                                onChange={(e) => handleUpdateFeedbackStatus(item.id, e.target.value)}
+                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none cursor-pointer ${
+                                  item.status === 'resolved'
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                    : item.status === 'in_progress'
+                                    ? 'bg-sky-50 text-sky-800 border-sky-300'
+                                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                                }`}
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="resolved">Resolved</option>
+                              </select>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFeedback(item.id)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                title="Delete submission"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-bold text-slate-900 text-sm">{item.title}</h4>
+                            <p className="text-xs text-slate-600 mt-1 whitespace-pre-wrap leading-relaxed">
+                              {item.description}
+                            </p>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-700">{item.user_name || 'Anonymous Student'}</span>
+                              {item.user_email && (
+                                <span className="font-mono text-slate-500">({item.user_email})</span>
+                              )}
+                            </div>
+                            <span>Submitted: {new Date(item.created_at).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              )}
             </div>
           </div>
         )}

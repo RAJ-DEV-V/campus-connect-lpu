@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
-import { getWhatsNew, createWhatsNew } from '@/lib/db';
+import { 
+  getWhatsNew, 
+  createWhatsNew, 
+  toggleWhatsNewActive, 
+  deleteWhatsNew 
+} from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
@@ -64,3 +69,64 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create announcement' }, { status: 500 });
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getCurrentSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!session.isAdmin && !session.isOwner) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Announcement ID is required' }, { status: 400 });
+    }
+
+    const updated = await toggleWhatsNewActive(id);
+    if (!updated) {
+      return NextResponse.json({ error: 'Announcement not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, item: updated });
+  } catch (error: any) {
+    console.error('Toggle whats_new error:', error);
+    return NextResponse.json({ error: 'Failed to update announcement' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getCurrentSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!session.isAdmin && !session.isOwner) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Announcement ID is required' }, { status: 400 });
+    }
+
+    const deleted = await deleteWhatsNew(id);
+    if (!deleted) {
+      return NextResponse.json({ error: 'Announcement not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Announcement deleted' });
+  } catch (error: any) {
+    console.error('Delete whats_new error:', error);
+    return NextResponse.json({ error: 'Failed to delete announcement' }, { status: 500 });
+  }
+}
+

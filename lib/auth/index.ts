@@ -19,6 +19,7 @@ export interface SessionPayload {
   isAdmin: boolean;
   isOwner?: boolean;
   role?: 'owner' | 'admin' | 'user';
+  year?: number;
   iat?: number;
   exp?: number;
 }
@@ -36,6 +37,7 @@ export async function signSession(user: User, isAdminUser: boolean, role?: 'owne
     isAdmin: isOwnerUser || isAdminUser,
     isOwner: isOwnerUser,
     role: effectiveRole,
+    year: user.year || undefined,
   };
 
   return await new SignJWT({ ...payload })

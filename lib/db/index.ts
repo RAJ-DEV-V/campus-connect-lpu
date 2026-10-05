@@ -10,7 +10,9 @@ import {
   CommunityVerificationLink,
   WhatsNewItem,
   MaterialOpenHistoryItem,
-  SavedMaterialItem
+  SavedMaterialItem,
+  StudentFeedbackRequest,
+  FeedbackRequestStatus
 } from './types';
 
 const useSupabase = process.env.DATA_PROVIDER === 'supabase' && isSupabaseConfigured;
@@ -235,6 +237,42 @@ export async function getWhatsNew(activeOnly: boolean = true): Promise<WhatsNewI
 export async function createWhatsNew(item: Omit<WhatsNewItem, 'id' | 'created_at'>): Promise<WhatsNewItem> {
   if (supabaseDb) return await supabaseDb.createWhatsNew(item);
   return localDb.createWhatsNew(item);
+}
+
+export async function toggleWhatsNewActive(id: string): Promise<WhatsNewItem | null> {
+  if (supabaseDb) return await supabaseDb.toggleWhatsNewActive(id);
+  return localDb.toggleWhatsNewActive(id);
+}
+
+export async function deleteWhatsNew(id: string): Promise<boolean> {
+  if (supabaseDb) return await supabaseDb.deleteWhatsNew(id);
+  return localDb.deleteWhatsNew(id);
+}
+
+export async function createFeedbackRequest(
+  data: Omit<StudentFeedbackRequest, 'id' | 'created_at' | 'status'>
+): Promise<StudentFeedbackRequest> {
+  if (supabaseDb) return await supabaseDb.createFeedbackRequest(data);
+  return localDb.createFeedbackRequest(data);
+}
+
+export async function getFeedbackRequests(status?: string): Promise<StudentFeedbackRequest[]> {
+  if (supabaseDb) return await supabaseDb.getFeedbackRequests(status);
+  return localDb.getFeedbackRequests(status);
+}
+
+export async function updateFeedbackRequestStatus(
+  id: string,
+  status: FeedbackRequestStatus,
+  adminNote?: string
+): Promise<StudentFeedbackRequest | null> {
+  if (supabaseDb) return await supabaseDb.updateFeedbackRequestStatus(id, status, adminNote);
+  return localDb.updateFeedbackRequestStatus(id, status, adminNote);
+}
+
+export async function deleteFeedbackRequest(id: string): Promise<boolean> {
+  if (supabaseDb) return await supabaseDb.deleteFeedbackRequest(id);
+  return localDb.deleteFeedbackRequest(id);
 }
 
 export async function recordMaterialOpen(userId: string, materialId: string): Promise<MaterialOpenHistoryItem | null> {

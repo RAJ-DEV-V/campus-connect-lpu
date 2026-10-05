@@ -10,7 +10,9 @@ import {
   CommunityVerificationLink,
   WhatsNewItem,
   MaterialOpenHistoryItem,
-  SavedMaterialItem
+  SavedMaterialItem,
+  StudentFeedbackRequest,
+  FeedbackRequestStatus
 } from './types';
 import { generateSamplePdf } from '../pdf-generator';
 
@@ -25,6 +27,7 @@ interface DatabaseSchema {
   whats_new?: WhatsNewItem[];
   material_open_history?: MaterialOpenHistoryItem[];
   saved_materials?: SavedMaterialItem[];
+  feedback_requests?: StudentFeedbackRequest[];
   app_settings?: {
     allow_user_downloads: boolean;
     updated_at?: string;
@@ -827,6 +830,87 @@ export class LocalDatabaseStore {
     this.data.whats_new.unshift(newItem);
     this.save();
     return newItem;
+  }
+
+  toggleWhatsNewActive(id: string): WhatsNewItem | null {
+    if (!this.data.whats_new) return null;
+    const item = this.data.whats_new.find((w) => w.id === id);
+    if (!item) return null;
+    item.is_active = !item.is_active;
+    this.save();
+    return item;
+  }
+
+  deleteWhatsNew(id: string): boolean {
+    if (!this.data.whats_new) return false;
+    const initialLength = this.data.whats_new.length;
+    this.data.whats_new = this.data.whats_new.filter((w) => w.id !== id);
+    if (this.data.whats_new.length !== initialLength) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  // --- Student Feedback & Missing Material Requests ---
+  createFeedbackRequest(data: Omit<StudentFeedbackRequest, 'id' | 'created_at' | 'status'>): StudentFeedbackRequest {
+    if (!this.data.feedback_requests) this.data.feedback_requests = [];
+    const newReq: StudentFeedbackRequest = {
+      id: `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      user_id: data.user_id,
+      user_name: data.user_name,
+      user_email: data.user_email,
+      user_year: data.user_year,
+      type: data.type,
+      subject_code: data.subject_code || '',
+      subject_name: data.subject_name || '',
+      material_type: data.material_type || '',
+      title: data.title,
+      description: data.description,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+    this.data.feedback_requests.unshift(newReq);
+    this.save();
+    return newReq;
+  }
+
+  getFeedbackRequests(status?: string): StudentFeedbackRequest[] {
+    const list = this.data.feedback_requests || [];
+    const filtered = status && status !== 'all' ? list.filter((r) => r.status === status) : list;
+    return [...filtered].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  updateFeedbackRequestStatus(
+    id: string, 
+    status: FeedbackRequestStatus, 
+    adminNote?: string
+  ): StudentFeedbackRequest | null {
+    if (!this.data.feedback_requests) return null;
+    const item = this.data.feedback_requests.find((r) => r.id === id);
+    if (!item) return null;
+    item.status = status;
+    if (status === 'resolved') {
+      item.resolved_at = new Date().toISOString();
+    }
+    if (adminNote !== undefined) {
+      item.admin_note = adminNote;
+    }
+    this.save();
+    return item;
+  }
+
+  deleteFeedbackRequest(id: string): boolean {
+    if (!this.data.feedback_requests) return false;
+    const initialLength = this.data.feedback_requests.length;
+    this.data.feedback_requests = this.data.feedback_requests.filter((r) => r.id !== id);
+    if (this.data.feedback_requests.length !== initialLength) {
+      this.save();
+      return true;
+    }
+    return false;
   }
 
   // --- Material Open History (Continue Studying) ---

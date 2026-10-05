@@ -10,7 +10,9 @@ import {
   CommunityVerificationLink,
   WhatsNewItem,
   MaterialOpenHistoryItem,
-  SavedMaterialItem
+  SavedMaterialItem,
+  StudentFeedbackRequest,
+  FeedbackRequestStatus
 } from './types';
 import { getLocalDatabase } from './local-store';
 
@@ -948,6 +950,111 @@ export class SupabaseDatabaseStore {
       if (!error && data) {
         return data as WhatsNewItem;
       }
+    } catch {}
+    return local;
+  }
+
+  async toggleWhatsNewActive(id: string): Promise<WhatsNewItem | null> {
+    const local = this.localFallback.toggleWhatsNewActive(id);
+    try {
+      if (local) {
+        await this.client
+          .from('whats_new')
+          .update({ is_active: local.is_active })
+          .eq('id', id);
+      }
+    } catch {}
+    return local;
+  }
+
+  async deleteWhatsNew(id: string): Promise<boolean> {
+    const local = this.localFallback.deleteWhatsNew(id);
+    try {
+      await this.client
+        .from('whats_new')
+        .delete()
+        .eq('id', id);
+    } catch {}
+    return local;
+  }
+
+  // --- Student Feedback & Missing Material Requests ---
+  async createFeedbackRequest(data: Omit<StudentFeedbackRequest, 'id' | 'created_at' | 'status'>): Promise<StudentFeedbackRequest> {
+    const local = this.localFallback.createFeedbackRequest(data);
+    try {
+      const { data: created, error } = await this.client
+        .from('feedback_requests')
+        .insert([{
+          user_id: data.user_id,
+          user_name: data.user_name,
+          user_email: data.user_email,
+          user_year: data.user_year || null,
+          type: data.type,
+          subject_code: data.subject_code || null,
+          subject_name: data.subject_name || null,
+          material_type: data.material_type || null,
+          title: data.title,
+          description: data.description,
+          status: 'pending',
+        }])
+        .select('*')
+        .single();
+
+      if (!error && created) {
+        return created as StudentFeedbackRequest;
+      }
+    } catch {}
+    return local;
+  }
+
+  async getFeedbackRequests(status?: string): Promise<StudentFeedbackRequest[]> {
+    try {
+      let query = this.client
+        .from('feedback_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (status && status !== 'all') {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        return data as StudentFeedbackRequest[];
+      }
+    } catch {}
+    return this.localFallback.getFeedbackRequests(status);
+  }
+
+  async updateFeedbackRequestStatus(
+    id: string, 
+    status: FeedbackRequestStatus, 
+    adminNote?: string
+  ): Promise<StudentFeedbackRequest | null> {
+    const local = this.localFallback.updateFeedbackRequestStatus(id, status, adminNote);
+    try {
+      const updates: any = { status };
+      if (status === 'resolved') {
+        updates.resolved_at = new Date().toISOString();
+      }
+      if (adminNote !== undefined) {
+        updates.admin_note = adminNote;
+      }
+      await this.client
+        .from('feedback_requests')
+        .update(updates)
+        .eq('id', id);
+    } catch {}
+    return local;
+  }
+
+  async deleteFeedbackRequest(id: string): Promise<boolean> {
+    const local = this.localFallback.deleteFeedbackRequest(id);
+    try {
+      await this.client
+        .from('feedback_requests')
+        .delete()
+        .eq('id', id);
     } catch {}
     return local;
   }

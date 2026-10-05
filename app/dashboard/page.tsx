@@ -26,10 +26,14 @@ import {
   Award,
   BarChart3,
   Edit3,
-  UserCheck
+  UserCheck,
+  Megaphone,
+  MessageSquarePlus,
+  X
 } from 'lucide-react';
 import MaterialCard, { formatYearName } from '@/components/MaterialCard';
 import DocumentViewerModal from '@/components/DocumentViewerModal';
+import StudentFeedbackModal from '@/components/StudentFeedbackModal';
 import { Material, WhatsNewItem, MaterialOpenHistoryItem, SavedMaterialItem } from '@/lib/db/types';
 
 export default function DashboardPage() {
@@ -58,6 +62,11 @@ export default function DashboardPage() {
   const [allowDownloads, setAllowDownloads] = useState<boolean>(true);
   const [previewMaterial, setPreviewMaterial] = useState<Material | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Feedback & Bug Report modal state
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackDefaultTab, setFeedbackDefaultTab] = useState<'material_request' | 'bug_report'>('material_request');
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState<Set<string>>(new Set());
 
   // Activity summary stats
   const [totalNewCount, setTotalNewCount] = useState<number>(0);
@@ -397,6 +406,70 @@ export default function DashboardPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-10">
 
       {/* ======================================================== */}
+      {/* 0. 📢 ADMIN ANNOUNCEMENTS BANNER                         */}
+      {/* ======================================================== */}
+      {whatsNewList.filter(item => item.active !== false && !dismissedAnnouncements.has(item.id)).length > 0 && (
+        <div className="space-y-3">
+          {whatsNewList
+            .filter(item => item.active !== false && !dismissedAnnouncements.has(item.id))
+            .map((announcement) => {
+              const badge = getAnnouncementBadge(announcement.type || 'announcement');
+              const BadgeIcon = badge.icon;
+              return (
+                <div
+                  key={announcement.id}
+                  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 p-4 sm:p-5 text-slate-900 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Megaphone className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${badge.bg}`}>
+                          <BadgeIcon className="w-3 h-3" />
+                          {badge.label}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-semibold">
+                          {formatTimeAgo(announcement.created_at)}
+                        </span>
+                      </div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+                        {announcement.title}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-600 mt-0.5 leading-relaxed">
+                        {announcement.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    {announcement.link && (
+                      <a
+                        href={announcement.link}
+                        target={announcement.link.startsWith('http') ? '_blank' : '_self'}
+                        rel="noreferrer"
+                        className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                      >
+                        Learn More <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setDismissedAnnouncements(prev => new Set(prev).add(announcement.id))}
+                      className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-black/5 transition-colors"
+                      title="Dismiss announcement"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      )}
+
+      {/* ======================================================== */}
       {/* 1. PERSONALIZED HEADER & ACADEMIC PROFILE                 */}
       {/* ======================================================== */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 rounded-3xl p-6 sm:p-10 text-white relative overflow-hidden shadow-xl border border-slate-800">
@@ -457,6 +530,32 @@ export default function DashboardPage() {
                   {formatYearName(yr)}
                 </button>
               ))}
+            </div>
+
+            {/* Quick Student Actions: Request Subject & Report Bug */}
+            <div className="mt-4 flex items-center gap-2 flex-wrap pt-3 border-t border-slate-800/80">
+              <button
+                type="button"
+                onClick={() => {
+                  setFeedbackDefaultTab('material_request');
+                  setFeedbackModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                Request Missing Subject
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFeedbackDefaultTab('bug_report');
+                  setFeedbackModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold transition-all cursor-pointer"
+              >
+                <MessageSquarePlus className="w-3.5 h-3.5 text-slate-400" />
+                Report Bug / Feedback
+              </button>
             </div>
           </div>
 
@@ -976,6 +1075,16 @@ export default function DashboardPage() {
         allowDownloads={allowDownloads}
         isAdminOrOwner={Boolean(user?.isAdmin || user?.isOwner)}
         onClose={() => setPreviewMaterial(null)}
+      />
+
+      {/* ======================================================== */}
+      {/* 11. STUDENT FEEDBACK & MATERIAL REQUEST MODAL            */}
+      {/* ======================================================== */}
+      <StudentFeedbackModal
+        isOpen={feedbackModalOpen}
+        onClose={() => setFeedbackModalOpen(false)}
+        defaultTab={feedbackDefaultTab}
+        userYear={studentYear}
       />
 
     </div>

@@ -16,10 +16,13 @@ import {
   SlidersHorizontal,
   ChevronRight,
   FolderOpen,
-  GraduationCap
+  GraduationCap,
+  MessageSquarePlus,
+  Sparkles
 } from 'lucide-react';
 import MaterialCard, { formatYearName } from '@/components/MaterialCard';
 import DocumentViewerModal from '@/components/DocumentViewerModal';
+import StudentFeedbackModal from '@/components/StudentFeedbackModal';
 import { Material, MaterialType } from '@/lib/db/types';
 
 function LibraryContent() {
@@ -48,6 +51,10 @@ function LibraryContent() {
   const [previewMaterial, setPreviewMaterial] = useState<Material | null>(null);
   const [allowDownloads, setAllowDownloads] = useState<boolean>(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  // Student Feedback & Request Modal state
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackDefaultTab, setFeedbackDefaultTab] = useState<'material_request' | 'bug_report'>('material_request');
 
   // Sync state if URL changes
   useEffect(() => {
@@ -225,29 +232,45 @@ function LibraryContent() {
           </p>
         </div>
 
-        {/* Search Bar Input */}
-        <div className="w-full md:w-80 relative">
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search (e.g. Programming in C, DSA, CSE101)..."
-            className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-lpu-500 focus:outline-none text-xs text-slate-900 placeholder:text-slate-400 shadow-2xs"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          {searchQuery ? (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-100 text-slate-400"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none shadow-2xs">
-              Ctrl K
-            </kbd>
-          )}
+        {/* Search & Actions */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              setFeedbackDefaultTab('material_request');
+              setFeedbackModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/90 font-bold text-xs transition-colors shrink-0 shadow-2xs cursor-pointer"
+            title="Request a subject code or material not yet present"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            Request Subject
+          </button>
+
+          {/* Search Bar Input */}
+          <div className="w-full sm:w-72 md:w-80 relative">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search (e.g. Programming in C, DSA, CSE101)..."
+              className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-lpu-500 focus:outline-none text-xs text-slate-900 placeholder:text-slate-400 shadow-2xs"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {searchQuery ? (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-100 text-slate-400"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none shadow-2xs">
+                Ctrl K
+              </kbd>
+            )}
+          </div>
         </div>
       </div>
 
@@ -519,20 +542,33 @@ function LibraryContent() {
         </div>
       ) : (
         /* Empty State */
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 max-w-md mx-auto">
+        <div className="bg-white rounded-3xl p-10 sm:p-12 text-center border border-slate-200 max-w-lg mx-auto shadow-xs">
           <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto mb-4">
             <FolderOpen className="w-7 h-7" />
           </div>
           <h3 className="font-bold text-slate-900 text-lg">No Materials Found</h3>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-            We couldn&apos;t find study materials matching your current Year + Subject + Type selection.
+            We couldn&apos;t find study materials matching your current selection. Looking for a subject code or notes that aren&apos;t here yet?
           </p>
-          <button
-            onClick={clearAllFilters}
-            className="mt-6 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-colors"
-          >
-            Reset Filters & View All
-          </button>
+
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => {
+                setFeedbackDefaultTab('material_request');
+                setFeedbackModalOpen(true);
+              }}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-lpu-600 hover:bg-lpu-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              Request This Subject / Material
+            </button>
+            <button
+              onClick={clearAllFilters}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Reset Filters & View All
+            </button>
+          </div>
         </div>
       )}
 
@@ -542,6 +578,15 @@ function LibraryContent() {
         allowDownloads={allowDownloads}
         isAdminOrOwner={isAdmin}
         onClose={() => setPreviewMaterial(null)}
+      />
+
+      {/* Student Feedback & Material Request Modal */}
+      <StudentFeedbackModal
+        isOpen={feedbackModalOpen}
+        onClose={() => setFeedbackModalOpen(false)}
+        defaultTab={feedbackDefaultTab}
+        initialSubjectCode={searchQuery.trim() || (selectedSubject !== 'All' ? selectedSubject : '')}
+        userYear={selectedYear > 0 ? selectedYear : 1}
       />
 
     </div>
