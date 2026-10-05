@@ -40,11 +40,15 @@ import {
   FileText,
   RefreshCw,
   LogOut,
-  FolderOpen
+  FolderOpen,
+  ChevronUp,
+  ChevronDown,
+  Plus
 } from 'lucide-react';
 import { Material, AdminStats, CommunityVerificationLink, Admin } from '@/lib/db/types';
 import { formatYearName } from '@/components/MaterialCard';
 import { uploadToGoogleDriveResumable } from '@/lib/google-drive-client';
+import { mergeImagesToPdf, ImagePageItem } from '@/lib/image-to-pdf';
 
 interface UserActivityRecord {
   id: string;
@@ -123,7 +127,11 @@ export default function AdminDashboardPage() {
   const [uploadYear, setUploadYear] = useState<number>(1);
   const [uploadType, setUploadType] = useState<string>('Notes');
   const [uploadDescription, setUploadDescription] = useState('');
+  const [resourceMode, setResourceMode] = useState<'file' | 'link'>('file');
+  const [resourceLink, setResourceLink] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [clubbedImages, setClubbedImages] = useState<ImagePageItem[]>([]);
+  const [isMergingImages, setIsMergingImages] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -429,25 +437,212 @@ export default function AdminDashboardPage() {
   };
 
   // --- Material Upload & Edit ---
+  const handleIncomingFiles = (incomingFileList: FileList | File[]) => {
+    const files = Array.from(incomingFileList);
+    if (files.length === 0) return;
+
+    const isImageFile = (f: File) => {
+      const ext = '.' + f.name.split('.').pop()?.toLowerCase();
+      return f.type.startsWith('image/') || ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'].includes(ext);
+    };
+
+    const imageFiles = files.filter(isImageFile);
+    const nonImageFiles = files.filter((f) => !isImageFile(f));
+
+    if (imageFiles.length > 0 && nonImageFiles.length === 0) {
+      // Multiple or single images -> Club into multi-page document
+      const newItems: ImagePageItem[] = imageFiles.map((file) => ({
+        id: Math.random().toString(36).substring(2, 9),
+        file,
+        previewUrl: URL.createObjectURL(file),
+        name: file.name,
+        size: file.size,
+      }));
+
+      setClubbedImages((prev) => [...prev, ...newItems]);
+      setUploadFile(null);
+
+      // Auto-suggest title from first image name if empty
+      if (!uploadTitle.trim()) {
+        const cleanName = imageFiles[0].name
+          .replace(/\.[^/.]+$/, '')
+          .replace(/[_-]/g, ' ')
+          .replace(/\s*(page|pg|p|part|pt|img|image)?\s*\d+$/i, '')
+          .trim();
+        setUploadTitle(cleanName || 'Clubbed Study Notes');
+      }
+    } else if (files.length === 1 && !isImageFile(files[0])) {
+      // Single PDF / DOCX file
+      clubbedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+      setClubbedImages([]);
+      setUploadFile(files[0]);
+
+      if (!uploadTitle.trim()) {
+        const cleanName = files[0].name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+        setUploadTitle(cleanName);
+      }
+    } else if (imageFiles.length > 0 && nonImageFiles.length > 0) {
+      // Mixed: notify user
+      alert('Please select either document files (PDF/DOCX) or image pages (JPG, PNG, WEBP) to combine.');
+    } else {
+      // Non-image document
+      const doc = nonImageFiles[0];
+      clubbedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+      setClubbedImages([]);
+      setUploadFile(doc);
+      if (!uploadTitle.trim()) {
+        const cleanName = doc.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+        setUploadTitle(cleanName);
+      }
+    }
+  };
+
+  const movePage = (index: number, direction: 'up' | 'down') => {
+    setClubbedImages((prev) => {
+      const copy = [...prev];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= copy.length) return prev;
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      return copy;
+    });
+  };
+
+  const removePage = (index: number) => {
+    setClubbedImages((prev) => {
+      const removed = prev[index];
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const clearClubbedPages = () => {
+    clubbedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+    setClubbedImages([]);
+    const input = document.getElementById('pdfUploadInput') as HTMLInputElement;
+    if (input) input.value = '';
+  };
+
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (uploading) return;
+
+    if (resourceMode === 'link') {
+      if (!resourceLink.trim()) {
+        setUploadMessage({ type: 'error', text: 'Please enter or paste a valid resource link (URL).' });
+        return;
+      }
+      try {
+        new URL(resourceLink.trim());
+      } catch {
+        setUploadMessage({ type: 'error', text: 'Please enter a valid link including https:// or http://' });
+        return;
+      }
+    } else {
+      if (!uploadFile && clubbedImages.length === 0) {
+        setUploadMessage({ type: 'error', text: 'Please select a document or image files to upload.' });
+        return;
+      }
+    }
+
     setUploading(true);
     setUploadMessage(null);
     setUploadProgress(0);
     setUploadStage('');
 
-    if (!uploadFile) {
-      setUploadMessage({ type: 'error', text: 'Please select a document or image file to upload.' });
-      setUploading(false);
-      return;
-    }
-
     try {
+      if (resourceMode === 'link') {
+        const cleanLink = resourceLink.trim();
+        const isDrive = cleanLink.includes('drive.google.com');
+
+        // Extract Google Drive ID if present
+        const driveMatch = cleanLink.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+                           cleanLink.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+                           cleanLink.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        const driveId = driveMatch ? driveMatch[1] : undefined;
+
+        setUploadStage('Registering resource link in library database...');
+        setUploadProgress(50);
+
+        const res = await fetch('/api/materials/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: uploadTitle,
+            subject: uploadSubject,
+            subject_code: uploadSubjectCode,
+            year: uploadYear,
+            material_type: uploadType,
+            description: uploadDescription,
+            file_url: cleanLink,
+            file_size: isDrive ? 'Google Drive' : 'Resource Link',
+            drive_file_id: driveId,
+            file_name: uploadTitle,
+            mime_type: isDrive ? 'application/pdf' : 'text/uri-list',
+          }),
+        });
+
+        let data: any = null;
+        const resText = await res.text();
+        try {
+          data = JSON.parse(resText);
+        } catch {
+          throw new Error(`Server returned unexpected response (status ${res.status}): ${resText.slice(0, 150)}`);
+        }
+
+        if (!res.ok || !data.success) {
+          throw new Error(data?.error || `Upload registration failed with status ${res.status}`);
+        }
+
+        setUploadProgress(100);
+        setUploadMessage({
+          type: 'success',
+          text: `"${uploadTitle}" registered successfully via Resource Link & published to ${formatYearName(uploadYear)}!`,
+        });
+
+        // Reset form
+        setUploadTitle('');
+        setUploadSubject('');
+        setUploadSubjectCode('');
+        setUploadDescription('');
+        setResourceLink('');
+        setUploadProgress(0);
+        setUploadStage('');
+
+        // Refresh list, analytics & stats
+        await Promise.all([loadMaterials(), loadStats(), loadAnalytics()]);
+        return;
+      }
+
+      let fileToUpload: File;
+
+      if (clubbedImages.length > 0) {
+        setIsMergingImages(true);
+        setUploadStage(
+          clubbedImages.length > 1
+            ? `Clubbing ${clubbedImages.length} image pages into 1 PDF document...`
+            : 'Converting image into official document PDF...'
+        );
+        fileToUpload = await mergeImagesToPdf(
+          clubbedImages.map((item) => item.file),
+          uploadTitle,
+          (prog) => setUploadStage(prog.stage)
+        );
+        setIsMergingImages(false);
+      } else if (uploadFile) {
+        fileToUpload = uploadFile;
+      } else {
+        throw new Error('No file selected.');
+      }
+
       setUploadStage('Authorizing with Google Drive...');
 
       // 1. Direct browser-to-Google Drive resumable upload (bypasses Vercel 4.5MB request limit)
       const driveResult = await uploadToGoogleDriveResumable({
-        file: uploadFile,
+        file: fileToUpload,
         title: uploadTitle,
         subjectCode: uploadSubjectCode,
         year: uploadYear,
@@ -498,9 +693,10 @@ export default function AdminDashboardPage() {
         throw new Error(data?.error || `Upload registration failed with status ${res.status}`);
       }
 
+      const clubbedNote = clubbedImages.length > 1 ? ` (${clubbedImages.length} image pages clubbed into 1 PDF)` : '';
       setUploadMessage({
         type: 'success',
-        text: `"${uploadTitle}" (${driveResult.fileSizeFormatted}) uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!`,
+        text: `"${uploadTitle}" (${driveResult.fileSizeFormatted})${clubbedNote} uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!`,
       });
 
       // Reset form
@@ -509,8 +705,13 @@ export default function AdminDashboardPage() {
       setUploadSubjectCode('');
       setUploadDescription('');
       setUploadFile(null);
+      clubbedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+      setClubbedImages([]);
       setUploadProgress(0);
       setUploadStage('');
+
+      const input = document.getElementById('pdfUploadInput') as HTMLInputElement;
+      if (input) input.value = '';
 
       // Refresh list, analytics & stats
       await Promise.all([loadMaterials(), loadStats(), loadAnalytics()]);
@@ -522,6 +723,7 @@ export default function AdminDashboardPage() {
       });
     } finally {
       setUploading(false);
+      setIsMergingImages(false);
       setUploadStage('');
     }
   };
@@ -584,7 +786,7 @@ export default function AdminDashboardPage() {
           subject_code: editingMaterial.subject_code,
           year: editingMaterial.year,
           material_type: editingMaterial.material_type,
-          ...(replacementUrl ? { file_url: replacementUrl, file_size: replacementSize } : {}),
+          ...(replacementUrl ? { file_url: replacementUrl, file_size: replacementSize } : { file_url: editingMaterial.file_url }),
         }),
       });
 
@@ -1680,159 +1882,419 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              {/* File Upload with Drag & Drop */}
+              {/* Resource Source Selector: Upload Files vs Paste Link */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Upload Document or Image (PDF, JPG, PNG, WEBP, DOCX) <span className="text-rose-500">*</span>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Choose Material Source <span className="text-rose-500">*</span>
                 </label>
-                <div 
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDragEnter={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsDraggingFile(true);
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                    setIsDraggingFile(false);
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsDraggingFile(false);
-                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      const file = e.dataTransfer.files[0];
-                      const validExts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.doc', '.docx'];
-                      const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
-                      if (validExts.includes(fileExt) || file.type.startsWith('image/') || file.type === 'application/pdf') {
-                        setUploadFile(file);
-                        if (!uploadTitle.trim()) {
-                          const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-                          setUploadTitle(cleanName);
-                        }
-                      } else {
-                        alert('Please drop a valid document or image (PDF, JPG, PNG, WEBP, DOCX).');
-                      }
-                    }
-                  }}
-                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
-                    isDraggingFile
-                      ? 'border-lpu-500 bg-orange-50/80 scale-[1.01] shadow-lg shadow-orange-500/10'
-                      : uploadFile
-                      ? 'border-emerald-400 bg-emerald-50/40 hover:border-emerald-500'
-                      : 'border-slate-300 hover:border-lpu-500 hover:bg-slate-50/60'
-                  }`}
-                >
-                  <input
-                    type="file"
-                    id="pdfUploadInput"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-                    required={!uploadFile}
-                    onChange={(e) => {
-                      const file = e.target.files ? e.target.files[0] : null;
-                      setUploadFile(file);
-                      if (file && !uploadTitle.trim()) {
-                        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-                        setUploadTitle(cleanName);
-                      }
-                    }}
-                    className="hidden"
-                  />
-                  <label htmlFor="pdfUploadInput" className="cursor-pointer flex flex-col items-center select-none">
-                    {isDraggingFile ? (
-                      <>
-                        <Upload className="w-10 h-10 text-lpu-600 animate-bounce mb-2" />
-                        <span className="text-sm font-extrabold text-lpu-700">
-                          Drop file here to upload
-                        </span>
-                        <span className="text-[11px] text-orange-600 font-semibold mt-1">
-                          Release to select this file
-                        </span>
-                      </>
-                    ) : uploadFile ? (
-                      <>
-                        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-2">
-                          <CheckCircle2 className="w-6 h-6" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-800 break-all max-w-md">
-                          {uploadFile.name}
-                        </span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[11px] font-mono text-emerald-600 font-bold bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                            {(uploadFile.size / (1024 * 1024)).toFixed(2)} MB
-                          </span>
-                          <span className="text-[11px] text-slate-400">
-                            • Click or drag another file to replace
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mb-2 group-hover:bg-orange-50 group-hover:text-lpu-600 transition-colors">
-                          <Upload className="w-5 h-5 text-slate-400" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-700">
-                          <strong className="text-lpu-600 hover:underline">Choose a file</strong> or drag &amp; drop it here
-                        </span>
-                        <span className="text-[10px] text-slate-400 mt-1">
-                          PDF, JPG, PNG, WEBP, DOCX (Direct Resumable Google Drive Upload, Supports 50MB+)
-                        </span>
-                      </>
-                    )}
-                  </label>
-                  {uploadFile && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setUploadFile(null);
-                        const input = document.getElementById('pdfUploadInput') as HTMLInputElement;
-                        if (input) input.value = '';
-                      }}
-                      className="mt-3 text-[11px] text-rose-500 hover:text-rose-700 font-bold hover:underline inline-flex items-center gap-1"
-                    >
-                      <X className="w-3.5 h-3.5" /> Remove file
-                    </button>
-                  )}
+                <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setResourceMode('file')}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      resourceMode === 'file'
+                        ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Upload className="w-4 h-4 text-lpu-600" />
+                    <span>Upload File / Multi-Page Images</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResourceMode('link')}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      resourceMode === 'link'
+                        ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <LinkIcon className="w-4 h-4 text-amber-600" />
+                    <span>Paste Resource Link (URL)</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Upload Progress Indicator */}
-              {uploading && (
+              {/* Resource Content: Link Mode vs File Upload Mode */}
+              {resourceMode === 'link' ? (
+                /* Link Mode Input Card */
+                <div className="bg-gradient-to-br from-amber-50/50 via-white to-orange-50/30 border-2 border-dashed border-amber-300 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                      <LinkIcon className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-900">
+                        Resource URL / Cloud Link <span className="text-rose-500">*</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Paste a Google Drive view link, OneDrive, Dropbox, Notion, PDF URL, or any external study resource link.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="url"
+                      value={resourceLink}
+                      onChange={(e) => setResourceLink(e.target.value)}
+                      placeholder="e.g. https://drive.google.com/file/d/1a2b3c.../view?usp=sharing"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                      required={resourceMode === 'link'}
+                    />
+                    {resourceLink && (
+                      <button
+                        type="button"
+                        onClick={() => setResourceLink('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 p-1"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Smart Link Recognition Badge */}
+                  {resourceLink.trim() && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {resourceLink.includes('drive.google.com') ? (
+                        <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          Google Drive Link Detected — Embedded preview is fully enabled for students!
+                        </span>
+                      ) : resourceLink.includes('onedrive') || resourceLink.includes('1drv.ms') ? (
+                        <span className="text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
+                          <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                          OneDrive Cloud Resource Detected
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl flex items-center gap-1.5">
+                          <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                          External Study Link Resource
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* File Upload with Drag & Drop & Multi-Image Clubbing */
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Upload Document or Note Images (PDF, JPG, PNG, WEBP, DOCX) <span className="text-rose-500">*</span>
+                    </label>
+                    {clubbedImages.length > 0 && (
+                      <span className="text-[11px] font-black text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                        ⚡ Auto-clubbing into 1 PDF
+                      </span>
+                    )}
+                  </div>
+
+                  {clubbedImages.length > 0 ? (
+                    /* Multi-Image Clubbed Document View */
+                    <div className="border-2 border-amber-300 bg-amber-50/30 rounded-2xl p-4 sm:p-5 space-y-4 transition-all shadow-sm">
+                      {/* Header Banner */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200/60">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center font-black shadow-md shadow-orange-500/20">
+                            <Layers className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-slate-900">
+                                Clubbed Multi-Page Document
+                              </span>
+                              <span className="bg-gradient-to-r from-lpu-600 to-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                                {clubbedImages.length} {clubbedImages.length === 1 ? 'Page' : 'Pages'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 mt-0.5">
+                              All {clubbedImages.length} image pages will be automatically combined into <strong>1 single PDF document</strong> when publishing.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          <label
+                            htmlFor="addMoreImagesInput"
+                            className="cursor-pointer px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-lpu-500 hover:text-lpu-600 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                          >
+                            <Plus className="w-3.5 h-3.5 text-lpu-600" />
+                            Add More Pages
+                          </label>
+                          <input
+                            type="file"
+                            id="addMoreImagesInput"
+                            accept=".jpg,.jpeg,.png,.webp,image/*"
+                            multiple
+                            onChange={(e) => {
+                              if (e.target.files) handleIncomingFiles(e.target.files);
+                              e.target.value = '';
+                            }}
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={clearClubbedPages}
+                            className="px-2.5 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1"
+                            title="Remove all pages"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Pages List */}
+                      <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                        {clubbedImages.map((item, idx) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-3 p-2.5 bg-white border border-slate-200 hover:border-amber-300 rounded-xl transition-all shadow-xs group"
+                          >
+                            {/* Mini Thumbnail */}
+                            <div className="relative w-12 h-14 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">
+                              <img
+                                src={item.previewUrl}
+                                alt={`Page ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute bottom-0 inset-x-0 bg-slate-900/85 text-[9px] font-black text-white text-center py-0.5">
+                                P.{idx + 1}
+                              </span>
+                            </div>
+
+                            {/* Details */}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-black text-slate-800">
+                                  Page {idx + 1}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  ({(item.size / 1024).toFixed(0)} KB)
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 truncate" title={item.name}>
+                                {item.name}
+                              </p>
+                            </div>
+
+                            {/* Page Reorder & Delete Controls */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => movePage(idx, 'up')}
+                                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-lpu-600 hover:border-lpu-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                title="Move page earlier (up)"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === clubbedImages.length - 1}
+                                onClick={() => movePage(idx, 'down')}
+                                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-lpu-600 hover:border-lpu-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                title="Move page later (down)"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removePage(idx)}
+                                className="p-1.5 rounded-lg bg-rose-50 border border-rose-100 text-rose-500 hover:text-rose-700 hover:bg-rose-100 transition-colors ml-1"
+                                title="Remove page"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Secondary Drop Target for Adding More Pages */}
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDragEnter={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.dataTransfer.files) handleIncomingFiles(e.dataTransfer.files);
+                        }}
+                        onClick={() => document.getElementById('addMoreImagesInput')?.click()}
+                        className="p-3 border-2 border-dashed border-amber-300 hover:border-amber-500 hover:bg-amber-100/40 rounded-xl text-center cursor-pointer transition-all"
+                      >
+                        <span className="text-[11px] text-amber-800 font-bold flex items-center justify-center gap-1.5">
+                          <Plus className="w-3.5 h-3.5 text-lpu-600" />
+                          Drag &amp; drop more image pages here or click to add
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Standard Drop Zone (Accepts single document or multiple images) */
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDraggingFile(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                        setIsDraggingFile(false);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDraggingFile(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          handleIncomingFiles(e.dataTransfer.files);
+                        }
+                      }}
+                      className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                        isDraggingFile
+                          ? 'border-lpu-500 bg-orange-50/80 scale-[1.01] shadow-lg shadow-orange-500/10'
+                          : uploadFile
+                          ? 'border-emerald-400 bg-emerald-50/40 hover:border-emerald-500'
+                          : 'border-slate-300 hover:border-lpu-500 hover:bg-slate-50/60'
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        id="pdfUploadInput"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,image/*"
+                        multiple
+                        required={resourceMode === 'file' && !uploadFile && clubbedImages.length === 0}
+                        onChange={(e) => {
+                          if (e.target.files) handleIncomingFiles(e.target.files);
+                        }}
+                        className="hidden"
+                      />
+                      <label htmlFor="pdfUploadInput" className="cursor-pointer flex flex-col items-center select-none">
+                        {isDraggingFile ? (
+                          <>
+                            <Upload className="w-10 h-10 text-lpu-600 animate-bounce mb-2" />
+                            <span className="text-sm font-extrabold text-lpu-700">
+                              Drop file(s) here to upload
+                            </span>
+                            <span className="text-[11px] text-orange-600 font-semibold mt-1">
+                              Release to select document or multiple image pages
+                            </span>
+                          </>
+                        ) : uploadFile ? (
+                          <>
+                            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-2">
+                              <CheckCircle2 className="w-6 h-6" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-800 break-all max-w-md">
+                              {uploadFile.name}
+                            </span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[11px] font-mono text-emerald-600 font-bold bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                                {(uploadFile.size / (1024 * 1024)).toFixed(2)} MB
+                              </span>
+                              <span className="text-[11px] text-slate-400">
+                                • Click or drag another file to replace
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mb-2 group-hover:bg-orange-50 group-hover:text-lpu-600 transition-colors">
+                              <Upload className="w-5 h-5 text-slate-400" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-700">
+                              <strong className="text-lpu-600 hover:underline">Choose file(s)</strong> or drag &amp; drop here
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-medium mt-1">
+                              Select a document (PDF, DOCX) or <strong>multiple images (JPG, PNG, WEBP)</strong>
+                            </span>
+                            <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-full mt-2 inline-flex items-center gap-1">
+                              <Layers className="w-3 h-3 text-amber-600" />
+                              Multiple image note pages will be automatically clubbed into 1 PDF document
+                            </span>
+                          </>
+                        )}
+                      </label>
+                      {uploadFile && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUploadFile(null);
+                            const input = document.getElementById('pdfUploadInput') as HTMLInputElement;
+                            if (input) input.value = '';
+                          }}
+                          className="mt-3 text-[11px] text-rose-500 hover:text-rose-700 font-bold hover:underline inline-flex items-center gap-1"
+                        >
+                          <X className="w-3.5 h-3.5" /> Remove file
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Upload & Merge Progress Indicator */}
+              {(uploading || isMergingImages) && (
                 <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 animate-in fade-in">
                   <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                     <span className="flex items-center gap-2">
                       <div className="w-3.5 h-3.5 border-2 border-lpu-600 border-t-transparent rounded-full animate-spin" />
-                      {uploadStage || 'Uploading to Google Drive...'}
+                      {uploadStage || (isMergingImages ? 'Merging pages into 1 PDF...' : 'Uploading to Google Drive...')}
                     </span>
-                    <span className="font-mono text-lpu-600">{uploadProgress}%</span>
+                    <span className="font-mono text-lpu-600">
+                      {isMergingImages ? 'Generating PDF' : `${uploadProgress}%`}
+                    </span>
                   </div>
                   <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-lpu-600 to-amber-500 transition-all duration-300 rounded-full"
-                      style={{ width: `${Math.max(5, uploadProgress)}%` }}
+                      style={{ width: `${Math.max(5, isMergingImages ? 100 : uploadProgress)}%` }}
                     />
                   </div>
                   <p className="text-[10px] text-slate-400">
-                    Streaming directly from browser to Google Drive API. Avoid closing this tab during upload.
+                    {isMergingImages
+                      ? 'Combining and formatting multiple note images into a high-quality multi-page PDF...'
+                      : 'Streaming directly from browser to Google Drive API. Avoid closing this tab during upload.'}
                   </p>
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={uploading}
+                disabled={uploading || isMergingImages}
                 className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-60"
               >
-                {uploading ? (
+                {isMergingImages ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Clubbing Pages into 1 PDF...
+                  </>
+                ) : uploading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     {uploadProgress > 0 ? `Uploading (${uploadProgress}%)...` : 'Connecting to Google Drive...'}
+                  </>
+                ) : resourceMode === 'link' ? (
+                  <>
+                    <LinkIcon className="w-4 h-4" />
+                    Publish Resource Link to Study Library
+                  </>
+                ) : clubbedImages.length > 1 ? (
+                  <>
+                    <Layers className="w-4 h-4" />
+                    Merge {clubbedImages.length} Pages &amp; Publish to Study Library
                   </>
                 ) : (
                   <>
@@ -2774,6 +3236,33 @@ export default function AdminDashboardPage() {
                   rows={2}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Resource URL / Link
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={editingMaterial.file_url}
+                    onChange={(e) => setEditingMaterial({ ...editingMaterial, file_url: e.target.value })}
+                    placeholder="https://drive.google.com/file/d/... or any link"
+                    className="flex-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
+                  />
+                  <a
+                    href={editingMaterial.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-lpu-600 hover:bg-slate-50 transition-colors"
+                    title="Open link in new tab"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  You can update the direct link here, or drag/select a new file below to upload and replace it.
+                </p>
               </div>
 
               {/* Replace Document File with Drag & Drop */}
