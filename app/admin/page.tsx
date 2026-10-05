@@ -3542,32 +3542,86 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Resource URL / Link
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="url"
-                    value={editingMaterial.file_url}
-                    onChange={(e) => setEditingMaterial({ ...editingMaterial, file_url: e.target.value })}
-                    placeholder="https://drive.google.com/file/d/... or any link"
-                    className="flex-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
-                  />
-                  <a
-                    href={editingMaterial.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-lpu-600 hover:bg-slate-50 transition-colors"
-                    title="Open link in new tab"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+              {/* Resource Content: Single Link vs Multi-File Bundle */}
+              {editingMaterial.file_url?.trim().startsWith('[') ? (
+                (() => {
+                  let multiParts: Array<{ title?: string; name?: string; url?: string; size?: string }> = [];
+                  try {
+                    const parsed = JSON.parse(editingMaterial.file_url);
+                    if (Array.isArray(parsed)) multiParts = parsed;
+                  } catch {
+                    multiParts = [];
+                  }
+
+                  return (
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-black text-slate-800">
+                          <FolderOpen className="w-4 h-4 text-indigo-600" />
+                          <span>Bundled Multi-File Document ({multiParts.length} Files)</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-500 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
+                          {editingMaterial.file_size}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {multiParts.map((part, pIdx) => (
+                          <div key={pIdx} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs">
+                            <div className="flex items-center gap-2 truncate">
+                              <FileText className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              <span className="font-bold text-slate-800 truncate">{part.title || part.name || `Part ${pIdx + 1}`}</span>
+                              {part.size && <span className="text-[10px] text-slate-400 font-mono">({part.size})</span>}
+                            </div>
+                            {part.url && (
+                              <a
+                                href={part.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-slate-400 hover:text-lpu-600 p-1"
+                                title="Open file in new tab"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-500">
+                        This study card contains {multiParts.length} files bundled together. You can update titles, academic year, and subject details above, or upload a new file below to replace it.
+                      </p>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Resource URL / Link
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editingMaterial.file_url}
+                      onChange={(e) => setEditingMaterial({ ...editingMaterial, file_url: e.target.value })}
+                      placeholder="https://drive.google.com/file/d/... or any link"
+                      className="flex-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
+                    />
+                    {editingMaterial.file_url?.startsWith('http') && (
+                      <a
+                        href={editingMaterial.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-lpu-600 hover:bg-slate-50 transition-colors"
+                        title="Open link in new tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    You can update the direct link here, or drag/select a new file below to upload and replace it.
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  You can update the direct link here, or drag/select a new file below to upload and replace it.
-                </p>
-              </div>
+              )}
 
               {/* Replace Document File with Drag & Drop */}
               <div>
