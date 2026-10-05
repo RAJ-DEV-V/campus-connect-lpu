@@ -14,7 +14,10 @@ import {
   ShieldAlert,
   HardDrive,
   BookOpen,
-  AlertTriangle
+  AlertTriangle,
+  Layers,
+  FileText,
+  FolderOpen
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
 
@@ -46,6 +49,22 @@ export default function DocumentViewerModal({
   const [driveEmbedUrl, setDriveEmbedUrl] = useState<string | null>(null);
   const [isImageType, setIsImageType] = useState<boolean>(false);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
+
+  // Multi-PDF / Multi-part files bundle support
+  const multiFiles: { title?: string; name?: string; url: string; size?: string; drive_file_id?: string }[] = React.useMemo(() => {
+    if (!material?.file_url?.startsWith('[')) return [];
+    try {
+      const parsed = JSON.parse(material.file_url);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [material?.file_url]);
+
+  useEffect(() => {
+    setActiveFileIndex(0);
+  }, [material?.id]);
 
   // Panning state for zoomed views
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -301,10 +320,14 @@ export default function DocumentViewerModal({
 
     const loadDocument = async () => {
       try {
-        const driveId = extractDriveId(material.file_url);
+        const activeFile = multiFiles[activeFileIndex];
+        const activeUrl = activeFile?.url || material.file_url;
+        const activeTitle = activeFile?.title || activeFile?.name || material.title;
+
+        const driveId = extractDriveId(activeUrl);
         const isImage = 
-          /\.(png|jpe?g|webp|gif|svg)$/i.test(material.file_url) ||
-          /\.(png|jpe?g|webp|gif|svg)$/i.test(material.title) ||
+          /\.(png|jpe?g|webp|gif|svg)$/i.test(activeUrl) ||
+          /\.(png|jpe?g|webp|gif|svg)$/i.test(activeTitle) ||
           material.material_type?.toLowerCase().includes('image');
 
         if (driveId && isImage) {
@@ -315,7 +338,8 @@ export default function DocumentViewerModal({
         }
 
         // Try streaming the document binary via /api/materials/[id]/preview
-        const response = await fetch(`/api/materials/${material.id}/preview`, {
+        const previewQuery = multiFiles.length > 0 ? `?fileIndex=${activeFileIndex}` : '';
+        const response = await fetch(`/api/materials/${material.id}/preview${previewQuery}`, {
           credentials: 'include',
         });
 
@@ -421,7 +445,7 @@ export default function DocumentViewerModal({
         URL.revokeObjectURL(localBlobUrl);
       }
     };
-  }, [material]);
+  }, [material, activeFileIndex, multiFiles]);
 
   // Render current PDF page onto high-resolution HTML5 canvas
   useEffect(() => {
@@ -640,11 +664,13 @@ export default function DocumentViewerModal({
                   if (onDownload) {
                     onDownload(material);
                   } else {
-                    const match = material.file_url.match(/[?&]id=([a-zA-Z0-9_-]+)/) || material.file_url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                    const activeUrl = multiFiles.length > 0 ? (multiFiles[activeFileIndex]?.url || material.file_url) : material.file_url;
+                    const match = activeUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/) || activeUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
                     if (match) {
                       window.open(`https://drive.google.com/uc?export=download&id=${match[1]}`, '_blank');
                     } else {
-                      window.open(`/api/materials/${material.id}/download`, '_blank');
+                      const dlQuery = multiFiles.length > 0 ? `?fileIndex=${activeFileIndex}` : '';
+                      window.open(`/api/materials/${material.id}/download${dlQuery}`, '_blank');
                     }
                   }
                 }}
@@ -667,6 +693,45 @@ export default function DocumentViewerModal({
 
           </div>
         </div>
+
+        {/* Multi-Part / Multi-PDF Switcher Strip */}
+        {multiFiles.length > 1 && (
+          <div className="px-3 sm:px-6 py-2 bg-slate-950 border-b border-slate-800 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0 flex items-center gap-1.5 mr-1">
+              <Layers className="w-3.5 h-3.5 text-amber-500" />
+              Files ({multiFiles.length}):
+            </span>
+            {multiFiles.map((file, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  if (activeFileIndex !== idx) {
+                    setActiveFileIndex(idx);
+                    setCurrentPage(1);
+                    setLoading(true);
+                    setError(null);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 select-none ${
+                  activeFileIndex === idx
+                    ? 'bg-gradient-to-r from-lpu-600 to-amber-500 text-white shadow-md shadow-orange-500/20'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700/60'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[150px] sm:max-w-[220px]">
+                  {file.title || file.name || `File ${idx + 1}`}
+                </span>
+                {file.size && (
+                  <span className="text-[10px] opacity-75 font-mono">
+                    ({file.size})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Embedded Document Viewport with Mouse Pad / Trackpad Zoom and Pan */}
         <div 

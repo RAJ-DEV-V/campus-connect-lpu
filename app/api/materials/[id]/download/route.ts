@@ -46,24 +46,43 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const { searchParams } = new URL(req.url);
     const returnJson = searchParams.get('json') === 'true';
 
+    let targetFileUrl = material.file_url;
+    let targetTitle = material.title;
+
+    if (material.file_url.startsWith('[')) {
+      try {
+        const fileList = JSON.parse(material.file_url);
+        if (Array.isArray(fileList) && fileList.length > 0) {
+          const fileIndex = parseInt(searchParams.get('fileIndex') || '0', 10);
+          const chosen = fileList[fileIndex] || fileList[0];
+          if (chosen && chosen.url) {
+            targetFileUrl = chosen.url;
+            if (chosen.title || chosen.name) targetTitle = `${material.title}_${chosen.title || chosen.name}`;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse multi-file JSON in download route:', e);
+      }
+    }
+
     if (returnJson) {
       return NextResponse.json({
         success: true,
-        downloadUrl: material.file_url,
+        downloadUrl: targetFileUrl,
         material: {
           id: material.id,
-          title: material.title,
+          title: targetTitle,
           download_count: material.download_count + 1,
         },
       });
     }
 
     // 3. Serve direct download with attachment header
-    const cleanFilename = `${material.subject_code}_${material.material_type}_${material.title.slice(0, 30)}.pdf`.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const cleanFilename = `${material.subject_code}_${material.material_type}_${targetTitle.slice(0, 30)}.pdf`.replace(/[^a-zA-Z0-9_.-]/g, '_');
 
     // If local file path
-    if (material.file_url.startsWith('/uploads/')) {
-      const diskPath = path.join(process.cwd(), 'public', material.file_url.replace('/uploads/', 'uploads/'));
+    if (targetFileUrl.startsWith('/uploads/')) {
+      const diskPath = path.join(process.cwd(), 'public', targetFileUrl.replace('/uploads/', 'uploads/'));
       if (fs.existsSync(diskPath)) {
         const fileBuffer = fs.readFileSync(diskPath);
         return new NextResponse(fileBuffer, {
@@ -79,7 +98,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // If external or Supabase URL, redirect to it
-    return NextResponse.redirect(new URL(material.file_url, req.url));
+    return NextResponse.redirect(new URL(targetFileUrl, req.url));
   } catch (error: any) {
     console.error('Download error:', error);
     return NextResponse.json({ error: error.message || 'Download failed' }, { status: 500 });

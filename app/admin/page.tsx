@@ -48,7 +48,7 @@ import {
 import { Material, AdminStats, CommunityVerificationLink, Admin } from '@/lib/db/types';
 import { formatYearName } from '@/components/MaterialCard';
 import { uploadToGoogleDriveResumable } from '@/lib/google-drive-client';
-import { mergeImagesToPdf, ImagePageItem } from '@/lib/image-to-pdf';
+import { mergeDocumentsToPdf, DocumentItem } from '@/lib/image-to-pdf';
 
 interface UserActivityRecord {
   id: string;
@@ -130,7 +130,8 @@ export default function AdminDashboardPage() {
   const [resourceMode, setResourceMode] = useState<'file' | 'link'>('file');
   const [resourceLink, setResourceLink] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [clubbedImages, setClubbedImages] = useState<ImagePageItem[]>([]);
+  const [clubbedImages, setClubbedImages] = useState<DocumentItem[]>([]);
+  const [multiPdfMode, setMultiPdfMode] = useState<'merge' | 'bundle' | 'batch'>('merge');
   const [isMergingImages, setIsMergingImages] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -446,52 +447,102 @@ export default function AdminDashboardPage() {
       return f.type.startsWith('image/') || ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'].includes(ext);
     };
 
-    const imageFiles = files.filter(isImageFile);
-    const nonImageFiles = files.filter((f) => !isImageFile(f));
+    const isPdfFile = (f: File) => {
+      const ext = '.' + f.name.split('.').pop()?.toLowerCase();
+      return f.type === 'application/pdf' || ext === '.pdf';
+    };
 
-    if (imageFiles.length > 0 && nonImageFiles.length === 0) {
-      // Multiple or single images -> Club into multi-page document
-      const newItems: ImagePageItem[] = imageFiles.map((file) => ({
+    // If there is already an existing queue of files in clubbedImages, append to it
+    if (clubbedImages.length > 0) {
+      const newItems: DocumentItem[] = files.map((file) => ({
         id: Math.random().toString(36).substring(2, 9),
         file,
-        previewUrl: URL.createObjectURL(file),
+        previewUrl: isImageFile(file) ? URL.createObjectURL(file) : '',
         name: file.name,
         size: file.size,
+        type: isPdfFile(file) ? 'pdf' : isImageFile(file) ? 'image' : 'other',
       }));
-
       setClubbedImages((prev) => [...prev, ...newItems]);
+      return;
+    }
+
+    // Multiple files selected or dropped:
+    if (files.length > 1) {
+      const allFiles = uploadFile ? [uploadFile, ...files] : files;
       setUploadFile(null);
 
-      // Auto-suggest title from first image name if empty
+      const newItems: DocumentItem[] = allFiles.map((file) => ({
+        id: Math.random().toString(36).substring(2, 9),
+        file,
+        previewUrl: isImageFile(file) ? URL.createObjectURL(file) : '',
+        name: file.name,
+        size: file.size,
+        type: isPdfFile(file) ? 'pdf' : isImageFile(file) ? 'image' : 'other',
+      }));
+      setClubbedImages(newItems);
+
+      // Auto-suggest title if not yet entered
       if (!uploadTitle.trim()) {
-        const cleanName = imageFiles[0].name
+        const cleanName = allFiles[0].name
+          .replace(/\.[^/.]+$/, '')
+          .replace(/[_-]/g, ' ')
+          .replace(/\s*(page|pg|p|part|pt|img|image|unit|chapter)?\s*\d+$/i, '')
+          .trim();
+        setUploadTitle(cleanName || 'Study Material Bundle');
+      }
+      return;
+    }
+
+    // Single file selected:
+    const singleFile = files[0];
+    if (uploadFile) {
+      // If a file was already selected previously, combine them into multi-document mode!
+      const item1: DocumentItem = {
+        id: Math.random().toString(36).substring(2, 9),
+        file: uploadFile,
+        previewUrl: isImageFile(uploadFile) ? URL.createObjectURL(uploadFile) : '',
+        name: uploadFile.name,
+        size: uploadFile.size,
+        type: isPdfFile(uploadFile) ? 'pdf' : isImageFile(uploadFile) ? 'image' : 'other',
+      };
+      const item2: DocumentItem = {
+        id: Math.random().toString(36).substring(2, 9),
+        file: singleFile,
+        previewUrl: isImageFile(singleFile) ? URL.createObjectURL(singleFile) : '',
+        name: singleFile.name,
+        size: singleFile.size,
+        type: isPdfFile(singleFile) ? 'pdf' : isImageFile(singleFile) ? 'image' : 'other',
+      };
+      setClubbedImages([item1, item2]);
+      setUploadFile(null);
+      return;
+    }
+
+    if (isImageFile(singleFile)) {
+      // Single image goes into queue so admin can easily add more pages or club
+      const newItem: DocumentItem = {
+        id: Math.random().toString(36).substring(2, 9),
+        file: singleFile,
+        previewUrl: URL.createObjectURL(singleFile),
+        name: singleFile.name,
+        size: singleFile.size,
+        type: 'image',
+      };
+      setClubbedImages([newItem]);
+      setUploadFile(null);
+      if (!uploadTitle.trim()) {
+        const cleanName = singleFile.name
           .replace(/\.[^/.]+$/, '')
           .replace(/[_-]/g, ' ')
           .replace(/\s*(page|pg|p|part|pt|img|image)?\s*\d+$/i, '')
           .trim();
-        setUploadTitle(cleanName || 'Clubbed Study Notes');
+        setUploadTitle(cleanName || 'Study Notes');
       }
-    } else if (files.length === 1 && !isImageFile(files[0])) {
-      // Single PDF / DOCX file
-      clubbedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
-      setClubbedImages([]);
-      setUploadFile(files[0]);
-
-      if (!uploadTitle.trim()) {
-        const cleanName = files[0].name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-        setUploadTitle(cleanName);
-      }
-    } else if (imageFiles.length > 0 && nonImageFiles.length > 0) {
-      // Mixed: notify user
-      alert('Please select either document files (PDF/DOCX) or image pages (JPG, PNG, WEBP) to combine.');
     } else {
-      // Non-image document
-      const doc = nonImageFiles[0];
-      clubbedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
-      setClubbedImages([]);
-      setUploadFile(doc);
+      // Single PDF or document
+      setUploadFile(singleFile);
       if (!uploadTitle.trim()) {
-        const cleanName = doc.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+        const cleanName = singleFile.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
         setUploadTitle(cleanName);
       }
     }
@@ -617,87 +668,239 @@ export default function AdminDashboardPage() {
         return;
       }
 
-      let fileToUpload: File;
+      if (clubbedImages.length > 1 && multiPdfMode === 'bundle') {
+        // --- MODE 2: BUNDLE MULTI-PDF (Keep separate files in 1 card with part switcher) ---
+        const uploadedParts: Array<{
+          title: string;
+          name: string;
+          url: string;
+          drive_file_id: string;
+          size: string;
+        }> = [];
 
-      if (clubbedImages.length > 0) {
-        setIsMergingImages(true);
-        setUploadStage(
-          clubbedImages.length > 1
-            ? `Clubbing ${clubbedImages.length} image pages into 1 PDF document...`
-            : 'Converting image into official document PDF...'
-        );
-        fileToUpload = await mergeImagesToPdf(
-          clubbedImages.map((item) => item.file),
-          uploadTitle,
-          (prog) => setUploadStage(prog.stage)
-        );
-        setIsMergingImages(false);
-      } else if (uploadFile) {
-        fileToUpload = uploadFile;
+        let totalBytesUploaded = 0;
+        const totalBytesAll = clubbedImages.reduce((sum, item) => sum + item.file.size, 0);
+
+        for (let i = 0; i < clubbedImages.length; i++) {
+          const item = clubbedImages[i];
+          const itemCleanTitle = item.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ') || `Part ${i + 1}`;
+          setUploadStage(`Uploading file ${i + 1} of ${clubbedImages.length}: "${item.name}"...`);
+
+          const driveResult = await uploadToGoogleDriveResumable({
+            file: item.file,
+            title: `${uploadTitle} - ${itemCleanTitle}`,
+            subjectCode: uploadSubjectCode,
+            year: uploadYear,
+            materialType: uploadType,
+            description: uploadDescription,
+            onProgress: (percent, loaded) => {
+              const overallLoaded = totalBytesUploaded + loaded;
+              const overallPercent = Math.min(99, Math.round((overallLoaded / (totalBytesAll || 1)) * 100));
+              setUploadProgress(overallPercent);
+              const loadedMb = (overallLoaded / (1024 * 1024)).toFixed(1);
+              const totalMb = (totalBytesAll / (1024 * 1024)).toFixed(1);
+              setUploadStage(`File ${i + 1}/${clubbedImages.length}: ${percent}% (${loadedMb} of ${totalMb} MB)`);
+            },
+          });
+
+          totalBytesUploaded += item.file.size;
+          uploadedParts.push({
+            title: itemCleanTitle,
+            name: driveResult.fileName,
+            url: driveResult.fileUrl,
+            drive_file_id: driveResult.fileId,
+            size: driveResult.fileSizeFormatted,
+          });
+        }
+
+        setUploadStage('Saving multi-file bundle to study library...');
+        setUploadProgress(100);
+
+        const totalBundleSize = (totalBytesAll / (1024 * 1024)).toFixed(1) + ' MB';
+
+        const res = await fetch('/api/materials/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: uploadTitle,
+            subject: uploadSubject,
+            subject_code: uploadSubjectCode,
+            year: uploadYear,
+            material_type: uploadType,
+            description: uploadDescription,
+            file_url: JSON.stringify(uploadedParts),
+            file_size: totalBundleSize,
+            drive_file_id: uploadedParts[0].drive_file_id,
+            file_name: `${uploadedParts.length} files bundle`,
+            mime_type: 'application/json',
+          }),
+        });
+
+        const resText = await res.text();
+        let data: any = null;
+        try {
+          data = JSON.parse(resText);
+        } catch {
+          throw new Error(`Server returned unexpected response (status ${res.status}): ${resText.slice(0, 150)}`);
+        }
+
+        if (!res.ok || !data.success) {
+          throw new Error(data?.error || `Upload registration failed with status ${res.status}`);
+        }
+
+        setUploadMessage({
+          type: 'success',
+          text: `"${uploadTitle}" (${uploadedParts.length} files bundled, ${totalBundleSize}) uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!`,
+        });
+      } else if (clubbedImages.length > 1 && multiPdfMode === 'batch') {
+        // --- MODE 3: BATCH UPLOAD (Publish each file as separate library material) ---
+        let totalBytesUploaded = 0;
+        const totalBytesAll = clubbedImages.reduce((sum, item) => sum + item.file.size, 0);
+
+        for (let i = 0; i < clubbedImages.length; i++) {
+          const item = clubbedImages[i];
+          const itemCleanTitle = item.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+          const itemTitle = uploadTitle
+            ? `${uploadTitle} - ${itemCleanTitle}`
+            : itemCleanTitle;
+
+          setUploadStage(`Batch uploading ${i + 1} of ${clubbedImages.length}: "${item.name}"...`);
+
+          const driveResult = await uploadToGoogleDriveResumable({
+            file: item.file,
+            title: itemTitle,
+            subjectCode: uploadSubjectCode,
+            year: uploadYear,
+            materialType: uploadType,
+            description: uploadDescription,
+            onProgress: (percent, loaded) => {
+              const overallLoaded = totalBytesUploaded + loaded;
+              const overallPercent = Math.min(99, Math.round((overallLoaded / (totalBytesAll || 1)) * 100));
+              setUploadProgress(overallPercent);
+              const loadedMb = (overallLoaded / (1024 * 1024)).toFixed(1);
+              const totalMb = (totalBytesAll / (1024 * 1024)).toFixed(1);
+              setUploadStage(`Batch ${i + 1}/${clubbedImages.length}: ${percent}% (${loadedMb} of ${totalMb} MB)`);
+            },
+          });
+
+          totalBytesUploaded += item.file.size;
+
+          const res = await fetch('/api/materials/upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              title: itemTitle,
+              subject: uploadSubject,
+              subject_code: uploadSubjectCode,
+              year: uploadYear,
+              material_type: uploadType,
+              description: uploadDescription,
+              file_url: driveResult.fileUrl,
+              file_size: driveResult.fileSizeFormatted,
+              drive_file_id: driveResult.fileId,
+              file_name: driveResult.fileName,
+              mime_type: driveResult.mimeType,
+            }),
+          });
+
+          if (!res.ok) {
+            const resText = await res.text();
+            console.warn(`Batch item registration error:`, resText);
+          }
+        }
+
+        setUploadMessage({
+          type: 'success',
+          text: `Successfully batch uploaded all ${clubbedImages.length} files to Google Drive & published to ${formatYearName(uploadYear)}!`,
+        });
       } else {
-        throw new Error('No file selected.');
-      }
+        // --- MODE 1: SINGLE FILE OR MERGE MULTI-DOCUMENT INTO 1 MASTER PDF ---
+        let fileToUpload: File;
 
-      setUploadStage('Authorizing with Google Drive...');
+        if (clubbedImages.length > 0) {
+          setIsMergingImages(true);
+          setUploadStage(
+            clubbedImages.length > 1
+              ? `Merging ${clubbedImages.length} documents/pages into 1 PDF...`
+              : 'Preparing document PDF...'
+          );
+          fileToUpload = await mergeDocumentsToPdf(
+            clubbedImages.map((item) => item.file),
+            uploadTitle,
+            (prog) => setUploadStage(prog.stage)
+          );
+          setIsMergingImages(false);
+        } else if (uploadFile) {
+          fileToUpload = uploadFile;
+        } else {
+          throw new Error('No file selected.');
+        }
 
-      // 1. Direct browser-to-Google Drive resumable upload (bypasses Vercel 4.5MB request limit)
-      const driveResult = await uploadToGoogleDriveResumable({
-        file: fileToUpload,
-        title: uploadTitle,
-        subjectCode: uploadSubjectCode,
-        year: uploadYear,
-        materialType: uploadType,
-        description: uploadDescription,
-        onProgress: (percent, loaded, total) => {
-          setUploadProgress(percent);
-          const loadedMb = (loaded / (1024 * 1024)).toFixed(1);
-          const totalMb = (total / (1024 * 1024)).toFixed(1);
-          setUploadStage(`Uploading to Google Drive: ${percent}% (${loadedMb} of ${totalMb} MB)`);
-        },
-      });
+        setUploadStage('Authorizing with Google Drive...');
 
-      setUploadStage('Saving study material to library database...');
-      setUploadProgress(100);
-
-      // 2. Register metadata and Google Drive file ID in Supabase
-      const res = await fetch('/api/materials/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        // 1. Direct browser-to-Google Drive resumable upload (bypasses Vercel 4.5MB request limit)
+        const driveResult = await uploadToGoogleDriveResumable({
+          file: fileToUpload,
           title: uploadTitle,
-          subject: uploadSubject,
-          subject_code: uploadSubjectCode,
+          subjectCode: uploadSubjectCode,
           year: uploadYear,
-          material_type: uploadType,
+          materialType: uploadType,
           description: uploadDescription,
-          file_url: driveResult.fileUrl,
-          file_size: driveResult.fileSizeFormatted,
-          drive_file_id: driveResult.fileId,
-          file_name: driveResult.fileName,
-          mime_type: driveResult.mimeType,
-        }),
-      });
+          onProgress: (percent, loaded, total) => {
+            setUploadProgress(percent);
+            const loadedMb = (loaded / (1024 * 1024)).toFixed(1);
+            const totalMb = (total / (1024 * 1024)).toFixed(1);
+            setUploadStage(`Uploading to Google Drive: ${percent}% (${loadedMb} of ${totalMb} MB)`);
+          },
+        });
 
-      // Safely parse server response as text first to guard against non-JSON server pages
-      let data: any = null;
-      const resText = await res.text();
-      try {
-        data = JSON.parse(resText);
-      } catch {
-        throw new Error(`Server returned unexpected response (status ${res.status}): ${resText.slice(0, 150)}`);
+        setUploadStage('Saving study material to library database...');
+        setUploadProgress(100);
+
+        // 2. Register metadata and Google Drive file ID in Supabase
+        const res = await fetch('/api/materials/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: uploadTitle,
+            subject: uploadSubject,
+            subject_code: uploadSubjectCode,
+            year: uploadYear,
+            material_type: uploadType,
+            description: uploadDescription,
+            file_url: driveResult.fileUrl,
+            file_size: driveResult.fileSizeFormatted,
+            drive_file_id: driveResult.fileId,
+            file_name: driveResult.fileName,
+            mime_type: driveResult.mimeType,
+          }),
+        });
+
+        // Safely parse server response as text first to guard against non-JSON server pages
+        let data: any = null;
+        const resText = await res.text();
+        try {
+          data = JSON.parse(resText);
+        } catch {
+          throw new Error(`Server returned unexpected response (status ${res.status}): ${resText.slice(0, 150)}`);
+        }
+
+        if (!res.ok || !data.success) {
+          throw new Error(data?.error || `Upload registration failed with status ${res.status}`);
+        }
+
+        const clubbedNote = clubbedImages.length > 1 ? ` (${clubbedImages.length} files merged into 1 PDF)` : '';
+        setUploadMessage({
+          type: 'success',
+          text: `"${uploadTitle}" (${driveResult.fileSizeFormatted})${clubbedNote} uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!`,
+        });
       }
-
-      if (!res.ok || !data.success) {
-        throw new Error(data?.error || `Upload registration failed with status ${res.status}`);
-      }
-
-      const clubbedNote = clubbedImages.length > 1 ? ` (${clubbedImages.length} image pages clubbed into 1 PDF)` : '';
-      setUploadMessage({
-        type: 'success',
-        text: `"${uploadTitle}" (${driveResult.fileSizeFormatted})${clubbedNote} uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!`,
-      });
 
       // Reset form
       setUploadTitle('');
@@ -705,7 +908,9 @@ export default function AdminDashboardPage() {
       setUploadSubjectCode('');
       setUploadDescription('');
       setUploadFile(null);
-      clubbedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+      clubbedImages.forEach((img) => {
+        if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+      });
       setClubbedImages([]);
       setUploadProgress(0);
       setUploadStage('');
@@ -1980,35 +2185,52 @@ export default function AdminDashboardPage() {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-bold text-slate-700">
-                      Upload Document or Note Images (PDF, JPG, PNG, WEBP, DOCX) <span className="text-rose-500">*</span>
+                      Upload Study Documents (PDF, JPG, PNG, WEBP, DOCX) <span className="text-rose-500">*</span>
                     </label>
                     {clubbedImages.length > 0 && (
-                      <span className="text-[11px] font-black text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                        ⚡ Auto-clubbing into 1 PDF
+                      <span className="text-[11px] font-black text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                        {multiPdfMode === 'merge' ? '📑 Auto-merging into 1 PDF' : multiPdfMode === 'bundle' ? '🗂️ Bundling as Multi-File Document' : '📦 Batch Uploading as Separate Cards'}
                       </span>
                     )}
                   </div>
 
                   {clubbedImages.length > 0 ? (
-                    /* Multi-Image Clubbed Document View */
+                    /* Multi-Document Queue View (Handles multiple PDFs, images, or mixed) */
                     <div className="border-2 border-amber-300 bg-amber-50/30 rounded-2xl p-4 sm:p-5 space-y-4 transition-all shadow-sm">
                       {/* Header Banner */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200/60">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center font-black shadow-md shadow-orange-500/20">
-                            <Layers className="w-5 h-5" />
+                          <div className={`w-10 h-10 rounded-xl text-white flex items-center justify-center font-black shadow-md ${
+                            multiPdfMode === 'bundle'
+                              ? 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-indigo-500/20'
+                              : multiPdfMode === 'batch'
+                              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20'
+                              : 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-orange-500/20'
+                          }`}>
+                            {multiPdfMode === 'bundle' ? (
+                              <FolderOpen className="w-5 h-5" />
+                            ) : multiPdfMode === 'batch' ? (
+                              <Upload className="w-5 h-5" />
+                            ) : (
+                              <Layers className="w-5 h-5" />
+                            )}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-black text-slate-900">
-                                Clubbed Multi-Page Document
+                                {clubbedImages.length} {clubbedImages.length === 1 ? 'Document Selected' : 'Documents Selected'}
                               </span>
                               <span className="bg-gradient-to-r from-lpu-600 to-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
-                                {clubbedImages.length} {clubbedImages.length === 1 ? 'Page' : 'Pages'}
+                                {clubbedImages.filter(i => i.type === 'pdf').length} PDF{clubbedImages.filter(i => i.type === 'pdf').length === 1 ? '' : 's'}
+                                {clubbedImages.filter(i => i.type === 'image').length > 0 && ` • ${clubbedImages.filter(i => i.type === 'image').length} Images`}
                               </span>
                             </div>
                             <p className="text-[11px] text-slate-600 mt-0.5">
-                              All {clubbedImages.length} image pages will be automatically combined into <strong>1 single PDF document</strong> when publishing.
+                              {multiPdfMode === 'merge'
+                                ? `All ${clubbedImages.length} files will be merged into 1 continuous PDF in the order shown below.`
+                                : multiPdfMode === 'bundle'
+                                ? `Files will remain separate under 1 library entry with a tab switcher for students in the document viewer.`
+                                : `Each of the ${clubbedImages.length} files will be published as its own separate study material card.`}
                             </p>
                           </div>
                         </div>
@@ -2019,12 +2241,12 @@ export default function AdminDashboardPage() {
                             className="cursor-pointer px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-lpu-500 hover:text-lpu-600 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
                           >
                             <Plus className="w-3.5 h-3.5 text-lpu-600" />
-                            Add More Pages
+                            Add More Files
                           </label>
                           <input
                             type="file"
                             id="addMoreImagesInput"
-                            accept=".jpg,.jpeg,.png,.webp,image/*"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,image/*"
                             multiple
                             onChange={(e) => {
                               if (e.target.files) handleIncomingFiles(e.target.files);
@@ -2036,7 +2258,7 @@ export default function AdminDashboardPage() {
                             type="button"
                             onClick={clearClubbedPages}
                             className="px-2.5 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1"
-                            title="Remove all pages"
+                            title="Remove all files"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             Clear
@@ -2044,38 +2266,108 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
 
-                      {/* Pages List */}
+                      {/* Multi-Document Strategy Switcher (When 2 or more files are selected) */}
+                      {clubbedImages.length > 1 && (
+                        <div className="bg-white/90 p-3 rounded-xl border border-amber-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+                          <div>
+                            <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                              Multi-File Strategy:
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              Choose how these {clubbedImages.length} files should be organized and viewed by students:
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => setMultiPdfMode('merge')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                multiPdfMode === 'merge'
+                                  ? 'bg-amber-500 text-white shadow-sm'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                              }`}
+                              title="Stitch all files into one single PDF document"
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                              Merge into 1 PDF
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMultiPdfMode('bundle')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                multiPdfMode === 'bundle'
+                                  ? 'bg-indigo-600 text-white shadow-sm'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                              }`}
+                              title="Keep separate files under one card with an interactive part switcher in the viewer"
+                            >
+                              <FolderOpen className="w-3.5 h-3.5" />
+                              Bundle (Viewer Tabs)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMultiPdfMode('batch')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                multiPdfMode === 'batch'
+                                  ? 'bg-emerald-600 text-white shadow-sm'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                              }`}
+                              title="Upload each file as a separate study material card"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                              Batch Upload ({clubbedImages.length})
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Files / Pages List */}
                       <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
                         {clubbedImages.map((item, idx) => (
                           <div
                             key={item.id}
                             className="flex items-center gap-3 p-2.5 bg-white border border-slate-200 hover:border-amber-300 rounded-xl transition-all shadow-xs group"
                           >
-                            {/* Mini Thumbnail */}
-                            <div className="relative w-12 h-14 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">
-                              <img
-                                src={item.previewUrl}
-                                alt={`Page ${idx + 1}`}
-                                className="w-full h-full object-cover"
-                              />
+                            {/* Mini Thumbnail or PDF Icon */}
+                            <div className="relative w-12 h-14 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200 flex items-center justify-center">
+                              {item.type === 'pdf' ? (
+                                <div className="w-full h-full bg-rose-50 flex flex-col items-center justify-center text-rose-600">
+                                  <FileText className="w-5 h-5" />
+                                  <span className="text-[8px] font-black uppercase tracking-wider mt-0.5">PDF</span>
+                                </div>
+                              ) : item.previewUrl ? (
+                                <img
+                                  src={item.previewUrl}
+                                  alt={`Item ${idx + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <FileText className="w-5 h-5 text-slate-400" />
+                              )}
                               <span className="absolute bottom-0 inset-x-0 bg-slate-900/85 text-[9px] font-black text-white text-center py-0.5">
-                                P.{idx + 1}
+                                #{idx + 1}
                               </span>
                             </div>
 
                             {/* Details */}
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-black text-slate-800">
-                                  Page {idx + 1}
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-slate-800 truncate">
+                                  {item.type === 'pdf' ? `File ${idx + 1}: ` : `Page ${idx + 1}: `}
+                                  {item.name}
                                 </span>
-                                <span className="text-[10px] text-slate-400 font-mono">
-                                  ({(item.size / 1024).toFixed(0)} KB)
+                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                                  item.type === 'pdf' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {item.type}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-500 truncate" title={item.name}>
-                                {item.name}
-                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {(item.size / (1024 * 1024)).toFixed(2)} MB
+                                </span>
+                              </div>
                             </div>
 
                             {/* Page Reorder & Delete Controls */}
@@ -2085,7 +2377,7 @@ export default function AdminDashboardPage() {
                                 disabled={idx === 0}
                                 onClick={() => movePage(idx, 'up')}
                                 className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-lpu-600 hover:border-lpu-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                                title="Move page earlier (up)"
+                                title="Move up in order"
                               >
                                 <ChevronUp className="w-3.5 h-3.5" />
                               </button>
@@ -2094,7 +2386,7 @@ export default function AdminDashboardPage() {
                                 disabled={idx === clubbedImages.length - 1}
                                 onClick={() => movePage(idx, 'down')}
                                 className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-lpu-600 hover:border-lpu-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                                title="Move page later (down)"
+                                title="Move down in order"
                               >
                                 <ChevronDown className="w-3.5 h-3.5" />
                               </button>
@@ -2102,7 +2394,7 @@ export default function AdminDashboardPage() {
                                 type="button"
                                 onClick={() => removePage(idx)}
                                 className="p-1.5 rounded-lg bg-rose-50 border border-rose-100 text-rose-500 hover:text-rose-700 hover:bg-rose-100 transition-colors ml-1"
-                                title="Remove page"
+                                title="Remove file"
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -2111,7 +2403,7 @@ export default function AdminDashboardPage() {
                         ))}
                       </div>
 
-                      {/* Secondary Drop Target for Adding More Pages */}
+                      {/* Secondary Drop Target for Adding More Files */}
                       <div
                         onDragOver={(e) => {
                           e.preventDefault();
@@ -2131,12 +2423,12 @@ export default function AdminDashboardPage() {
                       >
                         <span className="text-[11px] text-amber-800 font-bold flex items-center justify-center gap-1.5">
                           <Plus className="w-3.5 h-3.5 text-lpu-600" />
-                          Drag &amp; drop more image pages here or click to add
+                          Drag &amp; drop more PDF files or image pages here or click to add
                         </span>
                       </div>
                     </div>
                   ) : (
-                    /* Standard Drop Zone (Accepts single document or multiple images) */
+                    /* Standard Drop Zone (Accepts single or multiple PDFs/images) */
                     <div
                       onDragOver={(e) => {
                         e.preventDefault();
@@ -2188,7 +2480,7 @@ export default function AdminDashboardPage() {
                               Drop file(s) here to upload
                             </span>
                             <span className="text-[11px] text-orange-600 font-semibold mt-1">
-                              Release to select document or multiple image pages
+                              Release to select multiple PDFs or image notes
                             </span>
                           </>
                         ) : uploadFile ? (
@@ -2204,7 +2496,7 @@ export default function AdminDashboardPage() {
                                 {(uploadFile.size / (1024 * 1024)).toFixed(2)} MB
                               </span>
                               <span className="text-[11px] text-slate-400">
-                                • Click or drag another file to replace
+                                • Click or drag another file to add or replace
                               </span>
                             </div>
                           </>
@@ -2217,11 +2509,11 @@ export default function AdminDashboardPage() {
                               <strong className="text-lpu-600 hover:underline">Choose file(s)</strong> or drag &amp; drop here
                             </span>
                             <span className="text-[11px] text-slate-500 font-medium mt-1">
-                              Select a document (PDF, DOCX) or <strong>multiple images (JPG, PNG, WEBP)</strong>
+                              Select single or <strong>multiple PDFs</strong>, or <strong>note images (JPG, PNG, WEBP)</strong>
                             </span>
                             <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-full mt-2 inline-flex items-center gap-1">
                               <Layers className="w-3 h-3 text-amber-600" />
-                              Multiple image note pages will be automatically clubbed into 1 PDF document
+                              Supports multiple PDFs (merge into 1 or bundle with multi-part viewer) &amp; image notes
                             </span>
                           </>
                         )}
@@ -2279,7 +2571,7 @@ export default function AdminDashboardPage() {
                 {isMergingImages ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Clubbing Pages into 1 PDF...
+                    Merging Documents into 1 PDF...
                   </>
                 ) : uploading ? (
                   <>
@@ -2292,10 +2584,22 @@ export default function AdminDashboardPage() {
                     Publish Resource Link to Study Library
                   </>
                 ) : clubbedImages.length > 1 ? (
-                  <>
-                    <Layers className="w-4 h-4" />
-                    Merge {clubbedImages.length} Pages &amp; Publish to Study Library
-                  </>
+                  multiPdfMode === 'bundle' ? (
+                    <>
+                      <FolderOpen className="w-4 h-4" />
+                      Bundle {clubbedImages.length} Files &amp; Publish with Multi-Part Viewer
+                    </>
+                  ) : multiPdfMode === 'batch' ? (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Batch Upload {clubbedImages.length} Documents to Study Library
+                    </>
+                  ) : (
+                    <>
+                      <Layers className="w-4 h-4" />
+                      Merge {clubbedImages.length} Files into 1 PDF &amp; Publish
+                    </>
+                  )
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />

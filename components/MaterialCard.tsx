@@ -11,7 +11,8 @@ import {
   BookOpen,
   FileSpreadsheet,
   HelpCircle,
-  Award
+  Award,
+  Layers
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
 
@@ -132,6 +133,20 @@ export default function MaterialCard({
             <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.8 rounded-md">
               {formatYearName(material.year)}
             </span>
+            {material.file_url?.startsWith('[') && (() => {
+              try {
+                const arr = JSON.parse(material.file_url);
+                if (Array.isArray(arr) && arr.length > 1) {
+                  return (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/90 px-2 py-0.8 rounded-md">
+                      <Layers className="w-3.5 h-3.5 text-amber-600" />
+                      {arr.length} PDFs
+                    </span>
+                  );
+                }
+              } catch {}
+              return null;
+            })()}
           </div>
 
           <span className="text-[11px] font-mono font-bold text-slate-800 bg-orange-50 border border-orange-200/70 px-2 py-0.5 rounded">

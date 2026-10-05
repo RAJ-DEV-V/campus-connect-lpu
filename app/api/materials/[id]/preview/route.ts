@@ -27,6 +27,28 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const { searchParams } = new URL(req.url);
     const returnSignedUrl = searchParams.get('signed') === 'true';
 
+    // Multi-file bundle handling (if material.file_url is a JSON array)
+    let targetFileUrl = material.file_url;
+    let targetTitle = material.title;
+    let targetFileSize = material.file_size;
+
+    if (material.file_url.startsWith('[')) {
+      try {
+        const fileList = JSON.parse(material.file_url);
+        if (Array.isArray(fileList) && fileList.length > 0) {
+          const fileIndex = parseInt(searchParams.get('fileIndex') || '0', 10);
+          const chosen = fileList[fileIndex] || fileList[0];
+          if (chosen && chosen.url) {
+            targetFileUrl = chosen.url;
+            if (chosen.title || chosen.name) targetTitle = `${material.title} - ${chosen.title || chosen.name}`;
+            if (chosen.size) targetFileSize = chosen.size;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse multi-file JSON in preview route:', e);
+      }
+    }
+
     // 0. If stored in Google Drive
     const extractDriveId = (url: string): string | null => {
       if (!url) return null;
@@ -39,20 +61,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return null;
     };
 
-    const driveId = extractDriveId(material.file_url);
+    const driveId = extractDriveId(targetFileUrl);
     if (driveId) {
       const drivePreviewUrl = `https://drive.google.com/file/d/${driveId}/preview`;
       if (returnSignedUrl) {
         return NextResponse.json({
           success: true,
-          signedUrl: material.file_url,
+          signedUrl: targetFileUrl,
           previewUrl: drivePreviewUrl,
           driveFileId: driveId,
           isGoogleDrive: true,
           material: {
             id: material.id,
-            title: material.title,
-            file_size: material.file_size,
+            title: targetTitle,
+            file_size: targetFileSize,
           },
         });
       }
@@ -107,8 +129,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // 1. If stored in Supabase Storage
-    if (material.file_url.includes('/study-materials/')) {
-      const parts = material.file_url.split('/study-materials/');
+    if (targetFileUrl.includes('/study-materials/')) {
+      const parts = targetFileUrl.split('/study-materials/');
       const storagePath = decodeURIComponent(parts[1]?.split('?')[0] || '');
 
       if (storagePath && supabase) {
@@ -123,8 +145,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
               signedUrl: signedData.signedUrl,
               material: {
                 id: material.id,
-                title: material.title,
-                file_size: material.file_size,
+                title: targetTitle,
+                file_size: targetFileSize,
               },
             });
           }
@@ -177,24 +199,24 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // 2. Fallback to direct fetch
-    if (material.file_url.startsWith('http')) {
+    if (targetFileUrl.startsWith('http')) {
       if (returnSignedUrl) {
         return NextResponse.json({
           success: true,
-          signedUrl: material.file_url,
+          signedUrl: targetFileUrl,
           material: {
             id: material.id,
-            title: material.title,
-            file_size: material.file_size,
+            title: targetTitle,
+            file_size: targetFileSize,
           },
         });
       }
 
-      const response = await fetch(material.file_url);
+      const response = await fetch(targetFileUrl);
       if (response.ok) {
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const lowerUrl = material.file_url.toLowerCase();
+        const lowerUrl = targetFileUrl.toLowerCase();
         let mimeType = 'application/pdf';
         if (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
           mimeType = 'application/pdf';
