@@ -44,6 +44,14 @@ export interface Material {
   created_at: string;
   updated_at: string;
   created_by?: string;
+
+  // Migration-Ready Google Drive Metadata
+  drive_file_id?: string | null;
+  file_name?: string | null;
+  mime_type?: string | null;
+  drive_account?: string | null; // e.g. 'primary_gmail', 'shared_drive_2026', 'migrated_target'
+  backup_file_url?: string | null; // Rollback snapshot of previous File ID / URL
+  migration_metadata?: Record<string, any> | null; // Migration audit trail & match metrics
 }
 
 export interface Download {

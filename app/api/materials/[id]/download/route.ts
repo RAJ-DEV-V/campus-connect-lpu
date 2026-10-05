@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
 import { getMaterialById, recordDownload, getAppSettings } from '@/lib/db';
+import { extractDriveFileId, getDriveDownloadUrl } from '@/lib/drive-service';
 import fs from 'fs';
 import path from 'path';
 
@@ -95,6 +96,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           },
         });
       }
+    }
+
+    const driveId = extractDriveFileId(targetFileUrl);
+    if (driveId) {
+      return NextResponse.redirect(getDriveDownloadUrl(driveId));
     }
 
     // If external or Supabase URL, redirect to it

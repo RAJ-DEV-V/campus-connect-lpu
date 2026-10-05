@@ -43,7 +43,10 @@ import {
   FolderOpen,
   ChevronUp,
   ChevronDown,
-  Plus
+  Plus,
+  RotateCcw,
+  Check,
+  ArrowRight
 } from 'lucide-react';
 import { Material, AdminStats, CommunityVerificationLink, Admin } from '@/lib/db/types';
 import { formatYearName } from '@/components/MaterialCard';
@@ -89,7 +92,7 @@ export default function AdminDashboardPage() {
   
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'materials' | 'upload' | 'users' | 'links' | 'analytics' | 'settings' | 'admin-settings'
+    'dashboard' | 'materials' | 'upload' | 'users' | 'links' | 'analytics' | 'settings' | 'admin-settings' | 'drive-sync'
   >('dashboard');
 
   // Stats & Data
@@ -172,6 +175,23 @@ export default function AdminDashboardPage() {
     onConfirm: () => {},
   });
 
+  // Google Drive Migration & Sync State
+  const [migrationStats, setMigrationStats] = useState<{
+    totalMaterials: number;
+    driveMaterials: number;
+    bundleMaterials: number;
+    externalUrlMaterials: number;
+    lastMigrationDate: string | null;
+    hasRollbackSnapshot: boolean;
+    rollbackSnapshotDate: string | null;
+  } | null>(null);
+  const [migrationFolderId, setMigrationFolderId] = useState('');
+  const [migrationScanning, setMigrationScanning] = useState(false);
+  const [migrationReport, setMigrationReport] = useState<any | null>(null);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationMessage, setMigrationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [rollingBack, setRollingBack] = useState(false);
+
   useEffect(() => {
     async function initAdmin() {
       try {
@@ -195,6 +215,7 @@ export default function AdminDashboardPage() {
           loadLinks(),
           loadAnalytics(),
           loadSettings(),
+          loadMigrationStats(),
           userData.user?.isOwner ? loadAdmins() : Promise.resolve(),
         ]);
       } catch (err) {
@@ -252,6 +273,144 @@ export default function AdminDashboardPage() {
     } finally {
       setUpdatingSettings(false);
     }
+  };
+
+  const loadMigrationStats = async () => {
+    try {
+      const res = await fetch('/api/admin/drive-migration');
+      if (res.ok) {
+        const d = await res.json();
+        if (d.success && d.stats) {
+          setMigrationStats(d.stats);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load migration stats', e);
+    }
+  };
+
+  const handleRunDryRun = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (migrationScanning) return;
+    setMigrationScanning(true);
+    setMigrationMessage(null);
+    setMigrationReport(null);
+
+    try {
+      const res = await fetch('/api/admin/drive-migration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'dry-run',
+          folderId: migrationFolderId.trim() || undefined,
+        }),
+      });
+
+      const d = await res.json();
+      if (!res.ok || !d.success) {
+        throw new Error(d.error || 'Failed to scan and generate migration dry-run.');
+      }
+
+      setMigrationReport(d.report);
+      setMigrationMessage({
+        type: 'success',
+        text: `Dry-run completed successfully! Scanned ${d.report.totalDriveFilesScanned} Drive files. Matched ${d.report.matches.length} library records (${d.report.unmatchedMaterials.length} unmatched). Review the diff preview below.`,
+      });
+    } catch (err: any) {
+      setMigrationMessage({
+        type: 'error',
+        text: err.message || 'Error occurred while scanning Google Drive.',
+      });
+    } finally {
+      setMigrationScanning(false);
+    }
+  };
+
+  const handleExecuteMigration = async () => {
+    if (!migrationReport || migrating) return;
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Execute Google Drive Migration',
+      message: `Are you sure you want to apply updates to ${migrationReport.matches.length} database records? A rollback snapshot will be automatically saved before making changes, so you can reverse this anytime.`,
+      actionLabel: 'Apply Migration',
+      isDestructive: false,
+      onConfirm: async () => {
+        setMigrating(true);
+        setMigrationMessage(null);
+        try {
+          const res = await fetch('/api/admin/drive-migration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'execute',
+              folderId: migrationFolderId.trim() || undefined,
+              targetDriveAccount: 'google-drive-migrated',
+            }),
+          });
+
+          const d = await res.json();
+          if (!res.ok || !d.success) {
+            throw new Error(d.error || 'Migration execution failed.');
+          }
+
+          setMigrationMessage({
+            type: 'success',
+            text: `Migration applied successfully! Updated ${d.updatedCount} materials in Supabase. Rollback snapshot saved.`,
+          });
+          setMigrationReport(null);
+          await Promise.all([loadMigrationStats(), loadMaterials(), loadStats()]);
+        } catch (err: any) {
+          setMigrationMessage({
+            type: 'error',
+            text: err.message || 'Failed to apply migration.',
+          });
+        } finally {
+          setMigrating(false);
+        }
+      },
+    });
+  };
+
+  const handleRollbackMigration = async () => {
+    if (rollingBack) return;
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Rollback Google Drive Migration',
+      message: 'Restore all material file URLs and Drive File IDs from the last saved rollback snapshot? This will reverse the latest migration.',
+      actionLabel: 'Restore Snapshot',
+      isDestructive: true,
+      onConfirm: async () => {
+        setRollingBack(true);
+        setMigrationMessage(null);
+        try {
+          const res = await fetch('/api/admin/drive-migration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'rollback' }),
+          });
+
+          const d = await res.json();
+          if (!res.ok || !d.success) {
+            throw new Error(d.error || 'Rollback failed.');
+          }
+
+          setMigrationMessage({
+            type: 'success',
+            text: `Rollback completed! Restored ${d.restoredCount} materials to their pre-migration state.`,
+          });
+          await Promise.all([loadMigrationStats(), loadMaterials(), loadStats()]);
+        } catch (err: any) {
+          setMigrationMessage({
+            type: 'error',
+            text: err.message || 'Failed to rollback migration.',
+          });
+        } finally {
+          setRollingBack(false);
+        }
+      },
+    });
   };
 
   const loadStats = async () => {
@@ -1354,6 +1513,25 @@ export default function AdminDashboardPage() {
             >
               <Settings className="w-4 h-4 shrink-0" />
               <span>Settings</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('drive-sync'); setSidebarOpen(false); loadMigrationStats(); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                activeTab === 'drive-sync'
+                  ? 'bg-lpu-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <HardDrive className="w-4 h-4 shrink-0 text-sky-500" />
+                <span>Drive Sync &amp; Migration</span>
+              </div>
+              <span className={`text-[10px] px-1.8 py-0.5 rounded-md font-bold ${
+                activeTab === 'drive-sync' ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-700'
+              }`}>
+                Auto
+              </span>
             </button>
 
             {/* OWNER ONLY SECTION */}
@@ -3333,6 +3511,359 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB 8: GOOGLE DRIVE MIGRATION & AUTOMATED SYNC               */}
+        {/* ============================================================ */}
+        {activeTab === 'drive-sync' && (
+          <div className="space-y-6 max-w-5xl">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center font-bold">
+                    <HardDrive className="w-5 h-5" />
+                  </span>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                    Google Drive Migration &amp; Automated Sync
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Recursive folder scanner, metadata matcher, and automated zero-downtime migration engine for Google Drive.
+                </p>
+              </div>
+
+              <button
+                onClick={loadMigrationStats}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-2xs self-start sm:self-auto"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+                <span>Refresh Telemetry</span>
+              </button>
+            </div>
+
+            {/* Notification message */}
+            {migrationMessage && (
+              <div
+                className={`p-4 rounded-xl text-xs font-bold transition-all ${
+                  migrationMessage.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-rose-50 text-rose-800 border border-rose-200'
+                }`}
+              >
+                {migrationMessage.text}
+              </div>
+            )}
+
+            {/* Rollback Snapshot Notice */}
+            {migrationStats?.hasRollbackSnapshot && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-black text-amber-900">
+                      Rollback Snapshot Available
+                    </h4>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      A pre-migration restore snapshot was saved on{' '}
+                      <strong>
+                        {migrationStats.rollbackSnapshotDate
+                          ? new Date(migrationStats.rollbackSnapshotDate).toLocaleString()
+                          : 'Previous Migration'}
+                      </strong>
+                      . You can reverse changes at any time.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRollbackMigration}
+                  disabled={rollingBack}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-amber-900 bg-white hover:bg-amber-100/60 border border-amber-300 rounded-xl transition-colors shrink-0 shadow-2xs disabled:opacity-60"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${rollingBack ? 'animate-spin' : ''}`} />
+                  <span>{rollingBack ? 'Restoring Snapshot...' : 'Rollback Migration'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Telemetry Overview Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+                <div className="flex items-center justify-between text-slate-500 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Total Materials</span>
+                  <BookOpen className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="text-2xl font-black text-slate-900">
+                  {migrationStats?.totalMaterials ?? materials.length}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Total library items in Supabase</p>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+                <div className="flex items-center justify-between text-sky-600 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Google Drive Files</span>
+                  <HardDrive className="w-4 h-4 text-sky-500" />
+                </div>
+                <div className="text-2xl font-black text-sky-900">
+                  {migrationStats?.driveMaterials ?? 0}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Single files mapped to Google Drive</p>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+                <div className="flex items-center justify-between text-indigo-600 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Multi-File Bundles</span>
+                  <Layers className="w-4 h-4 text-indigo-500" />
+                </div>
+                <div className="text-2xl font-black text-indigo-900">
+                  {migrationStats?.bundleMaterials ?? 0}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Bundled documents with multiple parts</p>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+                <div className="flex items-center justify-between text-slate-500 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider">External Links</span>
+                  <LinkIcon className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="text-2xl font-black text-slate-900">
+                  {migrationStats?.externalUrlMaterials ?? 0}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Web URLs unaffected by migration</p>
+              </div>
+            </div>
+
+            {/* Migration Scanner & Dry Run Card */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-5">
+              <div className="border-b border-slate-100 pb-4">
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Automated Folder Scanner &amp; Matcher
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Enter a Google Drive folder ID to scan recursively. The scanner will crawl subfolders, identify files, and fuzzy/exact match them to existing library materials by filename, subject code, academic year, and bundled document titles.
+                </p>
+              </div>
+
+              <form onSubmit={handleRunDryRun} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Target Google Drive Folder ID (Optional)
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={migrationFolderId}
+                      onChange={(e) => setMigrationFolderId(e.target.value)}
+                      placeholder="Leave blank to use default configured Drive folder, or paste a new Folder ID"
+                      className="flex-1 px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:border-sky-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={migrationScanning}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-xl transition-colors shadow-2xs disabled:opacity-60 shrink-0"
+                    >
+                      <Search className={`w-3.5 h-3.5 ${migrationScanning ? 'animate-spin' : ''}`} />
+                      <span>{migrationScanning ? 'Scanning Drive...' : 'Run Dry-Run Scan'}</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">
+                    Tip: You can extract the Folder ID from any Google Drive link: <code className="text-slate-600 bg-slate-100 px-1 py-0.5 rounded font-mono">drive.google.com/drive/folders/<strong>[FOLDER_ID]</strong></code>
+                  </p>
+                </div>
+              </form>
+
+              {/* Safety Assurances */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 mb-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Non-Destructive Dry Run</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Dry-runs are 100% read-only. Nothing on Google Drive or Supabase is touched until you confirm.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 mb-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Bundled File Support</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Automatically traverses and updates individual parts inside multi-file study bundles.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 mb-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Automatic Rollback Snapshot</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Every applied migration takes an automatic database snapshot for instant one-click reversal.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Dry Run Report & Match Table */}
+            {migrationReport && (
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      Dry-Run Scan Results ({migrationReport.matches.length} Matches Found)
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Scanned {migrationReport.totalDriveFilesScanned} files across Drive folders. Found {migrationReport.matches.length} matches for existing library materials.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMigrationReport(null)}
+                      className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExecuteMigration}
+                      disabled={migrating || migrationReport.matches.length === 0}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-2xs disabled:opacity-50"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{migrating ? 'Applying Changes...' : `Apply Migration (${migrationReport.matches.length} Records)`}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Match Table */}
+                {migrationReport.matches.length > 0 ? (
+                  <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto max-h-96">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 sticky top-0">
+                        <tr>
+                          <th className="py-2.5 px-3">Material Title</th>
+                          <th className="py-2.5 px-3">Subject &amp; Year</th>
+                          <th className="py-2.5 px-3">Current File ID</th>
+                          <th className="py-2.5 px-3">Target Drive File ID</th>
+                          <th className="py-2.5 px-3">Match Confidence</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {migrationReport.matches.map((m: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="py-2.5 px-3 font-bold text-slate-900 max-w-xs truncate">
+                              {m.materialTitle}
+                              {m.isBundlePart && (
+                                <span className="ml-1.5 text-[10px] font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                                  Part {m.bundleIndex + 1}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-600">
+                              <span className="font-mono font-bold text-slate-800">{m.subjectCode}</span>
+                              <span className="text-slate-400 ml-1">({formatYearName(m.year)})</span>
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500 max-w-[150px] truncate" title={m.oldDriveFileId}>
+                              {m.oldDriveFileId || 'None (New Map)'}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-emerald-700 font-bold max-w-[150px] truncate" title={m.newDriveFileId}>
+                              {m.newDriveFileId}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                m.confidence === 'exact'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-sky-100 text-sky-800'
+                              }`}>
+                                {m.confidence.toUpperCase()}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-xs text-slate-400">
+                    No matching files found between the target Google Drive folder and existing Supabase materials.
+                  </div>
+                )}
+
+                {/* Unmatched materials notice if any */}
+                {migrationReport.unmatchedMaterials?.length > 0 && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
+                    <span className="font-bold text-slate-800">
+                      {migrationReport.unmatchedMaterials.length} materials were not matched:
+                    </span>{' '}
+                    These items have external URLs or different filenames and will remain completely untouched.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step-by-Step Architecture Guide Card */}
+            <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md space-y-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h3 className="font-black text-sm tracking-wide uppercase text-slate-200">
+                  Future Google Drive Migration Guide
+                </h3>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                When you are ready to migrate materials to another Google Drive, Workspace account, or Shared Drive, follow these 4 simple steps with zero manual copy-pasting:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3.5 space-y-1">
+                  <div className="font-bold text-sky-300 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px]">1</span>
+                    Share New Folder with Service Account
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Copy all files/folders to the new Google Drive, then share the root folder with your service account email with &quot;Viewer&quot; or &quot;Editor&quot; permissions.
+                  </p>
+                </div>
+
+                <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3.5 space-y-1">
+                  <div className="font-bold text-sky-300 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px]">2</span>
+                    Input Target Folder ID &amp; Scan
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Paste the new folder ID into the scanner above and click &quot;Run Dry-Run Scan&quot;. The recursive crawler will match all subfolders and files automatically.
+                  </p>
+                </div>
+
+                <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3.5 space-y-1">
+                  <div className="font-bold text-sky-300 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px]">3</span>
+                    Review Dry-Run Diff Preview
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Inspect the diff table above showing old Google Drive IDs side-by-side with the new Drive IDs and match confidence badges.
+                  </p>
+                </div>
+
+                <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3.5 space-y-1">
+                  <div className="font-bold text-sky-300 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px]">4</span>
+                    Apply with Automated Rollback Safety
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Click &quot;Apply Migration&quot;. All Supabase records and bundled parts are updated instantly. An automatic snapshot is saved in case you ever want to rollback.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

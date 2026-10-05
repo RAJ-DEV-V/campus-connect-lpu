@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
 import { getMaterialById } from '@/lib/db';
 import { supabase } from '@/lib/db/supabase';
+import {
+  extractDriveFileId,
+  getDrivePreviewUrl,
+  getDriveDownloadUrl,
+  getDriveDirectDownloadUrl,
+} from '@/lib/drive-service';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -50,20 +56,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // 0. If stored in Google Drive
-    const extractDriveId = (url: string): string | null => {
-      if (!url) return null;
-      const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-      if (idMatch) return idMatch[1];
-      const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      if (fileMatch) return fileMatch[1];
-      const dMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-      if (dMatch) return dMatch[1];
-      return null;
-    };
-
-    const driveId = extractDriveId(targetFileUrl);
+    const driveId = extractDriveFileId(targetFileUrl);
     if (driveId) {
-      const drivePreviewUrl = `https://drive.google.com/file/d/${driveId}/preview`;
+      const drivePreviewUrl = getDrivePreviewUrl(driveId);
       if (returnSignedUrl) {
         return NextResponse.json({
           success: true,
@@ -82,8 +77,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       // Attempt to stream file directly from Google Drive for native PDF.js rendering
       try {
         const driveDownloadUrls = [
-          `https://drive.google.com/uc?export=download&id=${driveId}`,
-          `https://drive.usercontent.google.com/download?id=${driveId}&export=download`,
+          getDriveDownloadUrl(driveId),
+          getDriveDirectDownloadUrl(driveId),
         ];
 
         for (const dlUrl of driveDownloadUrls) {

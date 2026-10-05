@@ -52,6 +52,16 @@ CREATE TABLE IF NOT EXISTS public.materials (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- Migration-Ready Google Drive Metadata Columns (Non-destructive, safe to run anytime)
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS drive_file_id TEXT;
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS file_name TEXT;
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS mime_type TEXT;
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS drive_account TEXT DEFAULT 'primary_gmail';
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS backup_file_url TEXT;
+ALTER TABLE public.materials ADD COLUMN IF NOT EXISTS migration_metadata JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_materials_drive_file_id ON public.materials(drive_file_id);
+
 -- 3. DOWNLOADS TABLE
 CREATE TABLE IF NOT EXISTS public.downloads (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
