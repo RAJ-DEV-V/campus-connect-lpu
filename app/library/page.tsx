@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Search, 
@@ -85,6 +85,21 @@ function LibraryContent() {
     fetchSettings();
   }, []);
 
+  // Focus search input on Ctrl+K / Cmd+K
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Fetch materials whenever filters change
   useEffect(() => {
     async function fetchMaterials() {
@@ -92,9 +107,9 @@ function LibraryContent() {
       try {
         const params = new URLSearchParams();
         if (selectedYear > 0) params.set('year', selectedYear.toString());
-        if (selectedType && selectedType !== 'All') params.set('material_type', selectedType);
         if (searchQuery.trim()) params.set('search', searchQuery.trim());
         if (sortBy) params.set('sortBy', sortBy);
+        params.set('limit', '100');
 
         const res = await fetch(`/api/materials?${params.toString()}`);
         if (res.status === 401) {
@@ -119,7 +134,7 @@ function LibraryContent() {
 
     const timer = setTimeout(fetchMaterials, 150);
     return () => clearTimeout(timer);
-  }, [selectedYear, selectedType, searchQuery, sortBy, router]);
+  }, [selectedYear, searchQuery, sortBy, router]);
 
   // Extract unique subjects for the current selected Year to enable Year -> Subject hierarchy
   const availableSubjects = useMemo(() => {
@@ -132,11 +147,26 @@ function LibraryContent() {
     return Array.from(map.entries()).map(([code, label]) => ({ code, label }));
   }, [materials, selectedYear]);
 
-  // Filter by subject if specified
+  // Compute live counts per material type based on current year & search
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = { All: materials.length };
+    for (const m of materials) {
+      counts[m.material_type] = (counts[m.material_type] || 0) + 1;
+    }
+    return counts;
+  }, [materials]);
+
+  // Filter materials by both selectedType and selectedSubject
   const filteredMaterials = useMemo(() => {
-    if (selectedSubject === 'All') return materials;
-    return materials.filter((m) => m.subject_code === selectedSubject || m.subject === selectedSubject);
-  }, [materials, selectedSubject]);
+    let list = materials;
+    if (selectedType !== 'All') {
+      list = list.filter((m) => m.material_type === selectedType);
+    }
+    if (selectedSubject !== 'All') {
+      list = list.filter((m) => m.subject_code === selectedSubject || m.subject === selectedSubject);
+    }
+    return list;
+  }, [materials, selectedType, selectedSubject]);
 
   const clearAllFilters = () => {
     setSelectedYear(0);
@@ -198,20 +228,25 @@ function LibraryContent() {
         {/* Search Bar Input */}
         <div className="w-full md:w-80 relative">
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search (e.g. Programming in C, DSA, CSE101)..."
-            className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-lpu-500 focus:outline-none text-xs text-slate-900 placeholder:text-slate-400 shadow-2xs"
+            className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-lpu-500 focus:outline-none text-xs text-slate-900 placeholder:text-slate-400 shadow-2xs"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          {searchQuery && (
+          {searchQuery ? (
             <button
               onClick={() => setSearchQuery('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-100 text-slate-400"
             >
               <X className="w-3.5 h-3.5" />
             </button>
+          ) : (
+            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none shadow-2xs">
+              Ctrl K
+            </kbd>
           )}
         </div>
       </div>
@@ -277,18 +312,28 @@ function LibraryContent() {
               {categories.map((cat) => {
                 const Icon = cat.icon;
                 const isSelected = selectedType === cat.id;
+                const count = typeCounts[cat.id] ?? 0;
                 return (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedType(cat.id)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                       isSelected
                         ? 'bg-slate-900 text-white shadow-xs font-bold'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
-                    {cat.label}
+                    <span>{cat.label}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono transition-colors ${
+                        isSelected
+                          ? 'bg-white/20 text-white font-bold'
+                          : 'bg-slate-200 text-slate-600 font-medium'
+                      }`}
+                    >
+                      {count}
+                    </span>
                   </button>
                 );
               })}
@@ -337,23 +382,92 @@ function LibraryContent() {
 
       </div>
 
-      {/* Results Header Info */}
-      <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-        <span>
-          Showing <strong className="text-slate-900">{filteredMaterials.length}</strong> study materials
-          {selectedYear > 0 && ` for ${formatYearName(selectedYear)}`}
-          {selectedSubject !== 'All' && ` • ${selectedSubject}`}
-          {selectedType !== 'All' && ` (${selectedType})`}
-        </span>
+      {/* Active Filter Chips & Results Header */}
+      <div className="space-y-3">
+        {(selectedYear > 0 || selectedType !== 'All' || selectedSubject !== 'All' || searchQuery.trim()) && (
+          <div className="flex items-center gap-2 flex-wrap p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
+              <Filter className="w-3.5 h-3.5 text-lpu-600" />
+              Active Filters:
+            </span>
 
-        {(selectedYear > 0 || selectedType !== 'All' || searchQuery || selectedSubject !== 'All') && (
-          <button
-            onClick={clearAllFilters}
-            className="text-xs text-rose-600 hover:underline font-bold"
-          >
-            Reset All Filters
-          </button>
+            {selectedYear > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-semibold border border-amber-200/80 shadow-2xs">
+                <span>🎓 {formatYearName(selectedYear)}</span>
+                <button
+                  onClick={() => {
+                    setSelectedYear(0);
+                    setSelectedSubject('All');
+                  }}
+                  className="hover:text-amber-950 p-0.5 rounded hover:bg-amber-200/50 transition-colors"
+                  title="Remove year filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {selectedSubject !== 'All' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 text-sky-900 font-semibold border border-sky-200/80 shadow-2xs">
+                <span>🏷️ {selectedSubject}</span>
+                <button
+                  onClick={() => setSelectedSubject('All')}
+                  className="hover:text-sky-950 p-0.5 rounded hover:bg-sky-200/50 transition-colors"
+                  title="Remove subject filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {selectedType !== 'All' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-900 font-semibold border border-purple-200/80 shadow-2xs">
+                <span>📚 {selectedType}</span>
+                <button
+                  onClick={() => setSelectedType('All')}
+                  className="hover:text-purple-950 p-0.5 rounded hover:bg-purple-200/50 transition-colors"
+                  title="Remove type filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {searchQuery.trim() && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 font-semibold border border-emerald-200/80 shadow-2xs">
+                <span>🔍 &ldquo;{searchQuery}&rdquo;</span>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="hover:text-emerald-950 p-0.5 rounded hover:bg-emerald-200/50 transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            <button
+              onClick={clearAllFilters}
+              className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline ml-auto flex items-center gap-1 py-1 px-1.5"
+            >
+              Clear All Filters
+            </button>
+          </div>
         )}
+
+        {/* Results Count & Shortcut Hint */}
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+          <span>
+            Showing <strong className="text-slate-900">{filteredMaterials.length}</strong> study materials
+            {selectedYear > 0 && ` for ${formatYearName(selectedYear)}`}
+            {selectedSubject !== 'All' && ` • ${selectedSubject}`}
+            {selectedType !== 'All' && ` (${selectedType})`}
+          </span>
+
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-slate-400">
+            Press <kbd className="font-mono bg-slate-100 text-slate-600 px-1 py-0.5 rounded border border-slate-200 text-[10px]">Ctrl+K</kbd> to focus search
+          </span>
+        </div>
       </div>
 
       {/* Materials Grid */}
