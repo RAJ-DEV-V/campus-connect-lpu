@@ -1,6 +1,17 @@
 import { getLocalDatabase } from './local-store';
 import { SupabaseDatabaseStore, isSupabaseConfigured } from './supabase';
-import { User, Material, Download, Admin, AdminStats, MaterialFilters, CommunityVerificationLink } from './types';
+import { 
+  User, 
+  Material, 
+  Download, 
+  Admin, 
+  AdminStats, 
+  MaterialFilters, 
+  CommunityVerificationLink,
+  WhatsNewItem,
+  MaterialOpenHistoryItem,
+  SavedMaterialItem
+} from './types';
 
 const useSupabase = process.env.DATA_PROVIDER === 'supabase' && isSupabaseConfigured;
 const localDb = getLocalDatabase();
@@ -210,8 +221,55 @@ export async function updateAppSettings(settings: Partial<{ allow_user_downloads
   return localDb.updateAppSettings(settings);
 }
 
+export async function updateUserProfile(userId: string, data: { name?: string; year?: number }): Promise<User | null> {
+  if (supabaseDb) return await supabaseDb.updateUserProfile(userId, data);
+  return localDb.updateUserProfile(userId, data);
+}
+
+export async function getWhatsNew(activeOnly: boolean = true): Promise<WhatsNewItem[]> {
+  if (supabaseDb) return await supabaseDb.getWhatsNew(activeOnly);
+  return localDb.getWhatsNew(activeOnly);
+}
+
+export async function createWhatsNew(item: Omit<WhatsNewItem, 'id' | 'created_at'>): Promise<WhatsNewItem> {
+  if (supabaseDb) return await supabaseDb.createWhatsNew(item);
+  return localDb.createWhatsNew(item);
+}
+
+export async function recordMaterialOpen(userId: string, materialId: string): Promise<MaterialOpenHistoryItem | null> {
+  if (supabaseDb) return await supabaseDb.recordMaterialOpen(userId, materialId);
+  return localDb.recordMaterialOpen(userId, materialId);
+}
+
+export async function getUserMaterialOpenHistory(
+  userId: string, 
+  limit: number = 8
+): Promise<(MaterialOpenHistoryItem & { material: Material })[]> {
+  if (supabaseDb) return await supabaseDb.getUserMaterialOpenHistory(userId, limit);
+  return localDb.getUserMaterialOpenHistory(userId, limit);
+}
+
+export async function toggleSaveMaterial(userId: string, materialId: string): Promise<{ saved: boolean }> {
+  if (supabaseDb) return await supabaseDb.toggleSaveMaterial(userId, materialId);
+  return localDb.toggleSaveMaterial(userId, materialId);
+}
+
+export async function getUserSavedMaterials(
+  userId: string, 
+  limit: number = 12
+): Promise<(SavedMaterialItem & { material: Material })[]> {
+  if (supabaseDb) return await supabaseDb.getUserSavedMaterials(userId, limit);
+  return localDb.getUserSavedMaterials(userId, limit);
+}
+
+export async function getUserSavedMaterialIds(userId: string): Promise<string[]> {
+  if (supabaseDb) return await supabaseDb.getUserSavedMaterialIds(userId);
+  return localDb.getUserSavedMaterialIds(userId);
+}
+
 export function isUsingSupabase(): boolean {
   return Boolean(useSupabase);
 }
 
 export * from './types';
+

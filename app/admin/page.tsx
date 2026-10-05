@@ -132,6 +132,9 @@ export default function AdminDashboardPage() {
   const [uploadDescription, setUploadDescription] = useState('');
   const [resourceMode, setResourceMode] = useState<'file' | 'link'>('file');
   const [resourceLink, setResourceLink] = useState('');
+  const [isMultiLink, setIsMultiLink] = useState<boolean>(false);
+  const [multiLinksText, setMultiLinksText] = useState<string>('');
+  const [multiLinkProcessingMode, setMultiLinkProcessingMode] = useState<'bundle' | 'batch'>('bundle');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [clubbedImages, setClubbedImages] = useState<DocumentItem[]>([]);
   const [multiPdfMode, setMultiPdfMode] = useState<'merge' | 'bundle' | 'batch'>('merge');
@@ -140,7 +143,7 @@ export default function AdminDashboardPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadStage, setUploadStage] = useState<string>('');
-  const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   // Option: Delete Files with Same Name When Uploaded
   const [deleteSameNameOnUpload, setDeleteSameNameOnUpload] = useState<boolean>(true);
@@ -829,20 +832,54 @@ export default function AdminDashboardPage() {
     if (input) input.value = '';
   };
 
+  const extractValidUrls = (text: string): string[] => {
+    if (!text) return [];
+    const matches = text.match(/https?:\/\/[^\s"',;<>]+/gi) || [];
+    return Array.from(new Set(matches.map((u) => u.trim()))).filter((u) => {
+      try {
+        new URL(u);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+  };
+
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (uploading) return;
 
+    let detectedMultiUrls: string[] = [];
+
     if (resourceMode === 'link') {
-      if (!resourceLink.trim()) {
-        setUploadMessage({ type: 'error', text: 'Please enter or paste a valid resource link (URL).' });
-        return;
-      }
-      try {
-        new URL(resourceLink.trim());
-      } catch {
-        setUploadMessage({ type: 'error', text: 'Please enter a valid link including https:// or http://' });
-        return;
+      if (isMultiLink) {
+        detectedMultiUrls = extractValidUrls(multiLinksText);
+        if (detectedMultiUrls.length === 0) {
+          setUploadMessage({ type: 'error', text: 'Please paste at least one valid resource link starting with http:// or https://' });
+          return;
+        }
+      } else {
+        const extracted = extractValidUrls(resourceLink.trim());
+        if (extracted.length > 1) {
+          // Auto-detect multiple links in single field
+          detectedMultiUrls = extracted;
+          setIsMultiLink(true);
+          setMultiLinksText(resourceLink);
+        } else if (extracted.length === 1) {
+          detectedMultiUrls = extracted;
+        } else {
+          if (!resourceLink.trim()) {
+            setUploadMessage({ type: 'error', text: 'Please enter or paste a valid resource link (URL).' });
+            return;
+          }
+          try {
+            new URL(resourceLink.trim());
+            detectedMultiUrls = [resourceLink.trim()];
+          } catch {
+            setUploadMessage({ type: 'error', text: 'Please enter a valid link including https:// or http://' });
+            return;
+          }
+        }
       }
     } else {
       if (!uploadFile && clubbedImages.length === 0) {
@@ -858,6 +895,117 @@ export default function AdminDashboardPage() {
 
     try {
       if (resourceMode === 'link') {
+        // Multi-link processing
+        if (isMultiLink || detectedMultiUrls.length > 1) {
+          const linksList = detectedMultiUrls.length > 0 ? detectedMultiUrls : extractValidUrls(multiLinksText);
+
+          if (multiLinkProcessingMode === 'bundle') {
+            // Mode A: Bundle all links into ONE card with the multi-file switcher
+            setUploadStage(`Bundling ${linksList.length} links into a single multi-part study resource...`);
+            setUploadProgress(40);
+
+            const bundledParts = linksList.map((linkStr, idx) => {
+              const driveMatch = linkStr.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+                                 linkStr.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+                                 linkStr.match(/\/d\/([a-zA-Z0-9_-]+)/);
+              const driveId = driveMatch ? driveMatch[1] : undefined;
+              return {
+                title: `Part ${idx + 1}`,
+                name: `Part ${idx + 1}`,
+                url: linkStr,
+                drive_file_id: driveId,
+                size: linkStr.includes('drive.google.com') ? 'Google Drive' : 'Resource Link',
+              };
+            });
+
+            const res = await fetch('/api/materials/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: uploadTitle,
+                subject: uploadSubject,
+                subject_code: uploadSubjectCode,
+                year: uploadYear,
+                material_type: uploadType,
+                description: uploadDescription,
+                file_url: JSON.stringify(bundledParts),
+                file_size: `${linksList.length} Links Bundle`,
+                drive_file_id: bundledParts[0]?.drive_file_id,
+                file_name: uploadTitle,
+                mime_type: 'application/json',
+                delete_same_name: deleteSameNameOnUpload,
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+              throw new Error(data?.error || `Bundled upload failed with status ${res.status}`);
+            }
+
+            const delNote = data?.deletedSameNameCount > 0 ? ` (Replaced & deleted ${data.deletedSameNameCount} previous file(s) with the same name)` : '';
+            setUploadProgress(100);
+            setUploadMessage({
+              type: 'success',
+              text: `"${uploadTitle}" (${linksList.length} links bundled) published successfully to ${formatYearName(uploadYear)}!${delNote}`,
+            });
+          } else {
+            // Mode B: Batch publish separate cards for each link
+            let publishedCount = 0;
+            for (let i = 0; i < linksList.length; i++) {
+              const linkStr = linksList[i];
+              const cardTitle = linksList.length > 1 ? `${uploadTitle} (Part ${i + 1})` : uploadTitle;
+              setUploadStage(`Publishing card ${i + 1} of ${linksList.length}: "${cardTitle}"...`);
+              setUploadProgress(Math.round(((i + 1) / linksList.length) * 100));
+
+              const driveMatch = linkStr.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+                                 linkStr.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+                                 linkStr.match(/\/d\/([a-zA-Z0-9_-]+)/);
+              const driveId = driveMatch ? driveMatch[1] : undefined;
+
+              const res = await fetch('/api/materials/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  title: cardTitle,
+                  subject: uploadSubject,
+                  subject_code: uploadSubjectCode,
+                  year: uploadYear,
+                  material_type: uploadType,
+                  description: uploadDescription,
+                  file_url: linkStr,
+                  file_size: linkStr.includes('drive.google.com') ? 'Google Drive' : 'Resource Link',
+                  drive_file_id: driveId,
+                  file_name: cardTitle,
+                  mime_type: linkStr.includes('drive.google.com') ? 'application/pdf' : 'text/uri-list',
+                  delete_same_name: deleteSameNameOnUpload,
+                }),
+              });
+
+              if (res.ok) publishedCount++;
+            }
+
+            setUploadProgress(100);
+            setUploadMessage({
+              type: 'success',
+              text: `Successfully published ${publishedCount} distinct material card(s) from multiple links to ${formatYearName(uploadYear)}!`,
+            });
+          }
+
+          // Reset form
+          setUploadTitle('');
+          setUploadSubject('');
+          setUploadSubjectCode('');
+          setUploadDescription('');
+          setResourceLink('');
+          setMultiLinksText('');
+          setIsMultiLink(false);
+          setUploadProgress(0);
+          setUploadStage('');
+          await Promise.all([loadMaterials(), loadStats(), loadAnalytics()]);
+          return;
+        }
+
+        // Single link processing
         const cleanLink = resourceLink.trim();
         const isDrive = cleanLink.includes('drive.google.com');
 
@@ -916,6 +1064,8 @@ export default function AdminDashboardPage() {
         setUploadSubjectCode('');
         setUploadDescription('');
         setResourceLink('');
+        setMultiLinksText('');
+        setIsMultiLink(false);
         setUploadProgress(0);
         setUploadStage('');
 
@@ -2270,6 +2420,8 @@ export default function AdminDashboardPage() {
                 className={`p-4 rounded-xl mb-6 text-xs font-bold ${
                   uploadMessage.type === 'success'
                     ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : uploadMessage.type === 'info'
+                    ? 'bg-amber-50 text-amber-900 border border-amber-300'
                     : 'bg-rose-50 text-rose-800 border border-rose-200'
                 }`}
               >
@@ -2462,60 +2614,245 @@ export default function AdminDashboardPage() {
               {/* Resource Content: Link Mode vs File Upload Mode */}
               {resourceMode === 'link' ? (
                 /* Link Mode Input Card */
-                <div className="bg-gradient-to-br from-amber-50/50 via-white to-orange-50/30 border-2 border-dashed border-amber-300 rounded-2xl p-5 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                      <LinkIcon className="w-5 h-5 text-amber-600" />
+                <div className="bg-gradient-to-br from-amber-50/50 via-white to-orange-50/30 border-2 border-dashed border-amber-300 rounded-2xl p-5 space-y-4">
+                  {/* Header & Mode Switcher for Single vs Multiple Links */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200/80">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-xs">
+                        <LinkIcon className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <label className="block text-xs font-black text-slate-900">
+                            {isMultiLink ? 'Upload Multiple Links at Once' : 'Resource URL / Cloud Link'} <span className="text-rose-500">*</span>
+                          </label>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                            isMultiLink ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {isMultiLink ? 'Multi-Link Mode Active' : 'Single Link Mode'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {isMultiLink
+                            ? 'Paste multiple Google Drive or cloud URLs (separated by newlines, commas, or spaces).'
+                            : 'Paste a Google Drive view link, OneDrive, Dropbox, Notion, or external study document.'}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-black text-slate-900">
-                        Resource URL / Cloud Link <span className="text-rose-500">*</span>
-                      </label>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Paste a Google Drive view link, OneDrive, Dropbox, Notion, PDF URL, or any external study resource link.
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="relative">
-                    <input
-                      type="url"
-                      value={resourceLink}
-                      onChange={(e) => setResourceLink(e.target.value)}
-                      placeholder="e.g. https://drive.google.com/file/d/1a2b3c.../view?usp=sharing"
-                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
-                      required={resourceMode === 'link'}
-                    />
-                    {resourceLink && (
+                    {/* Mode Selector Pill Buttons & Switch */}
+                    <div className="flex items-center gap-2 bg-white/90 border border-amber-200/90 rounded-2xl p-1.5 shrink-0 shadow-xs">
                       <button
                         type="button"
-                        onClick={() => setResourceLink('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 p-1"
+                        onClick={() => setIsMultiLink(false)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          !isMultiLink
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        }`}
                       >
-                        <X className="w-4 h-4" />
+                        <LinkIcon className="w-3.5 h-3.5" />
+                        Single Link
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => setIsMultiLink(true)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          isMultiLink
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        }`}
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        Multiple Links
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Smart Link Recognition Badge */}
-                  {resourceLink.trim() && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {resourceLink.includes('drive.google.com') ? (
-                        <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          Google Drive Link Detected — Embedded preview is fully enabled for students!
-                        </span>
-                      ) : resourceLink.includes('onedrive') || resourceLink.includes('1drv.ms') ? (
-                        <span className="text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
-                          <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                          OneDrive Cloud Resource Detected
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl flex items-center gap-1.5">
-                          <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-                          External Study Link Resource
-                        </span>
+                  {!isMultiLink ? (
+                    /* Single Link Input */
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <input
+                          type="url"
+                          value={resourceLink}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const detected = extractValidUrls(val);
+                            if (detected.length > 1 || val.includes('\n') || val.includes('\r')) {
+                              setIsMultiLink(true);
+                              setMultiLinksText(val);
+                              setResourceLink('');
+                              setUploadMessage({
+                                type: 'info',
+                                text: `⚡ Detected ${detected.length || 'multiple'} links! Automatically switched to Multiple Links mode.`,
+                              });
+                            } else {
+                              setResourceLink(val);
+                            }
+                          }}
+                          placeholder="e.g. https://drive.google.com/file/d/1a2b3c.../view?usp=sharing"
+                          className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                          required={resourceMode === 'link' && !isMultiLink}
+                        />
+                        {resourceLink && (
+                          <button
+                            type="button"
+                            onClick={() => setResourceLink('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 p-1"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Smart Link Recognition Badge */}
+                      {resourceLink.trim() && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          {resourceLink.includes('drive.google.com') ? (
+                            <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              Google Drive Link Detected — Embedded preview is fully enabled for students!
+                            </span>
+                          ) : resourceLink.includes('onedrive') || resourceLink.includes('1drv.ms') ? (
+                            <span className="text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
+                              <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                              OneDrive Cloud Resource Detected
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl flex items-center gap-1.5">
+                              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                              External Study Link Resource
+                            </span>
+                          )}
+                        </div>
                       )}
+
+                      <p className="text-[11px] text-slate-400">
+                        💡 Tip: You can also paste multiple links at once into this box — it will automatically switch to Multiple Links mode.
+                      </p>
+                    </div>
+                  ) : (
+                    /* Multiple Links Input Area */
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-[11px] font-bold text-slate-700">
+                            Paste Links (One per line or separated by spaces/commas) <span className="text-rose-500">*</span>
+                          </label>
+                          {multiLinksText.trim() && (
+                            <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
+                              {extractValidUrls(multiLinksText).length} valid link(s) detected
+                            </span>
+                          )}
+                        </div>
+                        <textarea
+                          rows={4}
+                          value={multiLinksText}
+                          onChange={(e) => setMultiLinksText(e.target.value)}
+                          placeholder={"https://drive.google.com/file/d/1A2B3C.../view\nhttps://drive.google.com/file/d/4D5E6F.../view\nhttps://example.com/notes-part3.pdf"}
+                          className="w-full p-3.5 rounded-xl bg-white border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs leading-relaxed"
+                          required={resourceMode === 'link' && isMultiLink}
+                        />
+                      </div>
+
+                      {/* Live Badge Preview of Detected Links */}
+                      {(() => {
+                        const validLinks = extractValidUrls(multiLinksText);
+                        if (validLinks.length === 0) return null;
+                        return (
+                          <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-3.5 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-amber-950">
+                              <span className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                Detected Links Preview ({validLinks.length}):
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setMultiLinksText('')}
+                                className="text-[11px] text-rose-600 hover:underline font-semibold"
+                              >
+                                Clear All
+                              </button>
+                            </div>
+                            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                              {validLinks.map((lnk, idx) => (
+                                <div key={idx} className="flex items-center justify-between bg-white px-3 py-1.5 rounded-xl border border-amber-200/80 text-xs shadow-2xs">
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md shrink-0">
+                                      Part {idx + 1}
+                                    </span>
+                                    <span className="font-mono text-[11px] text-slate-800 truncate">{lnk}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const remaining = validLinks.filter((_, i) => i !== idx);
+                                      setMultiLinksText(remaining.join('\n'));
+                                    }}
+                                    className="text-slate-400 hover:text-rose-500 p-0.5 ml-2 shrink-0 transition-colors"
+                                    title="Remove this link"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Processing Mode for Multiple Links */}
+                      <div className="bg-white/90 border border-amber-200/80 rounded-2xl p-3.5">
+                        <div className="text-[11px] font-bold text-slate-800 mb-2">
+                          How should these {extractValidUrls(multiLinksText).length || ''} links be published?
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setMultiLinkProcessingMode('bundle')}
+                            className={`p-3 rounded-xl text-left border transition-all flex items-start gap-2.5 ${
+                              multiLinkProcessingMode === 'bundle'
+                                ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs ring-1 ring-amber-500/30'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                              multiLinkProcessingMode === 'bundle' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-200 text-slate-500'
+                            }`}>
+                              <Layers className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-900">1 Card with Multi-File Switcher</div>
+                              <div className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                                Clubs all links into a single card with Part 1, Part 2 tabs (recommended for multi-part notes)
+                              </div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setMultiLinkProcessingMode('batch')}
+                            className={`p-3 rounded-xl text-left border transition-all flex items-start gap-2.5 ${
+                              multiLinkProcessingMode === 'batch'
+                                ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs ring-1 ring-amber-500/30'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                              multiLinkProcessingMode === 'batch' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-200 text-slate-500'
+                            }`}>
+                              <Upload className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-900">Separate Cards for Each Link</div>
+                              <div className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                                Publishes each link as an individual library card with its own title
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

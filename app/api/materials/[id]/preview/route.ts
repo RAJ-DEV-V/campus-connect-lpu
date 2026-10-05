@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
-import { getMaterialById } from '@/lib/db';
+import { getMaterialById, recordMaterialOpen } from '@/lib/db';
 import { supabase } from '@/lib/db/supabase';
 import {
   extractDriveFileId,
@@ -28,6 +28,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const material = await getMaterialById(params.id);
     if (!material) {
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+    }
+
+    // Record open event in user's history asynchronously (does NOT touch download_count)
+    if (session.userId) {
+      recordMaterialOpen(session.userId, material.id).catch((err) => {
+        console.warn('Asynchronous open history recording notice:', err);
+      });
     }
 
     const { searchParams } = new URL(req.url);

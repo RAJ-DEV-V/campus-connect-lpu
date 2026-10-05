@@ -321,3 +321,111 @@ WITH CHECK (
         WHERE admins.email = auth.jwt()->>'email' OR admins.user_id = auth.uid()
     )
 );
+
+-- ==========================================================
+-- 10. CAMPUS CONNECT 2.0: STUDENT DASHBOARD TABLES & COLUMNS
+-- ==========================================================
+
+-- A. Users profile extensions for academic personalization
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS year INTEGER CHECK (year >= 1 AND year <= 4);
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS profile_completed BOOLEAN DEFAULT FALSE;
+
+-- B. What's New Announcements
+CREATE TABLE IF NOT EXISTS public.whats_new (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('announcement', 'new_material', 'update', 'important')),
+    link_type TEXT CHECK (link_type IN ('library', 'material', 'page')),
+    link_target TEXT,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    created_by TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_whats_new_active_created ON public.whats_new(is_active, created_at DESC);
+
+ALTER TABLE public.whats_new ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated students can view active whats_new"
+ON public.whats_new FOR SELECT
+TO authenticated
+USING (
+    is_active = TRUE 
+    OR EXISTS (SELECT 1 FROM public.admins WHERE admins.email = auth.jwt()->>'email' OR admins.user_id = auth.uid())
+);
+
+CREATE POLICY "Only admins can manage whats_new"
+ON public.whats_new FOR ALL
+TO authenticated
+USING (
+    EXISTS (SELECT 1 FROM public.admins WHERE admins.email = auth.jwt()->>'email' OR admins.user_id = auth.uid())
+)
+WITH CHECK (
+    EXISTS (SELECT 1 FROM public.admins WHERE admins.email = auth.jwt()->>'email' OR admins.user_id = auth.uid())
+);
+
+-- C. Material Open History (Continue Studying)
+-- Exactly one history record per (user_id, material_id)
+CREATE TABLE IF NOT EXISTS public.material_open_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    material_id UUID NOT NULL REFERENCES public.materials(id) ON DELETE CASCADE,
+    opened_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    CONSTRAINT uq_material_open_history_user_material UNIQUE (user_id, material_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_open_history_user_opened ON public.material_open_history(user_id, opened_at DESC);
+
+ALTER TABLE public.material_open_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Students can read their own open history"
+ON public.material_open_history FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Students can insert their own open history"
+ON public.material_open_history FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Students can update their own open history"
+ON public.material_open_history FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Students can delete their own open history"
+ON public.material_open_history FOR DELETE
+TO authenticated
+USING (auth.uid() = user_id);
+
+-- D. Saved Materials (Bookmarks)
+-- Exactly one record per (user_id, material_id)
+CREATE TABLE IF NOT EXISTS public.saved_materials (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    material_id UUID NOT NULL REFERENCES public.materials(id) ON DELETE CASCADE,
+    saved_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    CONSTRAINT uq_saved_materials_user_material UNIQUE (user_id, material_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_materials_user_saved ON public.saved_materials(user_id, saved_at DESC);
+
+ALTER TABLE public.saved_materials ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Students can read their own saved materials"
+ON public.saved_materials FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Students can insert their own saved materials"
+ON public.saved_materials FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Students can delete their own saved materials"
+ON public.saved_materials FOR DELETE
+TO authenticated
+USING (auth.uid() = user_id);
+

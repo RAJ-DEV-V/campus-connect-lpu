@@ -1,6 +1,17 @@
 import fs from 'fs';
 import path from 'path';
-import { User, Material, Download, Admin, AdminStats, MaterialFilters, CommunityVerificationLink } from './types';
+import { 
+  User, 
+  Material, 
+  Download, 
+  Admin, 
+  AdminStats, 
+  MaterialFilters, 
+  CommunityVerificationLink,
+  WhatsNewItem,
+  MaterialOpenHistoryItem,
+  SavedMaterialItem
+} from './types';
 import { generateSamplePdf } from '../pdf-generator';
 
 const DB_PATH = path.join(process.cwd(), 'data', 'db.json');
@@ -11,6 +22,9 @@ interface DatabaseSchema {
   downloads: Download[];
   admins: Admin[];
   community_verification_links: CommunityVerificationLink[];
+  whats_new?: WhatsNewItem[];
+  material_open_history?: MaterialOpenHistoryItem[];
+  saved_materials?: SavedMaterialItem[];
   app_settings?: {
     allow_user_downloads: boolean;
     updated_at?: string;
@@ -61,7 +75,21 @@ function getDefaultData(): DatabaseSchema {
     updated_by: 'system',
   };
 
-  return { users, materials, downloads, admins, community_verification_links, app_settings };
+  const whats_new: WhatsNewItem[] = [];
+  const material_open_history: MaterialOpenHistoryItem[] = [];
+  const saved_materials: SavedMaterialItem[] = [];
+
+  return { 
+    users, 
+    materials, 
+    downloads, 
+    admins, 
+    community_verification_links, 
+    whats_new,
+    material_open_history,
+    saved_materials,
+    app_settings 
+  };
 }
 
 export class LocalDatabaseStore {
@@ -80,6 +108,15 @@ export class LocalDatabaseStore {
         if (parsed && typeof parsed === 'object') {
           if (!parsed.community_verification_links) {
             parsed.community_verification_links = getDefaultData().community_verification_links;
+          }
+          if (!parsed.whats_new) {
+            parsed.whats_new = [];
+          }
+          if (!parsed.material_open_history) {
+            parsed.material_open_history = [];
+          }
+          if (!parsed.saved_materials) {
+            parsed.saved_materials = [];
           }
           if (!parsed.app_settings) {
             parsed.app_settings = getDefaultData().app_settings;
@@ -180,6 +217,8 @@ export class LocalDatabaseStore {
         name: userData.name || existing.name,
         avatar_url: userData.avatar_url || existing.avatar_url,
         community_joined: finalJoined,
+        year: existing.year ?? null,
+        profile_completed: existing.profile_completed ?? false,
         last_login: now,
         last_active_at: now,
       };
@@ -193,6 +232,8 @@ export class LocalDatabaseStore {
         email: userData.email,
         avatar_url: userData.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userData.name)}`,
         community_joined: userData.community_joined ?? false,
+        year: null,
+        profile_completed: false,
         created_at: now,
         last_login: now,
         last_active_at: now,
@@ -201,6 +242,21 @@ export class LocalDatabaseStore {
       this.save();
       return newUser;
     }
+  }
+
+  updateUserProfile(userId: string, data: { name?: string; year?: number }): User | null {
+    const user = this.data.users.find((u) => u.id === userId);
+    if (!user) return null;
+    if (data.name && data.name.trim()) {
+      user.name = data.name.trim();
+    }
+    if (data.year !== undefined && [1, 2, 3, 4].includes(data.year)) {
+      user.year = data.year;
+    }
+    user.profile_completed = Boolean(user.name && user.year);
+    user.last_active_at = new Date().toISOString();
+    this.save();
+    return user;
   }
 
   touchUserActivity(userId: string): void {
@@ -731,6 +787,148 @@ export class LocalDatabaseStore {
     this.data.app_settings = updated;
     this.save();
     return updated;
+  }
+
+  // --- What's New Announcements ---
+  getWhatsNew(activeOnly: boolean = true): WhatsNewItem[] {
+    const list = this.data.whats_new || [];
+    const filtered = activeOnly ? list.filter((item) => item.is_active) : list;
+    return [...filtered].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  createWhatsNew(data: Omit<WhatsNewItem, 'id' | 'created_at'>): WhatsNewItem {
+    const newItem: WhatsNewItem = {
+      id: `wn_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      title: data.title,
+      description: data.description,
+      type: data.type,
+      link_type: data.link_type || null,
+      link_target: data.link_target || null,
+      is_active: data.is_active ?? true,
+      created_at: new Date().toISOString(),
+      created_by: data.created_by || null,
+    };
+    if (!this.data.whats_new) this.data.whats_new = [];
+    this.data.whats_new.unshift(newItem);
+    this.save();
+    return newItem;
+  }
+
+  // --- Material Open History (Continue Studying) ---
+  recordMaterialOpen(userId: string, materialId: string): MaterialOpenHistoryItem | null {
+    if (!this.data.material_open_history) this.data.material_open_history = [];
+    const now = new Date().toISOString();
+    const existingIndex = this.data.material_open_history.findIndex(
+      (h) => h.user_id === userId && h.material_id === materialId
+    );
+
+    if (existingIndex >= 0) {
+      this.data.material_open_history[existingIndex].opened_at = now;
+      const updated = this.data.material_open_history[existingIndex];
+      this.save();
+      return updated;
+    } else {
+      const newHistory: MaterialOpenHistoryItem = {
+        id: `moh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        user_id: userId,
+        material_id: materialId,
+        opened_at: now,
+      };
+      this.data.material_open_history.unshift(newHistory);
+      this.save();
+      return newHistory;
+    }
+  }
+
+  getUserMaterialOpenHistoryRaw(userId: string, limit: number = 8): MaterialOpenHistoryItem[] {
+    const history = this.data.material_open_history || [];
+    return history
+      .filter((h) => h.user_id === userId)
+      .sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime())
+      .slice(0, limit);
+  }
+
+  getUserMaterialOpenHistory(userId: string, limit: number = 8): (MaterialOpenHistoryItem & { material: Material })[] {
+    const history = this.data.material_open_history || [];
+    const userHistory = history
+      .filter((h) => h.user_id === userId)
+      .sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime());
+
+    const result: (MaterialOpenHistoryItem & { material: Material })[] = [];
+    for (const h of userHistory) {
+      const mat = this.data.materials.find((m) => m.id === h.material_id);
+      if (mat) {
+        result.push({
+          ...h,
+          material: mat,
+        });
+      }
+      if (result.length >= limit) break;
+    }
+    return result;
+  }
+
+  // --- Saved Materials (Bookmarks) ---
+  toggleSaveMaterial(userId: string, materialId: string): { saved: boolean } {
+    if (!this.data.saved_materials) this.data.saved_materials = [];
+    const existingIndex = this.data.saved_materials.findIndex(
+      (s) => s.user_id === userId && s.material_id === materialId
+    );
+
+    if (existingIndex >= 0) {
+      this.data.saved_materials.splice(existingIndex, 1);
+      this.save();
+      return { saved: false };
+    } else {
+      this.data.saved_materials.unshift({
+        id: `sm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        user_id: userId,
+        material_id: materialId,
+        saved_at: new Date().toISOString(),
+      });
+      this.save();
+      return { saved: true };
+    }
+  }
+
+  getSavedMaterialsRaw(userId: string, limit: number = 12): SavedMaterialItem[] {
+    const saved = this.data.saved_materials || [];
+    return saved
+      .filter((s) => s.user_id === userId)
+      .sort((a, b) => new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime())
+      .slice(0, limit);
+  }
+
+  getUserSavedMaterials(userId: string, limit: number = 12): (SavedMaterialItem & { material: Material })[] {
+    const saved = this.data.saved_materials || [];
+    const userSaved = saved
+      .filter((s) => s.user_id === userId)
+      .sort((a, b) => new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime());
+
+    const result: (SavedMaterialItem & { material: Material })[] = [];
+    for (const s of userSaved) {
+      const mat = this.data.materials.find((m) => m.id === s.material_id);
+      if (mat) {
+        result.push({
+          ...s,
+          material: mat,
+        });
+      }
+      if (result.length >= limit) break;
+    }
+    return result;
+  }
+
+  isMaterialSaved(userId: string, materialId: string): boolean {
+    const saved = this.data.saved_materials || [];
+    return saved.some((s) => s.user_id === userId && s.material_id === materialId);
+  }
+
+  getUserSavedMaterialIds(userId: string): string[] {
+    const saved = this.data.saved_materials || [];
+    return saved.filter((s) => s.user_id === userId).map((s) => s.material_id);
   }
 }
 

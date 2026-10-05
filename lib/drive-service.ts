@@ -168,3 +168,67 @@ export function parseMaterialFileMetadata(
     downloadUrl: trimmed,
   };
 }
+
+/**
+ * Checks whether a material can be opened in the in-browser DocumentViewer (PDFs, Images, Docs).
+ * Files such as .zip, .rar, .7z, .tar, .gz, executable binaries, or un-previewable archive formats
+ * return FALSE, which permits normal students to download them even when general PDF download is disabled.
+ */
+export function isMaterialPreviewable(material: {
+  file_url?: string;
+  file_name?: string | null;
+  title?: string;
+  mime_type?: string | null;
+  material_type?: string;
+}): boolean {
+  if (!material) return false;
+
+  const url = (material.file_url || '').toLowerCase().trim();
+  const name = (material.file_name || material.title || '').toLowerCase().trim();
+  const mime = (material.mime_type || '').toLowerCase().trim();
+
+  // Explicit non-previewable archive & binary extensions
+  const nonPreviewableExtensions = [
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.tgz',
+    '.iso', '.dmg', '.pkg', '.apk', '.exe', '.msi', '.bin',
+    '.csv', '.sqlite', '.db'
+  ];
+
+  for (const ext of nonPreviewableExtensions) {
+    if (name.endsWith(ext) || url.includes(ext)) {
+      return false;
+    }
+  }
+
+  // Non-previewable MIME types
+  if (
+    mime.includes('zip') ||
+    mime.includes('compressed') ||
+    mime.includes('archive') ||
+    mime.includes('octet-stream')
+  ) {
+    // If it's a PDF or image, it is previewable despite generic octet-stream
+    if (!name.endsWith('.pdf') && !name.endsWith('.png') && !name.endsWith('.jpg') && !name.endsWith('.jpeg')) {
+      return false;
+    }
+  }
+
+  // Multi-file bundle: check items
+  if (url.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(material.file_url || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // If all files in the bundle are non-previewable, return false
+        const anyPreviewable = parsed.some((item) => {
+          const itemUrl = (item.url || '').toLowerCase();
+          const itemName = (item.title || item.name || '').toLowerCase();
+          return !nonPreviewableExtensions.some((ext) => itemName.endsWith(ext) || itemUrl.includes(ext));
+        });
+        return anyPreviewable;
+      }
+    } catch {}
+  }
+
+  return true;
+}
+

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
 import { getMaterialById, recordDownload, getAppSettings } from '@/lib/db';
-import { extractDriveFileId, getDriveDownloadUrl } from '@/lib/drive-service';
+import { extractDriveFileId, getDriveDownloadUrl, isMaterialPreviewable } from '@/lib/drive-service';
 import fs from 'fs';
 import path from 'path';
 
@@ -21,23 +21,26 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       );
     }
 
-    // SERVER-SIDE GLOBAL ACCESS CONTROL ENFORCEMENT
-    // When allow_user_downloads = false, direct file downloads are disabled globally for normal students.
-    // Admin and Owner retain administrative download access for verification and maintenance.
+    const material = await getMaterialById(params.id);
+    if (!material) {
+      return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+    }
+
+    // SERVER-SIDE ACCESS CONTROL:
+    // When allow_user_downloads = false, PDF/previewable documents cannot be downloaded by normal students.
+    // HOWEVER: Files that cannot be previewed in the document viewer (e.g. .zip, .rar, .7z, archives)
+    // are EXEMPT and permitted for normal students to download so they can access the material.
     const settings = await getAppSettings();
-    if (!settings.allow_user_downloads && !isAdminOrOwner) {
+    const canBePreviewed = isMaterialPreviewable(material);
+
+    if (!settings.allow_user_downloads && !isAdminOrOwner && canBePreviewed) {
       return NextResponse.json(
         {
-          error: 'Document downloads are currently disabled by administration. You can view this document in Preview mode.',
+          error: 'Document downloads are currently disabled by administration for previewable files. You can view this document in Preview mode.',
           code: 'DOWNLOADS_DISABLED_PREVIEW_ONLY',
         },
         { status: 403 }
       );
-    }
-
-    const material = await getMaterialById(params.id);
-    if (!material) {
-      return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
 
     // 1. Record the download in database & increment download count

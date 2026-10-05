@@ -1,6 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
-import { User, Material, Download, Admin, AdminStats, MaterialFilters, CommunityVerificationLink } from './types';
+import { 
+  User, 
+  Material, 
+  Download, 
+  Admin, 
+  AdminStats, 
+  MaterialFilters, 
+  CommunityVerificationLink,
+  WhatsNewItem,
+  MaterialOpenHistoryItem,
+  SavedMaterialItem
+} from './types';
 import { getLocalDatabase } from './local-store';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -36,7 +47,12 @@ export class SupabaseDatabaseStore {
       if (error || !data) {
         return this.localFallback.getUserById(id);
       }
-      return data as User;
+      const local = this.localFallback.getUserById(id);
+      return {
+        ...(data as User),
+        year: data.year ?? local?.year ?? null,
+        profile_completed: Boolean(data.name && (data.year ?? local?.year)),
+      };
     } catch {
       return this.localFallback.getUserById(id);
     }
@@ -53,7 +69,12 @@ export class SupabaseDatabaseStore {
       if (error || !data) {
         return this.localFallback.getUserByEmail(email);
       }
-      return data as User;
+      const local = this.localFallback.getUserByEmail(email);
+      return {
+        ...(data as User),
+        year: data.year ?? local?.year ?? null,
+        profile_completed: Boolean(data.name && (data.year ?? local?.year)),
+      };
     } catch {
       return this.localFallback.getUserByEmail(email);
     }
@@ -832,5 +853,199 @@ export class SupabaseDatabaseStore {
       }
     } catch {}
     return local;
+  }
+
+  // --- Student Profile Update ---
+  async updateUserProfile(userId: string, data: { name?: string; year?: number }): Promise<User | null> {
+    const local = this.localFallback.updateUserProfile(userId, data);
+    try {
+      const updates: any = {};
+      if (data.name && data.name.trim()) updates.name = data.name.trim();
+      if (data.year !== undefined && [1, 2, 3, 4].includes(data.year)) {
+        updates.year = data.year;
+        updates.profile_completed = Boolean((data.name || local?.name) && data.year);
+      }
+      updates.last_active_at = new Date().toISOString();
+
+      const { data: updatedUser, error } = await this.client
+        .from('users')
+        .update(updates)
+        .eq('id', userId)
+        .select('*')
+        .single();
+
+      if (!error && updatedUser) {
+        return updatedUser as User;
+      }
+    } catch (err) {
+      console.warn('Supabase updateUserProfile fallback:', err);
+    }
+    return local;
+  }
+
+  // --- What's New Announcements ---
+  async getWhatsNew(activeOnly: boolean = true): Promise<WhatsNewItem[]> {
+    try {
+      let query = this.client
+        .from('whats_new')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (activeOnly) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        return data as WhatsNewItem[];
+      }
+    } catch {}
+    return this.localFallback.getWhatsNew(activeOnly);
+  }
+
+  async createWhatsNew(item: Omit<WhatsNewItem, 'id' | 'created_at'>): Promise<WhatsNewItem> {
+    const local = this.localFallback.createWhatsNew(item);
+    try {
+      const { data, error } = await this.client
+        .from('whats_new')
+        .insert([{
+          title: item.title,
+          description: item.description,
+          type: item.type,
+          link_type: item.link_type || null,
+          link_target: item.link_target || null,
+          is_active: item.is_active ?? true,
+          created_by: item.created_by || null,
+        }])
+        .select('*')
+        .single();
+
+      if (!error && data) {
+        return data as WhatsNewItem;
+      }
+    } catch {}
+    return local;
+  }
+
+  // --- Material Open History (Continue Studying) ---
+  async recordMaterialOpen(userId: string, materialId: string): Promise<MaterialOpenHistoryItem | null> {
+    const local = this.localFallback.recordMaterialOpen(userId, materialId);
+    try {
+      const now = new Date().toISOString();
+      const { data, error } = await this.client
+        .from('material_open_history')
+        .upsert(
+          { user_id: userId, material_id: materialId, opened_at: now },
+          { onConflict: 'user_id,material_id' }
+        )
+        .select('*')
+        .single();
+
+      if (!error && data) {
+        return data as MaterialOpenHistoryItem;
+      }
+    } catch (err) {
+      console.warn('Supabase recordMaterialOpen fallback:', err);
+    }
+    return local;
+  }
+
+  async getUserMaterialOpenHistory(
+    userId: string, 
+    limit: number = 8
+  ): Promise<(MaterialOpenHistoryItem & { material: Material })[]> {
+    try {
+      const { data, error } = await this.client
+        .from('material_open_history')
+        .select('*, material:materials(*)')
+        .eq('user_id', userId)
+        .order('opened_at', { ascending: false })
+        .limit(limit);
+
+      if (!error && data) {
+        return data.filter((item: any) => item.material) as (MaterialOpenHistoryItem & { material: Material })[];
+      }
+    } catch {}
+
+    const rawHistory = this.localFallback.getUserMaterialOpenHistoryRaw(userId, limit);
+    const enrichedHistory: (MaterialOpenHistoryItem & { material: Material })[] = [];
+    for (const h of rawHistory) {
+      const mat = await this.getMaterialById(h.material_id);
+      if (mat) {
+        enrichedHistory.push({ ...h, material: mat });
+      }
+    }
+    return enrichedHistory;
+  }
+
+  // --- Saved Materials (Bookmarks) ---
+  async toggleSaveMaterial(userId: string, materialId: string): Promise<{ saved: boolean }> {
+    const local = this.localFallback.toggleSaveMaterial(userId, materialId);
+    try {
+      // Check if already saved
+      const { data: existing } = await this.client
+        .from('saved_materials')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('material_id', materialId)
+        .maybeSingle();
+
+      if (existing) {
+        await this.client
+          .from('saved_materials')
+          .delete()
+          .eq('user_id', userId)
+          .eq('material_id', materialId);
+        return { saved: false };
+      } else {
+        await this.client
+          .from('saved_materials')
+          .insert([{ user_id: userId, material_id: materialId }]);
+        return { saved: true };
+      }
+    } catch {}
+    return local;
+  }
+
+  async getUserSavedMaterials(
+    userId: string, 
+    limit: number = 12
+  ): Promise<(SavedMaterialItem & { material: Material })[]> {
+    try {
+      const { data, error } = await this.client
+        .from('saved_materials')
+        .select('*, material:materials(*)')
+        .eq('user_id', userId)
+        .order('saved_at', { ascending: false })
+        .limit(limit);
+
+      if (!error && data) {
+        return data.filter((item: any) => item.material) as (SavedMaterialItem & { material: Material })[];
+      }
+    } catch {}
+
+    const rawSaved = this.localFallback.getSavedMaterialsRaw(userId, limit);
+    const enrichedSaved: (SavedMaterialItem & { material: Material })[] = [];
+    for (const s of rawSaved) {
+      const mat = await this.getMaterialById(s.material_id);
+      if (mat) {
+        enrichedSaved.push({ ...s, material: mat });
+      }
+    }
+    return enrichedSaved;
+  }
+
+  async getUserSavedMaterialIds(userId: string): Promise<string[]> {
+    try {
+      const { data, error } = await this.client
+        .from('saved_materials')
+        .select('material_id')
+        .eq('user_id', userId);
+
+      if (!error && data) {
+        return data.map((d: any) => d.material_id);
+      }
+    } catch {}
+    return this.localFallback.getUserSavedMaterialIds(userId);
   }
 }

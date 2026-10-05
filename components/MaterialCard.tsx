@@ -12,9 +12,11 @@ import {
   FileSpreadsheet,
   HelpCircle,
   Award,
-  Layers
+  Layers,
+  Bookmark
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
+import { isMaterialPreviewable } from '@/lib/drive-service';
 
 interface MaterialCardProps {
   material: Material;
@@ -22,6 +24,8 @@ interface MaterialCardProps {
   onDownloadComplete?: (mat: Material) => void;
   allowDownloads?: boolean;
   isAdmin?: boolean;
+  isSaved?: boolean;
+  onToggleSave?: (mat: Material) => void;
 }
 
 export function formatYearName(year: number): string {
@@ -44,14 +48,17 @@ export default function MaterialCard({
   onPreview, 
   onDownloadComplete,
   allowDownloads = true,
-  isAdmin = false 
+  isAdmin = false,
+  isSaved = false,
+  onToggleSave
 }: MaterialCardProps) {
   const [downloading, setDownloading] = useState(false);
   const [downloadCount, setDownloadCount] = useState(material.download_count);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
-  // In the library view, the global switch strictly controls whether download button shows
-  const canDownload = allowDownloads;
+  // Normal users can download if global downloads are ON, or if the file CANNOT be previewed in the previewer (e.g. ZIP, RAR, 7Z, etc.)
+  const canPreview = isMaterialPreviewable(material);
+  const canDownload = allowDownloads || !canPreview;
 
   const handleDownload = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -123,7 +130,7 @@ export default function MaterialCard({
   return (
     <div className="group bg-white rounded-2xl border border-slate-200/90 hover:border-orange-300 p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between">
       <div>
-        {/* Top Badges: Material Type + Year Badge */}
+        {/* Top Badges: Material Type + Year Badge + Subject Code + Bookmark */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.8 rounded-full border ${badge.classes}`}>
@@ -149,9 +156,29 @@ export default function MaterialCard({
             })()}
           </div>
 
-          <span className="text-[11px] font-mono font-bold text-slate-800 bg-orange-50 border border-orange-200/70 px-2 py-0.5 rounded">
-            {material.subject_code}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-mono font-bold text-slate-800 bg-orange-50 border border-orange-200/70 px-2 py-0.5 rounded">
+              {material.subject_code}
+            </span>
+            {onToggleSave && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSave(material);
+                }}
+                className={`p-1 rounded-lg transition-colors ${
+                  isSaved
+                    ? 'text-amber-500 bg-amber-50 hover:bg-amber-100'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                }`}
+                title={isSaved ? 'Remove from Saved' : 'Save Material'}
+                aria-label={isSaved ? 'Remove from Saved' : 'Save Material'}
+              >
+                <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-amber-500' : ''}`} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Title */}
@@ -190,7 +217,7 @@ export default function MaterialCard({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          {onPreview && (
+          {onPreview && canPreview && (
             <button
               onClick={() => onPreview(material)}
               type="button"
@@ -214,7 +241,7 @@ export default function MaterialCard({
                 downloadSuccess
                   ? 'bg-emerald-600'
                   : 'bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 shadow-orange-500/20'
-              } ${onPreview ? '' : 'col-span-2'}`}
+              } ${onPreview && canPreview ? '' : 'col-span-2'}`}
             >
               {downloadSuccess ? (
                 <>

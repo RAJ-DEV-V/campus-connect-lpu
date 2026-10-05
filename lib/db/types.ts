@@ -10,9 +10,39 @@ export interface User {
   community_joined: boolean;
   community_verified_at?: string | null;
   community_verification_link_id?: string | null;
+  year?: number | null; // 1, 2, 3, 4
+  profile_completed?: boolean;
   created_at: string;
   last_login: string;
   last_active_at: string; // Real-time user activity tracking
+}
+
+export interface WhatsNewItem {
+  id: string;
+  title: string;
+  description: string;
+  type: 'announcement' | 'new_material' | 'update' | 'important';
+  link_type?: 'library' | 'material' | 'page' | null;
+  link_target?: string | null;
+  is_active: boolean;
+  created_at: string;
+  created_by?: string | null;
+}
+
+export interface MaterialOpenHistoryItem {
+  id: string;
+  user_id: string;
+  material_id: string;
+  opened_at: string;
+  material?: Material;
+}
+
+export interface SavedMaterialItem {
+  id: string;
+  user_id: string;
+  material_id: string;
+  saved_at: string;
+  material?: Material;
 }
 
 export type CommunityVerificationLinkType = 'community' | 'freshers_group' | 'other';

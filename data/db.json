@@ -2,13 +2,39 @@
   "users": [
     {
       "id": "b8b62eee-0e01-4163-9123-ab931e254027",
-      "name": "RAJVANSH MISHRA",
+      "name": "Rajvansh Mishra",
       "email": "mishra.rajvansh11@gmail.com",
-      "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocJyb9oN_ZcToffuuEiGwaa7suNwrweCYI9iU0GXGBCZjQEZtQ=s96-c",
+      "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=mishra.rajvansh11",
       "community_joined": true,
       "created_at": "2026-10-04T07:57:55.077Z",
-      "last_login": "2026-10-04T07:57:55.077Z",
-      "last_active_at": "2026-10-04T09:32:37.391Z"
+      "last_login": "2026-10-05T10:12:38.617Z",
+      "last_active_at": "2026-10-05T10:58:49.189Z",
+      "year": 1,
+      "profile_completed": true
+    },
+    {
+      "id": "451c5b31-7ba5-4b9d-bd52-daf859e389fa",
+      "name": "Regular Student",
+      "email": "student.regular22@gmail.com",
+      "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=Regular%20Student",
+      "community_joined": false,
+      "year": null,
+      "profile_completed": false,
+      "created_at": "2026-10-05T10:09:23.703Z",
+      "last_login": "2026-10-05T10:10:45.349Z",
+      "last_active_at": "2026-10-05T10:10:45.349Z"
+    },
+    {
+      "id": "c03f6f0c-dfc7-4c5f-ad95-e68bf24699d3",
+      "name": "vaidehirathore311",
+      "email": "vaidehirathore311@gmail.com",
+      "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=vaidehirathore311",
+      "community_joined": true,
+      "year": null,
+      "profile_completed": false,
+      "created_at": "2026-10-05T10:11:23.835Z",
+      "last_login": "2026-10-05T10:11:23.835Z",
+      "last_active_at": "2026-10-05T10:11:23.835Z"
     }
   ],
   "materials": [
@@ -42,6 +68,12 @@
     }
   ],
   "downloads": [
+    {
+      "id": "dld_1791195085449_2o57",
+      "user_id": "c03f6f0c-dfc7-4c5f-ad95-e68bf24699d3",
+      "material_id": "4d05b346-0d75-4e0b-8af8-07790669f2f2",
+      "downloaded_at": "2026-10-05T10:11:25.450Z"
+    },
     {
       "id": "dld_1791105567968_0icp",
       "user_id": "b8b62eee-0e01-4163-9123-ab931e254027",
@@ -87,5 +119,50 @@
     "allow_user_downloads": false,
     "updated_at": "2026-10-04T09:33:54.502Z",
     "updated_by": "mishra.rajvansh11@gmail.com"
-  }
+  },
+  "whats_new": [
+    {
+      "id": "wn_1791194107676_3mwcy",
+      "title": "Campus Connect 2.0 Student Dashboard Live!",
+      "description": "Personalized home page with Continue Studying and Year-wise filters is now available.",
+      "type": "announcement",
+      "link_type": "library",
+      "link_target": "/library",
+      "is_active": true,
+      "created_at": "2026-10-05T09:55:07.676Z",
+      "created_by": "mishra.rajvansh11@gmail.com"
+    },
+    {
+      "id": "wn_1791193836828_bi2jh",
+      "title": "Campus Connect 2.0 Student Dashboard Live!",
+      "description": "Personalized home page with Continue Studying and Year-wise filters is now available.",
+      "type": "announcement",
+      "link_type": "library",
+      "link_target": "/library",
+      "is_active": true,
+      "created_at": "2026-10-05T09:50:36.830Z",
+      "created_by": "mishra.rajvansh11@gmail.com"
+    }
+  ],
+  "material_open_history": [
+    {
+      "id": "moh_1791196583013_4g8d9",
+      "user_id": "b8b62eee-0e01-4163-9123-ab931e254027",
+      "material_id": "0591d65f-ff7a-4584-967e-a0d1c69b4201",
+      "opened_at": "2026-10-05T10:40:06.156Z"
+    },
+    {
+      "id": "moh_1791196531471_zo9p6",
+      "user_id": "student-verification-test",
+      "material_id": "0591d65f-ff7a-4584-967e-a0d1c69b4201",
+      "opened_at": "2026-10-05T10:35:31.781Z"
+    },
+    {
+      "id": "moh_1791193838168_nbkv4",
+      "user_id": "b8b62eee-0e01-4163-9123-ab931e254027",
+      "material_id": "bbf08faf-ca27-484d-8d8b-6025c6eb1169",
+      "opened_at": "2026-10-05T09:55:09.066Z"
+    }
+  ],
+  "saved_materials": []
 }

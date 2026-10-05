@@ -28,6 +28,8 @@ export async function GET() {
       email: user.email,
       avatar_url: user.avatar_url,
       community_joined: user.community_joined,
+      year: user.year || null,
+      profile_completed: Boolean(user.name && user.year),
       created_at: user.created_at,
       last_login: user.last_login,
       last_active_at: new Date().toISOString(),

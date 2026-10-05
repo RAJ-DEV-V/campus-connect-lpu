@@ -20,6 +20,7 @@ import {
   FolderOpen
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
+import { isMaterialPreviewable } from '@/lib/drive-service';
 
 interface DocumentViewerModalProps {
   material: Material | null;
@@ -64,6 +65,16 @@ export default function DocumentViewerModal({
 
   useEffect(() => {
     setActiveFileIndex(0);
+    if (material?.id) {
+      // Record open event in user material open history
+      fetch('/api/materials/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ materialId: material.id }),
+      }).catch((err) => {
+        console.warn('Could not record material open history:', err);
+      });
+    }
   }, [material?.id]);
 
   // Panning state for zoomed views
@@ -117,13 +128,15 @@ export default function DocumentViewerModal({
     };
   }, []);
 
-  // Strict enforcement: When downloads are OFF globally or via prop, the download button is completely hidden.
-  // We do NOT bypass this when testing as admin so the admin can verify download prohibition accurately.
+  // Strict enforcement: When downloads are OFF globally or via prop, previewable PDF/image documents cannot be downloaded.
+  // HOWEVER: If a file cannot be opened in the viewer (e.g. ZIP, RAR, 7Z, archives), or if rendering fails with an error,
+  // normal students are allowed to download it so they are not blocked from the resource.
+  const isPreviewable = material ? isMaterialPreviewable(material) : true;
   const isDownloadPermitted = serverAllowDownloads !== null 
     ? (serverAllowDownloads && allowDownloads)
     : allowDownloads;
 
-  const canDownload = Boolean(isDownloadPermitted);
+  const canDownload = Boolean(isDownloadPermitted || !isPreviewable || error);
 
   // Helper to dynamically load Mozilla PDF.js without bundling issues
   const loadPdfJs = (): Promise<any> => {
