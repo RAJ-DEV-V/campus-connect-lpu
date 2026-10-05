@@ -61,6 +61,7 @@ export default function DashboardPage() {
 
   // Activity summary stats
   const [totalNewCount, setTotalNewCount] = useState<number>(0);
+  const [selectedDashboardSubject, setSelectedDashboardSubject] = useState<string>('All');
 
   // Time-based greeting helper
   const greeting = useMemo(() => {
@@ -240,6 +241,48 @@ export default function DashboardPage() {
     }
   };
 
+  // Quick 1-click Academic Year Switcher directly from Dashboard
+  const handleQuickSwitchYear = async (newYear: number) => {
+    if (newYear === (user?.year || 1) || savingProfile) return;
+    setSavingProfile(true);
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: user?.name || profileName || 'Student',
+          year: newYear,
+        }),
+      });
+      if (res.ok) {
+        setUser((prev: any) => ({ ...prev, year: newYear }));
+        setProfileYear(newYear);
+        setSelectedDashboardSubject('All');
+        await loadDashboardData(newYear);
+      }
+    } catch (e) {
+      console.error('Failed to switch academic year:', e);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  // Unique subjects for quick filtering inside the dashboard
+  const dashboardSubjects = useMemo(() => {
+    const map = new Map<string, string>();
+    recommendedMaterials.forEach((m) => {
+      if (m.subject_code) {
+        map.set(m.subject_code, m.subject || m.subject_code);
+      }
+    });
+    return Array.from(map.entries()).map(([code, name]) => ({ code, name }));
+  }, [recommendedMaterials]);
+
+  const displayedRecommended = useMemo(() => {
+    if (selectedDashboardSubject === 'All') return recommendedMaterials;
+    return recommendedMaterials.filter((m) => m.subject_code === selectedDashboardSubject);
+  }, [recommendedMaterials, selectedDashboardSubject]);
+
   // Toggle bookmark save / unsave
   const handleToggleSave = async (material: Material) => {
     try {
@@ -392,6 +435,29 @@ export default function DashboardPage() {
                 Search
               </button>
             </form>
+
+            {/* Quick 1-Click Year Switcher */}
+            <div className="mt-4 flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mr-1">
+                Batch:
+              </span>
+              {[1, 2, 3, 4].map((yr) => (
+                <button
+                  key={yr}
+                  type="button"
+                  disabled={savingProfile}
+                  onClick={() => handleQuickSwitchYear(yr)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    studentYear === yr
+                      ? 'bg-amber-400 text-slate-950 font-black shadow-sm ring-2 ring-amber-400/40'
+                      : 'bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-slate-600'
+                  }`}
+                  title={`Switch to ${formatYearName(yr)}`}
+                >
+                  {formatYearName(yr)}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Compact Academic Profile Card */}
@@ -547,9 +613,39 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {recommendedMaterials.length > 0 ? (
+        {/* Subject-Wise Quick Tabs */}
+        {dashboardSubjects.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-4 scrollbar-none">
+            <button
+              onClick={() => setSelectedDashboardSubject('All')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                selectedDashboardSubject === 'All'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              All Subjects ({recommendedMaterials.length})
+            </button>
+            {dashboardSubjects.map((sub) => (
+              <button
+                key={sub.code}
+                onClick={() => setSelectedDashboardSubject(sub.code)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition-all shrink-0 ${
+                  selectedDashboardSubject === sub.code
+                    ? 'bg-lpu-600 text-white shadow-xs'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:border-lpu-300 hover:bg-slate-50'
+                }`}
+                title={sub.name}
+              >
+                {sub.code} ({recommendedMaterials.filter((m) => m.subject_code === sub.code).length})
+              </button>
+            ))}
+          </div>
+        )}
+
+        {displayedRecommended.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {recommendedMaterials.map((mat) => (
+            {displayedRecommended.map((mat) => (
               <MaterialCard
                 key={mat.id}
                 material={mat}
@@ -564,7 +660,7 @@ export default function DashboardPage() {
         ) : (
           <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
             <p className="text-xs font-semibold text-slate-500">
-              No recommended materials found for {formatYearName(studentYear)} yet.
+              No recommended materials found for {formatYearName(studentYear)} {selectedDashboardSubject !== 'All' ? `in ${selectedDashboardSubject}` : ''} yet.
             </p>
           </div>
         )}
