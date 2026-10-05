@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
-import { createMaterial } from '@/lib/db';
+import { createMaterial, getMaterials, deleteMaterial } from '@/lib/db';
 import { uploadStudyMaterialFile } from '@/lib/storage';
 
 export async function POST(req: NextRequest) {
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
         drive_file_id,
         file_name,
         mime_type,
+        delete_same_name = false,
       } = body;
 
       if (!title || !subject || !subject_code || !material_type || !file_url) {
@@ -41,11 +42,46 @@ export async function POST(req: NextRequest) {
         parsedYear = 1;
       }
 
+      const cleanSubjectCode = String(subject_code).toUpperCase().trim();
+
+      // OPTION: DELETE FILES WITH THE SAME NAME WHEN UPLOADED
+      let deletedSameNameCount = 0;
+      if (delete_same_name === true || delete_same_name === 'true') {
+        try {
+          const targetTitleLower = String(title).trim().toLowerCase();
+          const targetFileLower = file_name ? String(file_name).trim().toLowerCase() : '';
+
+          const { materials: existingList } = await getMaterials({
+            year: parsedYear,
+            subject_code: cleanSubjectCode,
+          });
+
+          for (const ext of existingList) {
+            const extTitle = ext.title.trim().toLowerCase();
+            const extFile = ext.file_name ? ext.file_name.trim().toLowerCase() : '';
+
+            // Match if titles match, or file names match, or title matches file name
+            const isSame =
+              extTitle === targetTitleLower ||
+              (targetFileLower && extFile === targetFileLower) ||
+              (targetFileLower && extTitle === targetFileLower) ||
+              (extFile && extFile === targetTitleLower);
+
+            if (isSame) {
+              await deleteMaterial(ext.id);
+              deletedSameNameCount++;
+            }
+          }
+        } catch (delErr) {
+          console.warn('Could not auto-delete existing same-name materials:', delErr);
+        }
+      }
+
       const newMaterial = await createMaterial({
         title,
         description,
         subject,
-        subject_code: String(subject_code).toUpperCase().trim(),
+        subject_code: cleanSubjectCode,
         year: parsedYear,
         material_type: material_type as any,
         file_url,
@@ -54,7 +90,11 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: 'Study material registered successfully with Google Drive storage',
+        message:
+          deletedSameNameCount > 0
+            ? `Study material registered successfully. Replaced & deleted ${deletedSameNameCount} existing file(s) with the same name.`
+            : 'Study material registered successfully with Google Drive storage',
+        deletedSameNameCount,
         material: newMaterial,
       });
     }
@@ -93,6 +133,43 @@ export async function POST(req: NextRequest) {
     const fileName = file.name;
     const contentType = file.type || 'application/pdf';
 
+    const deleteSameName =
+      formData.get('delete_same_name') === 'true' ||
+      formData.get('delete_same_name') === '1' ||
+      formData.get('delete_same_name') === 'on';
+
+    let deletedSameNameCount = 0;
+    if (deleteSameName) {
+      try {
+        const cleanSubj = subjectCode.toUpperCase().trim();
+        const targetTitleLower = title.trim().toLowerCase();
+        const targetFileLower = fileName ? fileName.trim().toLowerCase() : '';
+
+        const { materials: existingList } = await getMaterials({
+          year,
+          subject_code: cleanSubj,
+        });
+
+        for (const ext of existingList) {
+          const extTitle = ext.title.trim().toLowerCase();
+          const extFile = ext.file_name ? ext.file_name.trim().toLowerCase() : '';
+
+          const isSame =
+            extTitle === targetTitleLower ||
+            (targetFileLower && extFile === targetFileLower) ||
+            (targetFileLower && extTitle === targetFileLower) ||
+            (extFile && extFile === targetTitleLower);
+
+          if (isSame) {
+            await deleteMaterial(ext.id);
+            deletedSameNameCount++;
+          }
+        }
+      } catch (delErr) {
+        console.warn('Could not auto-delete existing same-name materials:', delErr);
+      }
+    }
+
     const uploadResult = await uploadStudyMaterialFile({
       fileBuffer,
       fileName,
@@ -115,7 +192,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Study material uploaded successfully',
+      message:
+        deletedSameNameCount > 0
+          ? `Study material uploaded successfully. Replaced & deleted ${deletedSameNameCount} existing file(s) with the same name.`
+          : 'Study material uploaded successfully',
+      deletedSameNameCount,
       material: newMaterial,
     });
   } catch (error: any) {

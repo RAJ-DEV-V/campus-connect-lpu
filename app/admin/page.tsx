@@ -142,6 +142,59 @@ export default function AdminDashboardPage() {
   const [uploadStage, setUploadStage] = useState<string>('');
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Option: Delete Files with Same Name When Uploaded
+  const [deleteSameNameOnUpload, setDeleteSameNameOnUpload] = useState<boolean>(true);
+  const [autoDeduplicateQueue, setAutoDeduplicateQueue] = useState<boolean>(true);
+
+  // Computed duplicate filenames inside upload queue
+  const duplicateNameGroups = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    clubbedImages.forEach((item) => {
+      const lower = item.name.toLowerCase().trim();
+      counts[lower] = (counts[lower] || 0) + 1;
+    });
+    return Object.entries(counts).filter(([_, count]) => count > 1);
+  }, [clubbedImages]);
+
+  // Removes duplicate files with the same name from the upload queue
+  const removeDuplicateFilesFromQueue = () => {
+    const seen = new Set<string>();
+    const unique: DocumentItem[] = [];
+    const removed: DocumentItem[] = [];
+
+    // Keep the latest item with that name, discard earlier duplicates
+    for (let i = clubbedImages.length - 1; i >= 0; i--) {
+      const item = clubbedImages[i];
+      const lower = item.name.toLowerCase().trim();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        unique.unshift(item);
+      } else {
+        removed.push(item);
+      }
+    }
+
+    removed.forEach((item) => {
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    });
+
+    setClubbedImages(unique);
+  };
+
+  // Find if an existing library material matches the current upload title in the same subject & year
+  const existingSameNameMatch = React.useMemo(() => {
+    const qTitle = uploadTitle.trim().toLowerCase();
+    const qSubj = uploadSubjectCode.trim().toUpperCase();
+    if (!qTitle || !qSubj) return null;
+    return materials.find(
+      (m) =>
+        m.year === uploadYear &&
+        m.subject_code.toUpperCase().trim() === qSubj &&
+        (m.title.trim().toLowerCase() === qTitle ||
+          (m.file_name && m.file_name.trim().toLowerCase() === qTitle))
+    );
+  }, [materials, uploadTitle, uploadSubjectCode, uploadYear]);
+
   // Edit Material State
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
@@ -613,6 +666,35 @@ export default function AdminDashboardPage() {
 
     // If there is already an existing queue of files in clubbedImages, append to it
     if (clubbedImages.length > 0) {
+      if (autoDeduplicateQueue) {
+        // If an incoming file has the same name as one already in the queue, replace the older one
+        const incomingNames = new Set(files.map((f) => f.name.toLowerCase().trim()));
+        const keptItems: DocumentItem[] = [];
+        clubbedImages.forEach((item) => {
+          if (incomingNames.has(item.name.toLowerCase().trim())) {
+            if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+          } else {
+            keptItems.push(item);
+          }
+        });
+
+        // Deduplicate within the incoming files batch itself (keep latest)
+        const incomingMap = new Map<string, File>();
+        files.forEach((f) => incomingMap.set(f.name.toLowerCase().trim(), f));
+        const uniqueIncomingFiles = Array.from(incomingMap.values());
+
+        const newItems: DocumentItem[] = uniqueIncomingFiles.map((file) => ({
+          id: Math.random().toString(36).substring(2, 9),
+          file,
+          previewUrl: isImageFile(file) ? URL.createObjectURL(file) : '',
+          name: file.name,
+          size: file.size,
+          type: isPdfFile(file) ? 'pdf' : isImageFile(file) ? 'image' : 'other',
+        }));
+        setClubbedImages([...keptItems, ...newItems]);
+        return;
+      }
+
       const newItems: DocumentItem[] = files.map((file) => ({
         id: Math.random().toString(36).substring(2, 9),
         file,
@@ -630,7 +712,14 @@ export default function AdminDashboardPage() {
       const allFiles = uploadFile ? [uploadFile, ...files] : files;
       setUploadFile(null);
 
-      const newItems: DocumentItem[] = allFiles.map((file) => ({
+      let filesToProcess = allFiles;
+      if (autoDeduplicateQueue) {
+        const fileMap = new Map<string, File>();
+        allFiles.forEach((f) => fileMap.set(f.name.toLowerCase().trim(), f));
+        filesToProcess = Array.from(fileMap.values());
+      }
+
+      const newItems: DocumentItem[] = filesToProcess.map((file) => ({
         id: Math.random().toString(36).substring(2, 9),
         file,
         previewUrl: isImageFile(file) ? URL.createObjectURL(file) : '',
@@ -642,7 +731,7 @@ export default function AdminDashboardPage() {
 
       // Auto-suggest title if not yet entered
       if (!uploadTitle.trim()) {
-        const cleanName = allFiles[0].name
+        const cleanName = filesToProcess[0].name
           .replace(/\.[^/.]+$/, '')
           .replace(/[_-]/g, ' ')
           .replace(/\s*(page|pg|p|part|pt|img|image|unit|chapter)?\s*\d+$/i, '')
@@ -655,7 +744,13 @@ export default function AdminDashboardPage() {
     // Single file selected:
     const singleFile = files[0];
     if (uploadFile) {
-      // If a file was already selected previously, combine them into multi-document mode!
+      // If a file was already selected previously, check if it's the same name
+      if (autoDeduplicateQueue && uploadFile.name.toLowerCase().trim() === singleFile.name.toLowerCase().trim()) {
+        setUploadFile(singleFile);
+        return;
+      }
+
+      // Combine them into multi-document mode
       const item1: DocumentItem = {
         id: Math.random().toString(36).substring(2, 9),
         file: uploadFile,
@@ -792,6 +887,7 @@ export default function AdminDashboardPage() {
             drive_file_id: driveId,
             file_name: uploadTitle,
             mime_type: isDrive ? 'application/pdf' : 'text/uri-list',
+            delete_same_name: deleteSameNameOnUpload,
           }),
         });
 
@@ -807,10 +903,11 @@ export default function AdminDashboardPage() {
           throw new Error(data?.error || `Upload registration failed with status ${res.status}`);
         }
 
+        const delNote = data?.deletedSameNameCount > 0 ? ` (Replaced & deleted ${data.deletedSameNameCount} previous file(s) with the same name)` : '';
         setUploadProgress(100);
         setUploadMessage({
           type: 'success',
-          text: `"${uploadTitle}" registered successfully via Resource Link & published to ${formatYearName(uploadYear)}!`,
+          text: `"${uploadTitle}" registered successfully via Resource Link & published to ${formatYearName(uploadYear)}!${delNote}`,
         });
 
         // Reset form
@@ -894,6 +991,7 @@ export default function AdminDashboardPage() {
             drive_file_id: uploadedParts[0].drive_file_id,
             file_name: `${uploadedParts.length} files bundle`,
             mime_type: 'application/json',
+            delete_same_name: deleteSameNameOnUpload,
           }),
         });
 
@@ -909,13 +1007,15 @@ export default function AdminDashboardPage() {
           throw new Error(data?.error || `Upload registration failed with status ${res.status}`);
         }
 
+        const delNote = data?.deletedSameNameCount > 0 ? ` (Replaced & deleted ${data.deletedSameNameCount} previous file(s) with the same name)` : '';
         setUploadMessage({
           type: 'success',
-          text: `"${uploadTitle}" (${uploadedParts.length} files bundled, ${totalBundleSize}) uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!`,
+          text: `"${uploadTitle}" (${uploadedParts.length} files bundled, ${totalBundleSize}) uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!${delNote}`,
         });
       } else if (clubbedImages.length > 1 && multiPdfMode === 'batch') {
         // --- MODE 3: BATCH UPLOAD (Publish each file as separate library material) ---
         let totalBytesUploaded = 0;
+        let totalBatchDeleted = 0;
         const totalBytesAll = clubbedImages.reduce((sum, item) => sum + item.file.size, 0);
 
         for (let i = 0; i < clubbedImages.length; i++) {
@@ -963,18 +1063,27 @@ export default function AdminDashboardPage() {
               drive_file_id: driveResult.fileId,
               file_name: driveResult.fileName,
               mime_type: driveResult.mimeType,
+              delete_same_name: deleteSameNameOnUpload,
             }),
           });
 
           if (!res.ok) {
             const resText = await res.text();
             console.warn(`Batch item registration error:`, resText);
+          } else {
+            try {
+              const itemJson = await res.json();
+              if (itemJson?.deletedSameNameCount) {
+                totalBatchDeleted += itemJson.deletedSameNameCount;
+              }
+            } catch (e) {}
           }
         }
 
+        const delNote = totalBatchDeleted > 0 ? ` (Replaced & deleted ${totalBatchDeleted} previous file(s) with the same name)` : '';
         setUploadMessage({
           type: 'success',
-          text: `Successfully batch uploaded all ${clubbedImages.length} files to Google Drive & published to ${formatYearName(uploadYear)}!`,
+          text: `Successfully batch uploaded all ${clubbedImages.length} files to Google Drive & published to ${formatYearName(uploadYear)}!${delNote}`,
         });
       } else {
         // --- MODE 1: SINGLE FILE OR MERGE MULTI-DOCUMENT INTO 1 MASTER PDF ---
@@ -1038,6 +1147,7 @@ export default function AdminDashboardPage() {
             drive_file_id: driveResult.fileId,
             file_name: driveResult.fileName,
             mime_type: driveResult.mimeType,
+            delete_same_name: deleteSameNameOnUpload,
           }),
         });
 
@@ -1055,9 +1165,10 @@ export default function AdminDashboardPage() {
         }
 
         const clubbedNote = clubbedImages.length > 1 ? ` (${clubbedImages.length} files merged into 1 PDF)` : '';
+        const delNote = data?.deletedSameNameCount > 0 ? ` (Replaced & deleted ${data.deletedSameNameCount} previous file(s) with the same name)` : '';
         setUploadMessage({
           type: 'success',
-          text: `"${uploadTitle}" (${driveResult.fileSizeFormatted})${clubbedNote} uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!`,
+          text: `"${uploadTitle}" (${driveResult.fileSizeFormatted})${clubbedNote} uploaded successfully to Google Drive & published to ${formatYearName(uploadYear)}!${delNote}`,
         });
       }
 
@@ -2249,6 +2360,14 @@ export default function AdminDashboardPage() {
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-lpu-500"
                   required
                 />
+                {deleteSameNameOnUpload && existingSameNameMatch && (
+                  <div className="flex items-center gap-2 mt-1.5 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-800">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>
+                      Notice: Existing material &quot;{existingSameNameMatch.title}&quot; found in {existingSameNameMatch.subject_code} ({formatYearName(existingSameNameMatch.year)}). It will be automatically deleted and replaced upon upload.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
@@ -2263,6 +2382,48 @@ export default function AdminDashboardPage() {
                   placeholder="Key concepts covered, unit breakdowns, exam relevance..."
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-lpu-500"
                 />
+              </div>
+
+              {/* Option: Delete Files with Same Name When Uploaded */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-start justify-between gap-4 transition-all shadow-2xs">
+                <div className="flex items-start gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    deleteSameNameOnUpload ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    <Trash2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-slate-900">
+                        Delete Files with Same Name When Uploaded
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        deleteSameNameOnUpload ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {deleteSameNameOnUpload ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                      If a study material or document with the same name already exists in this subject, automatically delete the old version to prevent duplicate files in the library.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={deleteSameNameOnUpload}
+                  onClick={() => setDeleteSameNameOnUpload(!deleteSameNameOnUpload)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    deleteSameNameOnUpload ? 'bg-rose-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      deleteSameNameOnUpload ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
 
               {/* Resource Source Selector: Upload Files vs Paste Link */}
@@ -2432,6 +2593,17 @@ export default function AdminDashboardPage() {
                             }}
                             className="hidden"
                           />
+                          {duplicateNameGroups.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={removeDuplicateFilesFromQueue}
+                              className="px-2.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                              title="Delete duplicate files with same name from this queue"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete Duplicates ({duplicateNameGroups.length})</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={clearClubbedPages}
@@ -2497,6 +2669,26 @@ export default function AdminDashboardPage() {
                               Batch Upload ({clubbedImages.length})
                             </button>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Duplicate Files in Queue Alert Banner */}
+                      {duplicateNameGroups.length > 0 && (
+                        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-2xs">
+                          <div className="flex items-center gap-2 text-rose-800">
+                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                            <span>
+                              <strong>{duplicateNameGroups.length} file name(s)</strong> have duplicate copies in this upload list ({duplicateNameGroups.map(([name, count]) => `"${name}" [${count}x]`).slice(0, 3).join(', ')}).
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={removeDuplicateFilesFromQueue}
+                            className="self-start sm:self-auto px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shrink-0 flex items-center gap-1.5 shadow-2xs transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Duplicate Copies</span>
+                          </button>
                         </div>
                       )}
 
