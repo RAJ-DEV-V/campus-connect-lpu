@@ -94,32 +94,32 @@ export default function MaterialCard({
       case 'Notes':
         return {
           icon: BookOpen,
-          classes: 'bg-blue-50 text-blue-700 border-blue-200/80',
-          dot: 'bg-blue-500',
+          classes: 'bg-sky-50 text-sky-700 border-sky-200/90',
+          dot: 'bg-sky-500',
         };
       case 'Mid-Term':
         return {
           icon: FileSpreadsheet,
-          classes: 'bg-amber-50 text-amber-700 border-amber-200/80',
-          dot: 'bg-amber-500',
+          classes: 'bg-emerald-50 text-emerald-700 border-emerald-200/90',
+          dot: 'bg-emerald-500',
         };
       case 'End-Term':
         return {
           icon: Award,
-          classes: 'bg-rose-50 text-rose-700 border-rose-200/80',
-          dot: 'bg-rose-500',
+          classes: 'bg-purple-50 text-purple-700 border-purple-200/90',
+          dot: 'bg-purple-500',
         };
       case 'PYQs':
         return {
           icon: HelpCircle,
-          classes: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-          dot: 'bg-emerald-500',
+          classes: 'bg-amber-50 text-amber-700 border-amber-200/90',
+          dot: 'bg-amber-500',
         };
       default:
         return {
           icon: FileText,
-          classes: 'bg-purple-50 text-purple-700 border-purple-200/80',
-          dot: 'bg-purple-500',
+          classes: 'bg-slate-50 text-slate-700 border-slate-200/90',
+          dot: 'bg-slate-500',
         };
     }
   };
@@ -128,16 +128,16 @@ export default function MaterialCard({
   const BadgeIcon = badge.icon;
 
   return (
-    <div className="group bg-white rounded-2xl border border-slate-200/90 hover:border-orange-300 p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between">
+    <div className="group bg-white rounded-2xl border border-slate-200/90 hover:border-lpu-300/90 p-5 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between">
       <div>
         {/* Top Badges: Material Type + Year Badge + Subject Code + Bookmark */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.8 rounded-full border ${badge.classes}`}>
+            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.8 rounded-full border shadow-2xs ${badge.classes}`}>
               <BadgeIcon className="w-3.5 h-3.5" />
               {material.material_type}
             </span>
-            <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.8 rounded-md">
+            <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.8 rounded-md shadow-2xs">
               {formatYearName(material.year)}
             </span>
             {material.file_url?.startsWith('[') && (() => {
@@ -221,9 +221,9 @@ export default function MaterialCard({
             <button
               onClick={() => onPreview(material)}
               type="button"
-              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-colors ${
+              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
                 canDownload 
-                  ? 'text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200' 
+                  ? 'text-slate-700 bg-slate-100/80 hover:bg-slate-200/90 hover:text-slate-900 border border-slate-200/80 shadow-2xs' 
                   : 'col-span-2 text-white bg-slate-900 hover:bg-slate-800 font-bold shadow-xs'
               }`}
             >
@@ -237,10 +237,10 @@ export default function MaterialCard({
               onClick={handleDownload}
               disabled={downloading}
               type="button"
-              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-white shadow-xs transition-all active:scale-98 ${
+              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-white shadow-xs transition-all active:scale-95 ${
                 downloadSuccess
                   ? 'bg-emerald-600'
-                  : 'bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 shadow-orange-500/20'
+                  : 'bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 shadow-orange-500/25 hover:shadow-md'
               } ${onPreview && canPreview ? '' : 'col-span-2'}`}
             >
               {downloadSuccess ? (

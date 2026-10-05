@@ -46,7 +46,8 @@ import {
   Plus,
   RotateCcw,
   Check,
-  ArrowRight
+  ArrowRight,
+  GraduationCap
 } from 'lucide-react';
 import { Material, AdminStats, CommunityVerificationLink, Admin } from '@/lib/db/types';
 import { formatYearName } from '@/components/MaterialCard';
@@ -63,6 +64,7 @@ interface UserActivityRecord {
   community_verified_at?: string | null;
   community_verification_link_id?: string | null;
   verification_link_name?: string | null;
+  year?: number | null;
   created_at: string;
   last_login: string;
   last_active_at: string;
@@ -207,6 +209,7 @@ export default function AdminDashboardPage() {
   // User Filter State
   const [userSearch, setUserSearch] = useState('');
   const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [userYearFilter, setUserYearFilter] = useState<'all' | '1' | '2' | '3' | '4' | 'unassigned'>('all');
 
   // Admin Management State (Owner Only)
   const [newAdminEmail, setNewAdminEmail] = useState('');
@@ -1563,12 +1566,16 @@ export default function AdminDashboardPage() {
       userStatusFilter === 'all' || 
       (userStatusFilter === 'verified' && u.community_joined) || 
       (userStatusFilter === 'unverified' && !u.community_joined);
+    const matchesYear =
+      userYearFilter === 'all' ||
+      (userYearFilter === 'unassigned' && (!u.year || u.year < 1 || u.year > 4)) ||
+      (String(u.year) === userYearFilter);
     const q = userSearch.toLowerCase().trim();
     const matchesSearch = !q || 
       u.name.toLowerCase().includes(q) || 
       u.email.toLowerCase().includes(q) ||
       u.id.toLowerCase().includes(q);
-    return matchesStatus && matchesSearch;
+    return matchesStatus && matchesYear && matchesSearch;
   });
 
   if (loading) {
@@ -2102,6 +2109,106 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
+
+            {/* Student Academic Year Distribution Section */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-lpu-600" />
+                    Student Academic Year Distribution
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Live breakdown of registered students across academic batches
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl">
+                    Total Students: <strong className="text-lpu-600">{stats?.totalUsers ?? users.length}</strong>
+                  </span>
+                  <button
+                    onClick={() => setActiveTab('users')}
+                    className="text-xs font-bold text-lpu-600 hover:text-lpu-700 hover:underline flex items-center gap-1"
+                  >
+                    View in Users Tab <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1st Year */}
+                <div 
+                  onClick={() => { setUserYearFilter('1'); setActiveTab('users'); }}
+                  className="p-4 rounded-xl border border-sky-200/80 bg-sky-50/50 hover:bg-sky-50 transition-all cursor-pointer group shadow-2xs"
+                >
+                  <div className="flex items-center justify-between text-sky-700 text-xs font-bold uppercase tracking-wider mb-1">
+                    <span>1st Year</span>
+                    <span className="text-[10px] bg-sky-200/70 text-sky-800 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-sky-300 transition-colors">Freshmen</span>
+                  </div>
+                  <div className="text-3xl font-black text-sky-950 mt-1">
+                    {stats?.studentYearBreakdown?.[1] ?? users.filter(u => u.year === 1).length}
+                  </div>
+                  <p className="text-[11px] text-sky-800/70 mt-1 flex items-center justify-between">
+                    <span>Registered students</span>
+                    <span className="text-[10px] text-sky-600 font-bold group-hover:underline">Filter &rarr;</span>
+                  </p>
+                </div>
+
+                {/* 2nd Year */}
+                <div 
+                  onClick={() => { setUserYearFilter('2'); setActiveTab('users'); }}
+                  className="p-4 rounded-xl border border-emerald-200/80 bg-emerald-50/50 hover:bg-emerald-50 transition-all cursor-pointer group shadow-2xs"
+                >
+                  <div className="flex items-center justify-between text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1">
+                    <span>2nd Year</span>
+                    <span className="text-[10px] bg-emerald-200/70 text-emerald-800 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-emerald-300 transition-colors">Core</span>
+                  </div>
+                  <div className="text-3xl font-black text-emerald-950 mt-1">
+                    {stats?.studentYearBreakdown?.[2] ?? users.filter(u => u.year === 2).length}
+                  </div>
+                  <p className="text-[11px] text-emerald-800/70 mt-1 flex items-center justify-between">
+                    <span>Registered students</span>
+                    <span className="text-[10px] text-emerald-600 font-bold group-hover:underline">Filter &rarr;</span>
+                  </p>
+                </div>
+
+                {/* 3rd Year */}
+                <div 
+                  onClick={() => { setUserYearFilter('3'); setActiveTab('users'); }}
+                  className="p-4 rounded-xl border border-purple-200/80 bg-purple-50/50 hover:bg-purple-50 transition-all cursor-pointer group shadow-2xs"
+                >
+                  <div className="flex items-center justify-between text-purple-700 text-xs font-bold uppercase tracking-wider mb-1">
+                    <span>3rd Year</span>
+                    <span className="text-[10px] bg-purple-200/70 text-purple-800 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-purple-300 transition-colors">Specialization</span>
+                  </div>
+                  <div className="text-3xl font-black text-purple-950 mt-1">
+                    {stats?.studentYearBreakdown?.[3] ?? users.filter(u => u.year === 3).length}
+                  </div>
+                  <p className="text-[11px] text-purple-800/70 mt-1 flex items-center justify-between">
+                    <span>Registered students</span>
+                    <span className="text-[10px] text-purple-600 font-bold group-hover:underline">Filter &rarr;</span>
+                  </p>
+                </div>
+
+                {/* 4th Year */}
+                <div 
+                  onClick={() => { setUserYearFilter('4'); setActiveTab('users'); }}
+                  className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/50 hover:bg-amber-50 transition-all cursor-pointer group shadow-2xs"
+                >
+                  <div className="flex items-center justify-between text-amber-700 text-xs font-bold uppercase tracking-wider mb-1">
+                    <span>4th Year</span>
+                    <span className="text-[10px] bg-amber-200/70 text-amber-800 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-amber-300 transition-colors">Graduating</span>
+                  </div>
+                  <div className="text-3xl font-black text-amber-950 mt-1">
+                    {stats?.studentYearBreakdown?.[4] ?? users.filter(u => u.year === 4).length}
+                  </div>
+                  <p className="text-[11px] text-amber-800/70 mt-1 flex items-center justify-between">
+                    <span>Registered students</span>
+                    <span className="text-[10px] text-amber-600 font-bold group-hover:underline">Filter &rarr;</span>
+                  </p>
                 </div>
               </div>
             </div>
@@ -3352,7 +3459,20 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={userYearFilter}
+                  onChange={(e) => setUserYearFilter(e.target.value as any)}
+                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-lpu-500 text-slate-700"
+                >
+                  <option value="all">🎓 All Academic Years ({users.length})</option>
+                  <option value="1">1st Year ({users.filter(u => u.year === 1).length})</option>
+                  <option value="2">2nd Year ({users.filter(u => u.year === 2).length})</option>
+                  <option value="3">3rd Year ({users.filter(u => u.year === 3).length})</option>
+                  <option value="4">4th Year ({users.filter(u => u.year === 4).length})</option>
+                  <option value="unassigned">Unassigned ({users.filter(u => !u.year || u.year < 1 || u.year > 4).length})</option>
+                </select>
+
                 <select
                   value={userStatusFilter}
                   onChange={(e) => setUserStatusFilter(e.target.value as any)}
@@ -3374,6 +3494,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Student</th>
                       <th className="py-3 px-4">Email</th>
                       <th className="py-3 px-4">Role</th>
+                      <th className="py-3 px-4">Academic Year</th>
                       <th className="py-3 px-4">Community Access</th>
                       <th className="py-3 px-4">Last Active</th>
                       <th className="py-3 px-4">Registered</th>
@@ -3409,6 +3530,29 @@ export default function AdminDashboardPage() {
                           ) : (
                             <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
                               Student
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {u.year === 1 ? (
+                            <span className="text-[10px] font-bold text-sky-800 bg-sky-100 px-2 py-0.5 rounded-full border border-sky-200">
+                              🎓 1st Year
+                            </span>
+                          ) : u.year === 2 ? (
+                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                              🎓 2nd Year
+                            </span>
+                          ) : u.year === 3 ? (
+                            <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-full border border-purple-200">
+                              🎓 3rd Year
+                            </span>
+                          ) : u.year === 4 ? (
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                              🎓 4th Year
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                              Not Set
                             </span>
                           )}
                         </td>

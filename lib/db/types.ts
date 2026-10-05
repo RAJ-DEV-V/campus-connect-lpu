@@ -118,9 +118,10 @@ export interface AdminStats {
   activeThisWeek: number; // Active in last 7 days
   activeUsers: number; // Active in last 30 days
   totalMaterials: number;
-  totalDownloads: number;
-  yearBreakdown: Record<number, number>; // 1, 2, 3, 4
+  totalDownloads?: number;
+  yearBreakdown: Record<number, number>; // 1, 2, 3, 4 (Materials count)
   typeBreakdown: Record<string, number>;
+  studentYearBreakdown?: Record<number, number>; // 1, 2, 3, 4 (Students registered count)
 }
 
 export interface AppSettings {

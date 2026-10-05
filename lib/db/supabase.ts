@@ -80,7 +80,7 @@ export class SupabaseDatabaseStore {
     }
   }
 
-  async upsertUser(userData: { id: string; name: string; email: string; avatar_url?: string; community_joined?: boolean }): Promise<User> {
+  async upsertUser(userData: { id: string; name: string; email: string; avatar_url?: string; community_joined?: boolean; year?: number | null }): Promise<User> {
     const now = new Date().toISOString();
     let userId = userData.id;
 
@@ -131,12 +131,21 @@ export class SupabaseDatabaseStore {
       ? userData.community_joined 
       : isAlreadyVerified;
 
+    // Strict persistence: Preserve existing student year so they never have to set it again
+    const localUser = this.localFallback.getUserByEmail(userData.email);
+    const existingYear = existingProfile?.year ?? localUser?.year ?? null;
+    const finalYear = (userData.year !== undefined && userData.year !== null) 
+      ? userData.year 
+      : existingYear;
+
     const payload: any = {
       id: userId,
       name: userData.name,
       email: userData.email,
       avatar_url: userData.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userData.name)}`,
       community_joined: finalCommunityJoined,
+      year: finalYear,
+      profile_completed: Boolean(userData.name && finalYear),
       last_login: now,
       last_active_at: now,
     };
@@ -154,6 +163,7 @@ export class SupabaseDatabaseStore {
           ...userData, 
           id: userId,
           community_joined: finalCommunityJoined,
+          year: finalYear,
         });
       }
 
@@ -166,6 +176,7 @@ export class SupabaseDatabaseStore {
         ...userData, 
         id: userId,
         community_joined: finalCommunityJoined,
+        year: finalYear,
       });
     }
   }
@@ -794,8 +805,21 @@ export class SupabaseDatabaseStore {
         }
       });
 
-      const verified = communityConfirmedUsers || 0;
+      // Compute student count per academic year
+      const { data: allUsersForYears } = await this.client
+        .from('users')
+        .select('year');
+
+      const studentYearBreakdown: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      (allUsersForYears || []).forEach((u: any) => {
+        const y = Number(u.year);
+        if ([1, 2, 3, 4].includes(y)) {
+          studentYearBreakdown[y] = (studentYearBreakdown[y] || 0) + 1;
+        }
+      });
+
       const total = totalUsers || 0;
+      const verified = communityConfirmedUsers || 0;
       const pending = Math.max(0, total - verified);
 
       return {
@@ -809,6 +833,7 @@ export class SupabaseDatabaseStore {
         totalDownloads,
         yearBreakdown,
         typeBreakdown,
+        studentYearBreakdown,
       };
     } catch {
       return this.localFallback.getAdminStats();

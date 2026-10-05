@@ -26,6 +26,7 @@ export async function GET() {
       community_verified_at: u.community_verified_at || null,
       community_verification_link_id: u.community_verification_link_id || null,
       verification_link_name: u.community_verification_link_id ? (linkMap.get(u.community_verification_link_id) || 'Approved Community Link') : null,
+      year: u.year ?? null,
       created_at: u.created_at,
       last_login: u.last_login,
       last_active_at: u.last_active_at || u.last_login,

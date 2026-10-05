@@ -200,7 +200,7 @@ export class LocalDatabaseStore {
     return this.data.users.find((u) => u.email.toLowerCase() === email.toLowerCase()) || null;
   }
 
-  upsertUser(userData: { id: string; name: string; email: string; avatar_url?: string; community_joined?: boolean }): User {
+  upsertUser(userData: { id: string; name: string; email: string; avatar_url?: string; community_joined?: boolean; year?: number | null }): User {
     const existingIndex = this.data.users.findIndex((u) => u.id === userData.id || u.email.toLowerCase() === userData.email.toLowerCase());
     const now = new Date().toISOString();
 
@@ -212,13 +212,17 @@ export class LocalDatabaseStore {
         ? true 
         : (userData.community_joined !== undefined ? userData.community_joined : existing.community_joined);
 
+      const finalYear = (userData.year !== undefined && userData.year !== null)
+        ? userData.year
+        : (existing.year ?? null);
+
       const updated: User = {
         ...existing,
         name: userData.name || existing.name,
         avatar_url: userData.avatar_url || existing.avatar_url,
         community_joined: finalJoined,
-        year: existing.year ?? null,
-        profile_completed: existing.profile_completed ?? false,
+        year: finalYear,
+        profile_completed: Boolean((userData.name || existing.name) && finalYear),
         last_login: now,
         last_active_at: now,
       };
@@ -232,8 +236,8 @@ export class LocalDatabaseStore {
         email: userData.email,
         avatar_url: userData.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userData.name)}`,
         community_joined: userData.community_joined ?? false,
-        year: null,
-        profile_completed: false,
+        year: userData.year ?? null,
+        profile_completed: Boolean(userData.name && userData.year),
         created_at: now,
         last_login: now,
         last_active_at: now,
@@ -732,6 +736,14 @@ export class LocalDatabaseStore {
       }
     });
 
+    const studentYearBreakdown: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    this.data.users.forEach((u) => {
+      const y = Number(u.year);
+      if ([1, 2, 3, 4].includes(y)) {
+        studentYearBreakdown[y] = (studentYearBreakdown[y] || 0) + 1;
+      }
+    });
+
     const communityVerified = communityConfirmedUsers;
     const communityPending = Math.max(0, totalUsers - communityVerified);
 
@@ -746,6 +758,7 @@ export class LocalDatabaseStore {
       totalDownloads,
       yearBreakdown,
       typeBreakdown,
+      studentYearBreakdown,
     };
   }
 

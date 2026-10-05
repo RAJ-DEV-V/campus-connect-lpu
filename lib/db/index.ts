@@ -33,6 +33,7 @@ export async function upsertUser(userData: {
   email: string;
   avatar_url?: string;
   community_joined?: boolean;
+  year?: number | null;
 }): Promise<User> {
   if (supabaseDb) return await supabaseDb.upsertUser(userData);
   return localDb.upsertUser(userData);

@@ -142,6 +142,7 @@ export async function loginWithGoogleProfile(profile: {
     email: profile.email,
     avatar_url: profile.avatar_url,
     community_joined: existing ? existing.community_joined : false,
+    year: existing?.year ?? undefined,
   });
 
   const token = await signSession(user, isAdminUser, userRole);

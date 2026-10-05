@@ -358,9 +358,38 @@ function LibraryContent() {
 
       {/* Materials Grid */}
       {loading ? (
-        <div className="py-20 flex flex-col items-center justify-center">
-          <div className="w-10 h-10 border-4 border-lpu-600 border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-xs font-semibold text-slate-500">Fetching university materials...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {Array.from({ length: 8 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between animate-pulse space-y-4"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-5 bg-slate-200 rounded-full" />
+                    <div className="w-14 h-5 bg-slate-100 rounded-md" />
+                  </div>
+                  <div className="w-12 h-5 bg-orange-100/60 rounded" />
+                </div>
+                <div className="w-full h-5 bg-slate-200 rounded-md mt-2" />
+                <div className="w-3/4 h-4 bg-slate-100 rounded-md" />
+                <div className="w-1/2 h-3.5 bg-slate-100 rounded-md mt-1" />
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="w-12 h-3 bg-slate-100 rounded" />
+                  <div className="w-16 h-3 bg-slate-100 rounded" />
+                  <div className="w-10 h-3 bg-slate-100 rounded" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="h-9 bg-slate-100 rounded-xl" />
+                  <div className="h-9 bg-orange-200/50 rounded-xl" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredMaterials.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
