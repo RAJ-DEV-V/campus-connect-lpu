@@ -25,29 +25,45 @@ interface CurrentUser {
   isAdmin: boolean;
 }
 
+let cachedNavbarUser: CurrentUser | null = null;
+let lastNavbarAuthCheck = 0;
+
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<CurrentUser | null>(cachedNavbarUser);
+  const [loading, setLoading] = useState(!cachedNavbarUser);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   useEffect(() => {
+    const now = Date.now();
+    // Fast path: if user checked within last 45 seconds, keep active without network overhead
+    if (cachedNavbarUser && now - lastNavbarAuthCheck < 45000) {
+      setUser(cachedNavbarUser);
+      setLoading(false);
+      return;
+    }
+
     async function checkAuth() {
       try {
         const res = await fetch('/api/auth/me');
         if (res.ok) {
           const data = await res.json();
           if (data.authenticated && data.user) {
+            cachedNavbarUser = data.user;
+            lastNavbarAuthCheck = Date.now();
             setUser(data.user);
           } else {
+            cachedNavbarUser = null;
             setUser(null);
           }
         } else {
+          cachedNavbarUser = null;
           setUser(null);
         }
       } catch (e) {
+        cachedNavbarUser = null;
         setUser(null);
       } finally {
         setLoading(false);
@@ -57,6 +73,8 @@ export default function Navbar() {
   }, [pathname]);
 
   const handleLogout = async () => {
+    cachedNavbarUser = null;
+    lastNavbarAuthCheck = 0;
     try {
       // 1. Call server-side logout to clear session and Supabase cookies
       await fetch('/api/auth/logout', { method: 'POST' });

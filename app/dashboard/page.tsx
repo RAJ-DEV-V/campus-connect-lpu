@@ -94,23 +94,23 @@ export default function DashboardPage() {
   // Fetch all personalized dashboard data
   const loadDashboardData = useCallback(async (currentYear?: number) => {
     try {
-      // 1. Fetch current authenticated user
-      const userRes = await fetch('/api/auth/me');
-      if (!userRes.ok) {
+      const yearParam = currentYear ? `?year=${currentYear}` : '';
+      const res = await fetch(`/api/dashboard/bootstrap${yearParam}`);
+      if (res.status === 401) {
         router.push('/login');
         return;
       }
-      const userData = await userRes.json();
-      if (!userData.authenticated || !userData.user) {
-        router.push('/login');
-        return;
-      }
-      if (!userData.user.community_joined && !userData.user.isAdmin) {
+      if (res.status === 403) {
         router.push('/community');
         return;
       }
+      const data = await res.json();
+      if (!data.authenticated || !data.user) {
+        router.push('/login');
+        return;
+      }
 
-      const currentUser = userData.user;
+      const currentUser = data.user;
       setUser(currentUser);
       setProfileName(currentUser.name || '');
       setProfileYear(currentUser.year || 1);
@@ -121,107 +121,37 @@ export default function DashboardPage() {
         setShowProfileModal(true);
       }
 
+      if (data.settings && typeof data.settings.allow_user_downloads === 'boolean') {
+        setAllowDownloads(data.settings.allow_user_downloads);
+      }
+
+      if (Array.isArray(data.whatsNew)) {
+        setWhatsNewList(data.whatsNew);
+      }
+
+      if (Array.isArray(data.history)) {
+        setHistoryList(data.history);
+      }
+
+      if (Array.isArray(data.saved)) {
+        setSavedMaterialsList(data.saved);
+      }
+
+      if (Array.isArray(data.savedIds)) {
+        setSavedIds(new Set(data.savedIds));
+      }
+
       const activeYear = currentYear || currentUser.year || 1;
+      const yearOnlyRec = (data.recommended || []).filter((m: Material) => Number(m.year) === Number(activeYear));
+      setRecommendedMaterials(yearOnlyRec);
 
-      // Execute all dashboard content queries concurrently in parallel
-      // Cuts initial dashboard loading time by ~70%!
-      const [
-        settingsResult,
-        wnResult,
-        histResult,
-        savedResult,
-        savedIdsResult,
-        recResult,
-        recentResult,
-        feedbackResult
-      ] = await Promise.allSettled([
-        fetch('/api/admin/settings', { cache: 'no-store' }),
-        fetch('/api/whats-new', { cache: 'no-store' }),
-        fetch('/api/materials/history?limit=8', { cache: 'no-store' }),
-        fetch('/api/materials/saved?limit=12', { cache: 'no-store' }),
-        fetch('/api/materials/saved?idsOnly=true', { cache: 'no-store' }),
-        fetch(`/api/materials?year=${activeYear}&sortBy=downloads&limit=6`),
-        fetch(`/api/materials?year=${activeYear}&sortBy=newest&limit=6`),
-        fetch('/api/feedback', { cache: 'no-store' }),
-      ]);
+      const yearOnlyRecent = (data.recent || []).filter((m: Material) => Number(m.year) === Number(activeYear));
+      setRecentlyAddedMaterials(yearOnlyRecent);
+      setTotalNewCount(yearOnlyRecent.length);
 
-      // 2. Process Global Settings
-      if (settingsResult.status === 'fulfilled' && settingsResult.value.ok) {
-        try {
-          const settingsData = await settingsResult.value.json();
-          if (settingsData.settings && typeof settingsData.settings.allow_user_downloads === 'boolean') {
-            setAllowDownloads(settingsData.settings.allow_user_downloads);
-          }
-        } catch {}
+      if (Array.isArray(data.requests)) {
+        setMyRequests(data.requests);
       }
-
-      // 3. Process What's New Announcements
-      if (wnResult.status === 'fulfilled' && wnResult.value.ok) {
-        try {
-          const wnData = await wnResult.value.json();
-          if (wnData.success && Array.isArray(wnData.items)) {
-            setWhatsNewList(wnData.items);
-          }
-        } catch {}
-      }
-
-      // 4. Process Continue Studying History
-      if (histResult.status === 'fulfilled' && histResult.value.ok) {
-        try {
-          const histData = await histResult.value.json();
-          if (histData.success && Array.isArray(histData.history)) {
-            setHistoryList(histData.history);
-          }
-        } catch {}
-      }
-
-      // 5. Process Saved Materials & Saved IDs
-      if (savedResult.status === 'fulfilled' && savedResult.value.ok) {
-        try {
-          const sData = await savedResult.value.json();
-          if (sData.success && Array.isArray(sData.saved)) {
-            setSavedMaterialsList(sData.saved);
-          }
-        } catch {}
-      }
-      if (savedIdsResult.status === 'fulfilled' && savedIdsResult.value.ok) {
-        try {
-          const idsData = await savedIdsResult.value.json();
-          if (idsData.success && Array.isArray(idsData.savedIds)) {
-            setSavedIds(new Set(idsData.savedIds));
-          }
-        } catch {}
-      }
-
-      // 6. Process Recommended Materials (Strictly filtered by student's academic year)
-      if (recResult.status === 'fulfilled' && recResult.value.ok) {
-        try {
-          const recData = await recResult.value.json();
-          const yearOnlyRec = (recData.materials || []).filter((m: Material) => Number(m.year) === Number(activeYear));
-          setRecommendedMaterials(yearOnlyRec);
-        } catch {}
-      }
-
-      // 7. Process Recently Added Materials (Strictly filtered by student's academic year)
-      if (recentResult.status === 'fulfilled' && recentResult.value.ok) {
-        try {
-          const recentData = await recentResult.value.json();
-          const yearOnlyRecent = (recentData.materials || []).filter((m: Material) => Number(m.year) === Number(activeYear));
-          setRecentlyAddedMaterials(yearOnlyRecent);
-          setTotalNewCount(yearOnlyRecent.length);
-        } catch {}
-      }
-
-      // 8. Process Student's Submitted Requests & Query Status
-      if (feedbackResult.status === 'fulfilled' && feedbackResult.value.ok) {
-        try {
-          const fbData = await feedbackResult.value.json();
-          if (fbData.success && Array.isArray(fbData.requests)) {
-            setMyRequests(fbData.requests);
-          }
-        } catch {}
-      }
-
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {

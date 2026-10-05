@@ -41,6 +41,14 @@ export class SupabaseDatabaseStore {
   private academicYearsCacheTime: number = 0;
   private materialsCache: Material[] | null = null;
   private materialsCacheTime: number = 0;
+  private settingsCache: { allow_user_downloads: boolean; updated_at?: string; updated_by?: string } | null = null;
+  private settingsCacheTime: number = 0;
+  private adminStatsCache: AdminStats | null = null;
+  private adminStatsCacheTime: number = 0;
+  private whatsNewCache: WhatsNewItem[] | null = null;
+  private whatsNewCacheTime: number = 0;
+  private rolesCache: Record<string, 'owner' | 'admin' | 'user'> = {};
+  private rolesCacheTime: number = 0;
 
   async getUserAcademicYear(userId: string): Promise<number | null> {
     const now = Date.now();
@@ -472,7 +480,13 @@ export class SupabaseDatabaseStore {
 
   async getUserRole(userIdOrEmail: string): Promise<'owner' | 'admin' | 'user'> {
     const term = userIdOrEmail.toLowerCase().trim();
-    if (term === 'mishra.rajvansh11@gmail.com') return 'owner';
+    if (term === 'mishra.rajvansh11@gmail.com' || term === 'usr_owner_rajvansh') return 'owner';
+
+    const now = Date.now();
+    if (this.rolesCache[term] && (now - this.rolesCacheTime < 60000)) {
+      return this.rolesCache[term];
+    }
+
     try {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdOrEmail.trim());
 
@@ -488,9 +502,17 @@ export class SupabaseDatabaseStore {
 
       const { data, error } = await query.limit(1);
 
-      if (!error && data && data.length > 0) return data[0].role as any;
+      if (!error && data && data.length > 0) {
+        const role = data[0].role as any;
+        this.rolesCache[term] = role;
+        this.rolesCacheTime = now;
+        return role;
+      }
     } catch {}
-    return this.localFallback.getUserRole(userIdOrEmail);
+    const fallbackRole = this.localFallback.getUserRole(userIdOrEmail);
+    this.rolesCache[term] = fallbackRole;
+    this.rolesCacheTime = now;
+    return fallbackRole;
   }
 
   async isAdmin(userIdOrEmail: string): Promise<boolean> {
@@ -906,6 +928,10 @@ export class SupabaseDatabaseStore {
   async getAdminStats(): Promise<AdminStats> {
     try {
       const nowTime = Date.now();
+      if (this.adminStatsCache && nowTime - this.adminStatsCacheTime < 30000) {
+        return this.adminStatsCache;
+      }
+
       const oneDayAgo = new Date(nowTime - 24 * 60 * 60 * 1000).toISOString();
       const sevenDaysAgo = new Date(nowTime - 7 * 24 * 60 * 60 * 1000).toISOString();
       const thirtyDaysAgo = new Date(nowTime - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -976,7 +1002,7 @@ export class SupabaseDatabaseStore {
       const verified = communityConfirmedUsers || 0;
       const pending = Math.max(0, total - verified);
 
-      return {
+      const result: AdminStats = {
         totalUsers: total,
         communityVerified: verified,
         communityPending: pending,
@@ -989,12 +1015,21 @@ export class SupabaseDatabaseStore {
         typeBreakdown,
         studentYearBreakdown,
       };
+
+      this.adminStatsCache = result;
+      this.adminStatsCacheTime = nowTime;
+      return result;
     } catch {
       return this.localFallback.getAdminStats();
     }
   }
 
   async getAppSettings(): Promise<{ allow_user_downloads: boolean; updated_at?: string; updated_by?: string }> {
+    const nowTime = Date.now();
+    if (this.settingsCache && nowTime - this.settingsCacheTime < 60000) {
+      return this.settingsCache;
+    }
+
     try {
       const { data, error } = await this.client
         .from('app_settings')
@@ -1003,14 +1038,20 @@ export class SupabaseDatabaseStore {
         .maybeSingle();
 
       if (!error && data) {
-        return {
+        const res = {
           allow_user_downloads: data.value === true || data.value === 'true',
           updated_at: data.updated_at,
           updated_by: data.updated_by,
         };
+        this.settingsCache = res;
+        this.settingsCacheTime = nowTime;
+        return res;
       }
     } catch {}
-    return this.localFallback.getAppSettings();
+    const fallbackSettings = this.localFallback.getAppSettings();
+    this.settingsCache = fallbackSettings;
+    this.settingsCacheTime = nowTime;
+    return fallbackSettings;
   }
 
   async updateAppSettings(settings: Partial<{ allow_user_downloads: boolean; updated_by?: string }>): Promise<{
@@ -1018,6 +1059,8 @@ export class SupabaseDatabaseStore {
     updated_at: string;
     updated_by?: string;
   }> {
+    this.settingsCache = null;
+    this.settingsCacheTime = 0;
     const local = this.localFallback.updateAppSettings(settings);
     try {
       if (settings.allow_user_downloads !== undefined) {
@@ -1092,6 +1135,14 @@ export class SupabaseDatabaseStore {
 
   // --- What's New Announcements ---
   async getWhatsNew(activeOnly: boolean = true): Promise<WhatsNewItem[]> {
+    const now = Date.now();
+    if (this.whatsNewCache && (now - this.whatsNewCacheTime < 60000)) {
+      if (activeOnly) {
+        return this.whatsNewCache.filter(i => i.is_active !== false && (i as any).active !== false);
+      }
+      return this.whatsNewCache;
+    }
+
     try {
       let query = this.client
         .from('whats_new')
@@ -1104,6 +1155,10 @@ export class SupabaseDatabaseStore {
 
       const { data, error } = await query;
       if (!error && data) {
+        if (!activeOnly) {
+          this.whatsNewCache = data as WhatsNewItem[];
+          this.whatsNewCacheTime = now;
+        }
         return data as WhatsNewItem[];
       }
     } catch {}
@@ -1118,6 +1173,8 @@ export class SupabaseDatabaseStore {
 
       if (!error && data && Array.isArray(data.value)) {
         let items: WhatsNewItem[] = data.value;
+        this.whatsNewCache = items;
+        this.whatsNewCacheTime = now;
         if (activeOnly) {
           items = items.filter(i => i.is_active !== false && (i as any).active !== false);
         }
@@ -1131,6 +1188,7 @@ export class SupabaseDatabaseStore {
   }
 
   async createWhatsNew(item: Omit<WhatsNewItem, 'id' | 'created_at'>): Promise<WhatsNewItem> {
+    this.whatsNewCache = null;
     const local = this.localFallback.createWhatsNew(item);
     let cloudCreated: WhatsNewItem | null = null;
 
@@ -1184,6 +1242,7 @@ export class SupabaseDatabaseStore {
   }
 
   async toggleWhatsNewActive(id: string): Promise<WhatsNewItem | null> {
+    this.whatsNewCache = null;
     const local = this.localFallback.toggleWhatsNewActive(id);
     let updatedItem: WhatsNewItem | null = local;
 
@@ -1235,6 +1294,7 @@ export class SupabaseDatabaseStore {
   }
 
   async deleteWhatsNew(id: string): Promise<boolean> {
+    this.whatsNewCache = null;
     const local = this.localFallback.deleteWhatsNew(id);
     let deleted = local;
 
