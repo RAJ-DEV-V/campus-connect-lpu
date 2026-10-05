@@ -22,7 +22,9 @@ export async function GET(req: NextRequest) {
       { success: true, items },
       {
         headers: {
-          'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=180',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       }
     );
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, type, link_type, link_target, is_active } = body;
+    const { title, description, type, link_type, link_target, link, is_active } = body;
 
     if (!title || !description || !type) {
       return NextResponse.json(
@@ -53,12 +55,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const finalLink = link || link_target || null;
     const created = await createWhatsNew({
       title,
       description,
       type,
-      link_type: link_type || null,
-      link_target: link_target || null,
+      link_type: link_type || (finalLink ? 'page' : null),
+      link_target: finalLink,
+      link: finalLink,
       is_active: is_active ?? true,
       created_by: session.email || session.userId,
     });

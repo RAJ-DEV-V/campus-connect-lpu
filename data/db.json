@@ -8,7 +8,7 @@
       "community_joined": true,
       "created_at": "2026-10-04T07:57:55.077Z",
       "last_login": "2026-10-05T10:12:38.617Z",
-      "last_active_at": "2026-10-05T15:33:41.373Z",
+      "last_active_at": "2026-10-05T17:13:04.773Z",
       "year": 2,
       "profile_completed": true
     },
@@ -120,30 +120,7 @@
     "updated_at": "2026-10-04T09:33:54.502Z",
     "updated_by": "mishra.rajvansh11@gmail.com"
   },
-  "whats_new": [
-    {
-      "id": "wn_1791194107676_3mwcy",
-      "title": "Campus Connect 2.0 Student Dashboard Live!",
-      "description": "Personalized home page with Continue Studying and Year-wise filters is now available.",
-      "type": "announcement",
-      "link_type": "library",
-      "link_target": "/library",
-      "is_active": true,
-      "created_at": "2026-10-05T09:55:07.676Z",
-      "created_by": "mishra.rajvansh11@gmail.com"
-    },
-    {
-      "id": "wn_1791193836828_bi2jh",
-      "title": "Campus Connect 2.0 Student Dashboard Live!",
-      "description": "Personalized home page with Continue Studying and Year-wise filters is now available.",
-      "type": "announcement",
-      "link_type": "library",
-      "link_target": "/library",
-      "is_active": true,
-      "created_at": "2026-10-05T09:50:36.830Z",
-      "created_by": "mishra.rajvansh11@gmail.com"
-    }
-  ],
+  "whats_new": [],
   "material_open_history": [
     {
       "id": "moh_1791212535265_lngzy",

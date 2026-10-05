@@ -570,7 +570,7 @@ export default function AdminDashboardPage() {
   const loadAnnouncements = async () => {
     setLoadingAnnouncements(true);
     try {
-      const res = await fetch('/api/whats-new');
+      const res = await fetch('/api/whats-new?all=true', { cache: 'no-store' });
       if (res.ok) {
         const d = await res.json();
         setAnnouncements(d.items || []);
@@ -622,33 +622,44 @@ export default function AdminDashboardPage() {
 
   const handleToggleAnnouncementActive = async (item: WhatsNewItem) => {
     try {
+      setAnnouncements(prev => prev.map(a => a.id === item.id ? { ...a, is_active: !a.is_active, active: !a.is_active } : a));
       const res = await fetch('/api/whats-new', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: item.id,
-          active: item.active === false ? true : false,
         }),
       });
       if (res.ok) {
         await loadAnnouncements();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to update announcement status');
+        await loadAnnouncements();
       }
     } catch (e) {
       console.error(e);
+      await loadAnnouncements();
     }
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
     if (!confirm('Are you sure you want to delete this broadcast announcement?')) return;
     try {
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
       const res = await fetch(`/api/whats-new?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
       if (res.ok) {
         await loadAnnouncements();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to delete announcement');
+        await loadAnnouncements();
       }
     } catch (e) {
       console.error(e);
+      await loadAnnouncements();
     }
   };
 

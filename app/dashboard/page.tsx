@@ -135,14 +135,14 @@ export default function DashboardPage() {
         recentResult,
         feedbackResult
       ] = await Promise.allSettled([
-        fetch('/api/admin/settings'),
-        fetch('/api/whats-new'),
-        fetch('/api/materials/history?limit=8'),
-        fetch('/api/materials/saved?limit=12'),
-        fetch('/api/materials/saved?idsOnly=true'),
+        fetch('/api/admin/settings', { cache: 'no-store' }),
+        fetch('/api/whats-new', { cache: 'no-store' }),
+        fetch('/api/materials/history?limit=8', { cache: 'no-store' }),
+        fetch('/api/materials/saved?limit=12', { cache: 'no-store' }),
+        fetch('/api/materials/saved?idsOnly=true', { cache: 'no-store' }),
         fetch(`/api/materials?year=${activeYear}&sortBy=downloads&limit=6`),
         fetch(`/api/materials?year=${activeYear}&sortBy=newest&limit=6`),
-        fetch('/api/feedback'),
+        fetch('/api/feedback', { cache: 'no-store' }),
       ]);
 
       // 2. Process Global Settings

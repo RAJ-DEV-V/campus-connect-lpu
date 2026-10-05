@@ -927,20 +927,45 @@ export class SupabaseDatabaseStore {
         return data as WhatsNewItem[];
       }
     } catch {}
+
+    // Cloud fallback: Persistent Supabase app_settings table
+    try {
+      const { data, error } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'announcements_broadcast')
+        .maybeSingle();
+
+      if (!error && data && Array.isArray(data.value)) {
+        let items: WhatsNewItem[] = data.value;
+        if (activeOnly) {
+          items = items.filter(i => i.is_active !== false && (i as any).active !== false);
+        }
+        return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      }
+    } catch (err) {
+      console.warn('Supabase app_settings getWhatsNew error:', err);
+    }
+
     return this.localFallback.getWhatsNew(activeOnly);
   }
 
   async createWhatsNew(item: Omit<WhatsNewItem, 'id' | 'created_at'>): Promise<WhatsNewItem> {
     const local = this.localFallback.createWhatsNew(item);
+    let cloudCreated: WhatsNewItem | null = null;
+
+    // 1. Try dedicated table in Supabase
     try {
       const { data, error } = await this.client
         .from('whats_new')
         .insert([{
+          id: local.id,
           title: item.title,
           description: item.description,
           type: item.type,
           link_type: item.link_type || null,
-          link_target: item.link_target || null,
+          link_target: item.link_target || item.link || null,
+          link: item.link || item.link_target || null,
           is_active: item.is_active ?? true,
           created_by: item.created_by || null,
         }])
@@ -948,43 +973,137 @@ export class SupabaseDatabaseStore {
         .single();
 
       if (!error && data) {
-        return data as WhatsNewItem;
+        cloudCreated = data as WhatsNewItem;
       }
     } catch {}
-    return local;
+
+    // 2. Persist to live Supabase app_settings table
+    try {
+      const { data: existingData } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'announcements_broadcast')
+        .maybeSingle();
+
+      const existing: WhatsNewItem[] = Array.isArray(existingData?.value) ? existingData.value : [];
+      const updatedList = [local, ...existing.filter(i => i.id !== local.id)];
+
+      await this.client
+        .from('app_settings')
+        .upsert({
+          key: 'announcements_broadcast',
+          value: updatedList,
+          updated_at: new Date().toISOString(),
+          updated_by: item.created_by || 'admin'
+        });
+    } catch (e) {
+      console.error('Failed to persist announcement in Supabase app_settings:', e);
+    }
+
+    return cloudCreated || local;
   }
 
   async toggleWhatsNewActive(id: string): Promise<WhatsNewItem | null> {
     const local = this.localFallback.toggleWhatsNewActive(id);
+    let updatedItem: WhatsNewItem | null = local;
+
+    // 1. Try dedicated table in Supabase
     try {
       if (local) {
-        await this.client
+        const { data, error } = await this.client
           .from('whats_new')
           .update({ is_active: local.is_active })
-          .eq('id', id);
+          .eq('id', id)
+          .select('*')
+          .single();
+        if (!error && data) {
+          updatedItem = data as WhatsNewItem;
+        }
       }
     } catch {}
-    return local;
+
+    // 2. Update in live Supabase app_settings table
+    try {
+      const { data: existingData } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'announcements_broadcast')
+        .maybeSingle();
+
+      if (existingData && Array.isArray(existingData.value)) {
+        const list: WhatsNewItem[] = existingData.value;
+        const target = list.find(i => i.id === id);
+        if (target) {
+          target.is_active = !target.is_active;
+          target.active = target.is_active;
+          await this.client
+            .from('app_settings')
+            .upsert({
+              key: 'announcements_broadcast',
+              value: list,
+              updated_at: new Date().toISOString(),
+              updated_by: 'admin'
+            });
+          updatedItem = target;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to toggle announcement in Supabase app_settings:', e);
+    }
+
+    return updatedItem;
   }
 
   async deleteWhatsNew(id: string): Promise<boolean> {
     const local = this.localFallback.deleteWhatsNew(id);
+    let deleted = local;
+
+    // 1. Try dedicated table in Supabase
     try {
       await this.client
         .from('whats_new')
         .delete()
         .eq('id', id);
     } catch {}
-    return local;
+
+    // 2. Remove from live Supabase app_settings table
+    try {
+      const { data: existingData } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'announcements_broadcast')
+        .maybeSingle();
+
+      if (existingData && Array.isArray(existingData.value)) {
+        const list: WhatsNewItem[] = existingData.value;
+        const filtered = list.filter(i => i.id !== id);
+        await this.client
+          .from('app_settings')
+          .upsert({
+            key: 'announcements_broadcast',
+            value: filtered,
+            updated_at: new Date().toISOString(),
+            updated_by: 'admin'
+          });
+        deleted = true;
+      }
+    } catch (e) {
+      console.error('Failed to delete announcement from Supabase app_settings:', e);
+    }
+
+    return deleted;
   }
 
   // --- Student Feedback & Missing Material Requests ---
   async createFeedbackRequest(data: Omit<StudentFeedbackRequest, 'id' | 'created_at' | 'status'>): Promise<StudentFeedbackRequest> {
     const local = this.localFallback.createFeedbackRequest(data);
+    let cloudCreated: StudentFeedbackRequest | null = null;
+
     try {
       const { data: created, error } = await this.client
         .from('feedback_requests')
         .insert([{
+          id: local.id,
           user_id: data.user_id,
           user_name: data.user_name,
           user_email: data.user_email,
@@ -1001,10 +1120,34 @@ export class SupabaseDatabaseStore {
         .single();
 
       if (!error && created) {
-        return created as StudentFeedbackRequest;
+        cloudCreated = created as StudentFeedbackRequest;
       }
     } catch {}
-    return local;
+
+    // Persist to live Supabase app_settings table
+    try {
+      const { data: existingData } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'student_feedback_requests')
+        .maybeSingle();
+
+      const existing: StudentFeedbackRequest[] = Array.isArray(existingData?.value) ? existingData.value : [];
+      const updatedList = [local, ...existing.filter(i => i.id !== local.id)];
+
+      await this.client
+        .from('app_settings')
+        .upsert({
+          key: 'student_feedback_requests',
+          value: updatedList,
+          updated_at: new Date().toISOString(),
+          updated_by: data.user_email || 'student'
+        });
+    } catch (e) {
+      console.error('Failed to persist feedback in Supabase app_settings:', e);
+    }
+
+    return cloudCreated || local;
   }
 
   async getFeedbackRequests(status?: string, userId?: string): Promise<StudentFeedbackRequest[]> {
@@ -1027,6 +1170,29 @@ export class SupabaseDatabaseStore {
         return data as StudentFeedbackRequest[];
       }
     } catch {}
+
+    // Fallback: live Supabase app_settings table
+    try {
+      const { data, error } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'student_feedback_requests')
+        .maybeSingle();
+
+      if (!error && data && Array.isArray(data.value)) {
+        let items: StudentFeedbackRequest[] = data.value;
+        if (userId) {
+          items = items.filter(r => r.user_id === userId);
+        }
+        if (status && status !== 'all') {
+          items = items.filter(r => r.status === status);
+        }
+        return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      }
+    } catch (err) {
+      console.warn('Supabase app_settings getFeedbackRequests error:', err);
+    }
+
     return this.localFallback.getFeedbackRequests(status, userId);
   }
 
@@ -1036,6 +1202,8 @@ export class SupabaseDatabaseStore {
     adminNote?: string
   ): Promise<StudentFeedbackRequest | null> {
     const local = this.localFallback.updateFeedbackRequestStatus(id, status, adminNote);
+    let updatedItem: StudentFeedbackRequest | null = local;
+
     try {
       const updates: any = { status };
       if (status === 'resolved') {
@@ -1044,23 +1212,91 @@ export class SupabaseDatabaseStore {
       if (adminNote !== undefined) {
         updates.admin_note = adminNote;
       }
-      await this.client
+      const { data, error } = await this.client
         .from('feedback_requests')
         .update(updates)
-        .eq('id', id);
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (!error && data) {
+        updatedItem = data as StudentFeedbackRequest;
+      }
     } catch {}
-    return local;
+
+    // Update in live Supabase app_settings table
+    try {
+      const { data: existingData } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'student_feedback_requests')
+        .maybeSingle();
+
+      if (existingData && Array.isArray(existingData.value)) {
+        const list: StudentFeedbackRequest[] = existingData.value;
+        const target = list.find(r => r.id === id);
+        if (target) {
+          target.status = status;
+          if (status === 'resolved') {
+            target.resolved_at = new Date().toISOString();
+          }
+          if (adminNote !== undefined) {
+            target.admin_note = adminNote;
+          }
+          await this.client
+            .from('app_settings')
+            .upsert({
+              key: 'student_feedback_requests',
+              value: list,
+              updated_at: new Date().toISOString(),
+              updated_by: 'admin'
+            });
+          updatedItem = target;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to update feedback in Supabase app_settings:', e);
+    }
+
+    return updatedItem;
   }
 
   async deleteFeedbackRequest(id: string): Promise<boolean> {
     const local = this.localFallback.deleteFeedbackRequest(id);
+    let deleted = local;
+
     try {
       await this.client
         .from('feedback_requests')
         .delete()
         .eq('id', id);
     } catch {}
-    return local;
+
+    // Delete in live Supabase app_settings table
+    try {
+      const { data: existingData } = await this.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'student_feedback_requests')
+        .maybeSingle();
+
+      if (existingData && Array.isArray(existingData.value)) {
+        const list: StudentFeedbackRequest[] = existingData.value;
+        const filtered = list.filter(r => r.id !== id);
+        await this.client
+          .from('app_settings')
+          .upsert({
+            key: 'student_feedback_requests',
+            value: filtered,
+            updated_at: new Date().toISOString(),
+            updated_by: 'admin'
+          });
+        deleted = true;
+      }
+    } catch (e) {
+      console.error('Failed to delete feedback from Supabase app_settings:', e);
+    }
+
+    return deleted;
   }
 
   // --- Material Open History (Continue Studying) ---
