@@ -93,7 +93,37 @@ export default function DocumentViewerModal({
     return () => clearTimeout(handler);
   }, [zoomLevel]);
 
-  const canDownload = allowDownloads || isAdminOrOwner;
+  // Sync global access control settings directly from the server to prevent stale props or leaks
+  const [serverAllowDownloads, setServerAllowDownloads] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function syncGlobalSettings() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.settings && typeof data.settings.allow_user_downloads === 'boolean') {
+            setServerAllowDownloads(data.settings.allow_user_downloads);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not sync global download setting:', err);
+      }
+    }
+    syncGlobalSettings();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Strict enforcement: When downloads are OFF globally or via prop, the download button is completely hidden.
+  // We do NOT bypass this when testing as admin so the admin can verify download prohibition accurately.
+  const isDownloadPermitted = serverAllowDownloads !== null 
+    ? (serverAllowDownloads && allowDownloads)
+    : allowDownloads;
+
+  const canDownload = Boolean(isDownloadPermitted);
 
   // Helper to dynamically load Mozilla PDF.js without bundling issues
   const loadPdfJs = (): Promise<any> => {
@@ -664,14 +694,8 @@ export default function DocumentViewerModal({
                   if (onDownload) {
                     onDownload(material);
                   } else {
-                    const activeUrl = multiFiles.length > 0 ? (multiFiles[activeFileIndex]?.url || material.file_url) : material.file_url;
-                    const match = activeUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/) || activeUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-                    if (match) {
-                      window.open(`https://drive.google.com/uc?export=download&id=${match[1]}`, '_blank');
-                    } else {
-                      const dlQuery = multiFiles.length > 0 ? `?fileIndex=${activeFileIndex}` : '';
-                      window.open(`/api/materials/${material.id}/download${dlQuery}`, '_blank');
-                    }
+                    const dlQuery = multiFiles.length > 0 ? `?fileIndex=${activeFileIndex}` : '';
+                    window.open(`/api/materials/${material.id}/download${dlQuery}`, '_blank');
                   }
                 }}
                 className="flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white text-xs font-bold shadow-xs transition-all active:scale-98"

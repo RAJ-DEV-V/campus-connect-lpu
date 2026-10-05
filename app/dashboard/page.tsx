@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [recommended, setRecommended] = useState<Material[]>([]);
   const [previewMaterial, setPreviewMaterial] = useState<Material | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [allowDownloads, setAllowDownloads] = useState<boolean>(true);
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -51,6 +52,19 @@ export default function DashboardPage() {
           return;
         }
         setUser(userData.user);
+
+        // Fetch Global Access Settings
+        try {
+          const settingsRes = await fetch('/api/admin/settings');
+          if (settingsRes.ok) {
+            const settingsData = await settingsRes.json();
+            if (settingsData.settings && typeof settingsData.settings.allow_user_downloads === 'boolean') {
+              setAllowDownloads(settingsData.settings.allow_user_downloads);
+            }
+          }
+        } catch (settingsErr) {
+          console.warn('Could not load settings on dashboard:', settingsErr);
+        }
 
         // Fetch Recently Added
         const recentRes = await fetch('/api/materials?sortBy=newest&limit=4');
@@ -269,6 +283,8 @@ export default function DashboardPage() {
               <MaterialCard
                 key={mat.id}
                 material={mat}
+                allowDownloads={allowDownloads}
+                isAdmin={Boolean(user?.isAdmin || user?.isOwner)}
                 onPreview={(m) => setPreviewMaterial(m)}
               />
             ))}
@@ -308,6 +324,8 @@ export default function DashboardPage() {
               <MaterialCard
                 key={mat.id}
                 material={mat}
+                allowDownloads={allowDownloads}
+                isAdmin={Boolean(user?.isAdmin || user?.isOwner)}
                 onPreview={(m) => setPreviewMaterial(m)}
               />
             ))}
@@ -347,6 +365,8 @@ export default function DashboardPage() {
               <MaterialCard
                 key={mat.id}
                 material={mat}
+                allowDownloads={allowDownloads}
+                isAdmin={Boolean(user?.isAdmin || user?.isOwner)}
                 onPreview={(m) => setPreviewMaterial(m)}
               />
             ))}
@@ -361,7 +381,7 @@ export default function DashboardPage() {
       {/* PDF In-browser Preview Modal */}
       <DocumentViewerModal
         material={previewMaterial}
-        allowDownloads={true}
+        allowDownloads={allowDownloads}
         isAdminOrOwner={Boolean(user?.isAdmin || user?.isOwner)}
         onClose={() => setPreviewMaterial(null)}
       />
