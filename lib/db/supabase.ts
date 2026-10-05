@@ -1007,12 +1007,16 @@ export class SupabaseDatabaseStore {
     return local;
   }
 
-  async getFeedbackRequests(status?: string): Promise<StudentFeedbackRequest[]> {
+  async getFeedbackRequests(status?: string, userId?: string): Promise<StudentFeedbackRequest[]> {
     try {
       let query = this.client
         .from('feedback_requests')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
 
       if (status && status !== 'all') {
         query = query.eq('status', status);
@@ -1023,7 +1027,7 @@ export class SupabaseDatabaseStore {
         return data as StudentFeedbackRequest[];
       }
     } catch {}
-    return this.localFallback.getFeedbackRequests(status);
+    return this.localFallback.getFeedbackRequests(status, userId);
   }
 
   async updateFeedbackRequestStatus(

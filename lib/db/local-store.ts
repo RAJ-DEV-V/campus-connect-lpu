@@ -875,8 +875,11 @@ export class LocalDatabaseStore {
     return newReq;
   }
 
-  getFeedbackRequests(status?: string): StudentFeedbackRequest[] {
-    const list = this.data.feedback_requests || [];
+  getFeedbackRequests(status?: string, userId?: string): StudentFeedbackRequest[] {
+    let list = this.data.feedback_requests || [];
+    if (userId) {
+      list = list.filter((r) => r.user_id === userId);
+    }
     const filtered = status && status !== 'all' ? list.filter((r) => r.status === status) : list;
     return [...filtered].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

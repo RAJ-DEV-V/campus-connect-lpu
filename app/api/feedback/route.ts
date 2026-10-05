@@ -45,3 +45,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to submit request' }, { status: 500 });
   }
 }
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getCurrentSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const { getFeedbackRequests } = await import('@/lib/db');
+    const requests = await getFeedbackRequests(undefined, session.userId);
+
+    return NextResponse.json({ success: true, requests });
+  } catch (error: any) {
+    console.error('Fetch student requests error:', error);
+    return NextResponse.json({ error: 'Failed to fetch requests' }, { status: 500 });
+  }
+}

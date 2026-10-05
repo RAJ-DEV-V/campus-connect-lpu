@@ -133,7 +133,7 @@ export interface AppSettings {
 }
 
 export type FeedbackRequestType = 'bug_report' | 'missing_subject' | 'general_feedback';
-export type FeedbackRequestStatus = 'pending' | 'in_progress' | 'resolved';
+export type FeedbackRequestStatus = 'pending' | 'in_progress' | 'resolved' | 'unavailable';
 
 export interface StudentFeedbackRequest {
   id: string;

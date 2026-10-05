@@ -29,12 +29,17 @@ import {
   UserCheck,
   Megaphone,
   MessageSquarePlus,
+  MessageSquare,
+  BellRing,
+  AlertTriangle,
+  XCircle,
+  Check,
   X
 } from 'lucide-react';
 import MaterialCard, { formatYearName } from '@/components/MaterialCard';
 import DocumentViewerModal from '@/components/DocumentViewerModal';
 import StudentFeedbackModal from '@/components/StudentFeedbackModal';
-import { Material, WhatsNewItem, MaterialOpenHistoryItem, SavedMaterialItem } from '@/lib/db/types';
+import { Material, WhatsNewItem, MaterialOpenHistoryItem, SavedMaterialItem, StudentFeedbackRequest } from '@/lib/db/types';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -67,6 +72,12 @@ export default function DashboardPage() {
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackDefaultTab, setFeedbackDefaultTab] = useState<'material_request' | 'bug_report'>('material_request');
   const [dismissedAnnouncements, setDismissedAnnouncements] = useState<Set<string>>(new Set());
+
+  // Student Requests & Notifications state
+  const [myRequests, setMyRequests] = useState<StudentFeedbackRequest[]>([]);
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(new Set());
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState<boolean>(false);
+  const [requestFilter, setRequestFilter] = useState<'all' | 'resolved' | 'pending' | 'unavailable'>('all');
 
   // Activity summary stats
   const [totalNewCount, setTotalNewCount] = useState<number>(0);
@@ -121,7 +132,8 @@ export default function DashboardPage() {
         savedResult,
         savedIdsResult,
         recResult,
-        recentResult
+        recentResult,
+        feedbackResult
       ] = await Promise.allSettled([
         fetch('/api/admin/settings'),
         fetch('/api/whats-new'),
@@ -130,6 +142,7 @@ export default function DashboardPage() {
         fetch('/api/materials/saved?idsOnly=true'),
         fetch(`/api/materials?year=${activeYear}&sortBy=downloads&limit=6`),
         fetch(`/api/materials?year=${activeYear}&sortBy=newest&limit=6`),
+        fetch('/api/feedback'),
       ]);
 
       // 2. Process Global Settings
@@ -199,6 +212,16 @@ export default function DashboardPage() {
         } catch {}
       }
 
+      // 8. Process Student's Submitted Requests & Query Status
+      if (feedbackResult.status === 'fulfilled' && feedbackResult.value.ok) {
+        try {
+          const fbData = await feedbackResult.value.json();
+          if (fbData.success && Array.isArray(fbData.requests)) {
+            setMyRequests(fbData.requests);
+          }
+        } catch {}
+      }
+
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
@@ -209,6 +232,32 @@ export default function DashboardPage() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // Load persisted dismissed notification IDs
+  useEffect(() => {
+    try {
+      const savedDismissed = localStorage.getItem('cc_dismissed_notifs');
+      if (savedDismissed) {
+        setDismissedNotificationIds(new Set(JSON.parse(savedDismissed)));
+      }
+    } catch {}
+  }, []);
+
+  const handleDismissNotification = (id: string) => {
+    setDismissedNotificationIds((prev) => {
+      const next = new Set(prev).add(id);
+      try {
+        localStorage.setItem('cc_dismissed_notifs', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
+  const unreadRequestNotifications = useMemo(() => {
+    return myRequests.filter(
+      (r) => (r.status === 'resolved' || r.status === 'unavailable') && !dismissedNotificationIds.has(r.id)
+    );
+  }, [myRequests, dismissedNotificationIds]);
 
   // Handle Profile Save (First-time or Edit)
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -406,7 +455,103 @@ export default function DashboardPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-10">
 
       {/* ======================================================== */}
-      {/* 0. 📢 ADMIN ANNOUNCEMENTS BANNER                         */}
+      {/* 0.1 🔔 LIVE POPUP NOTIFICATIONS: RESOLVED & UPDATES      */}
+      {/* ======================================================== */}
+      {unreadRequestNotifications.length > 0 && (
+        <div className="space-y-3">
+          {unreadRequestNotifications.map((req) => {
+            const isResolved = req.status === 'resolved';
+            return (
+              <div
+                key={`pop_${req.id}`}
+                className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300 ${
+                  isResolved
+                    ? 'bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/5 border-emerald-500/30 text-slate-900'
+                    : 'bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-rose-500/5 border-rose-500/30 text-slate-900'
+                }`}
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    isResolved ? 'bg-emerald-500/20 text-emerald-600' : 'bg-rose-500/20 text-rose-600'
+                  }`}>
+                    {isResolved ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-rose-600" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                        isResolved
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : 'bg-rose-100 text-rose-800 border-rose-300'
+                      }`}>
+                        {isResolved ? '🎉 Query Resolved & Available in Library' : '⚠️ Request Update: Cannot Be Arranged'}
+                      </span>
+                      {req.subject_code && (
+                        <span className="font-mono text-xs font-black px-2 py-0.5 rounded-md bg-slate-900 text-white">
+                          {req.subject_code}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-slate-400 font-semibold">
+                        {formatTimeAgo(req.resolved_at || req.created_at)}
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      {isResolved ? 'Study material is now available:' : 'Update regarding:'} {req.title}
+                    </h3>
+
+                    {/* Admin Response Note */}
+                    {req.admin_note ? (
+                      <div className={`mt-2 p-3 rounded-xl border text-xs leading-relaxed ${
+                        isResolved
+                          ? 'bg-white/80 border-emerald-200 text-emerald-950 font-medium'
+                          : 'bg-white/80 border-rose-200 text-rose-950 font-medium'
+                      }`}>
+                        <span className="font-bold uppercase tracking-wider text-[10px] block text-slate-500 mb-0.5">
+                          Admin Response / Reason:
+                        </span>
+                        &ldquo;{req.admin_note}&rdquo;
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-600 mt-1">
+                        {isResolved
+                          ? 'Your requested study material has been uploaded to the Study Library.'
+                          : 'This material could not be arranged at this time.'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  {isResolved && (
+                    <Link
+                      href={`/library?search=${encodeURIComponent(req.subject_code || req.title)}&year=${req.user_year || studentYear}`}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                    >
+                      <span>Browse in Library</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleDismissNotification(req.id)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-black/5 transition-colors cursor-pointer"
+                    title="Dismiss notification"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 0.2 📢 ADMIN ANNOUNCEMENTS BANNER                         */}
       {/* ======================================================== */}
       {whatsNewList.filter(item => item.active !== false && !dismissedAnnouncements.has(item.id)).length > 0 && (
         <div className="space-y-3">
@@ -570,15 +715,91 @@ export default function DashboardPage() {
                   Academic Profile
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(true)}
-                className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
-                title="Change name or academic year"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                Edit Profile
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
+                    className="relative p-1.5 rounded-lg bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title="View updates & query notifications"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    {unreadRequestNotifications.length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                    )}
+                    {unreadRequestNotifications.length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    )}
+                  </button>
+
+                  {/* Notification Dropdown Panel */}
+                  {showNotificationsDropdown && (
+                    <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-1.5">
+                          <BellRing className="w-4 h-4 text-amber-500" />
+                          <h4 className="font-extrabold text-xs text-slate-900">Notifications & Updates</h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowNotificationsDropdown(false)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {myRequests.length === 0 && whatsNewList.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-4 text-center">No notifications right now.</p>
+                      ) : (
+                        <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                          {myRequests.slice(0, 5).map((req) => (
+                            <div
+                              key={`drop_${req.id}`}
+                              className={`p-2.5 rounded-xl border text-xs space-y-1 ${
+                                req.status === 'resolved'
+                                  ? 'bg-emerald-50/60 border-emerald-200'
+                                  : req.status === 'unavailable'
+                                  ? 'bg-rose-50/60 border-rose-200'
+                                  : 'bg-slate-50 border-slate-200'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                  req.status === 'resolved'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : req.status === 'unavailable'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {req.status === 'resolved' ? 'Available' : req.status === 'unavailable' ? 'Unavailable' : 'Pending'}
+                                </span>
+                                <span className="text-[10px] text-slate-400">{formatTimeAgo(req.created_at)}</span>
+                              </div>
+                              <p className="font-bold text-slate-800 truncate">{req.title}</p>
+                              {req.admin_note && (
+                                <p className="text-[11px] text-slate-600 italic leading-snug">
+                                  Note: &ldquo;{req.admin_note}&rdquo;
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(true)}
+                  className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                  title="Change name or academic year"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  Edit Profile
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1.5 pt-1 border-t border-slate-700/60">
@@ -602,6 +823,262 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ======================================================== */}
+      {/* 1.5 📋 MY REQUESTS & MATERIAL AVAILABILITY WINDOW        */}
+      {/* ======================================================== */}
+      <section className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shadow-xs">
+              <MessageSquare className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                  My Requests &amp; Query Status
+                </h2>
+                {myRequests.length > 0 && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    {myRequests.length} submitted
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                Track status of requested subjects, missing notes, and check if materials are available or cannot be arranged
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setFeedbackDefaultTab('material_request');
+                setFeedbackModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>+ Request Missing Subject</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filter Pills */}
+        {myRequests.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap border-b border-slate-100 pb-3">
+            <button
+              type="button"
+              onClick={() => setRequestFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                requestFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All Requests ({myRequests.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setRequestFilter('resolved')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                requestFilter === 'resolved'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60'
+              }`}
+            >
+              <span>✅ Available in Library</span>
+              <span className="text-[10px] font-black opacity-90">({myRequests.filter((r) => r.status === 'resolved').length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRequestFilter('pending')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                requestFilter === 'pending'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60'
+              }`}
+            >
+              <span>⏳ In Progress / Review</span>
+              <span className="text-[10px] font-black opacity-90">({myRequests.filter((r) => r.status === 'pending' || r.status === 'in_progress').length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRequestFilter('unavailable')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                requestFilter === 'unavailable'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200/60'
+              }`}
+            >
+              <span>⚠️ Cannot Be Arranged</span>
+              <span className="text-[10px] font-black opacity-90">({myRequests.filter((r) => r.status === 'unavailable').length})</span>
+            </button>
+          </div>
+        )}
+
+        {/* Requests List */}
+        {myRequests.length === 0 ? (
+          <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-300 p-8 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-white shadow-2xs text-blue-600 flex items-center justify-center mx-auto">
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-800 text-sm">No Material Requests Yet</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
+                Looking for a subject code, syllabus notes, or past questions not currently in the library? Submit a request and our admin team will notify you here once it is uploaded or if there are any updates.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setFeedbackDefaultTab('material_request');
+                setFeedbackModalOpen(true);
+              }}
+              className="px-4 py-2 rounded-xl bg-lpu-600 hover:bg-lpu-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Request Missing Subject</span>
+            </button>
+          </div>
+        ) : (
+          (() => {
+            const filteredRequests = myRequests.filter((r) => {
+              if (requestFilter === 'resolved') return r.status === 'resolved';
+              if (requestFilter === 'pending') return r.status === 'pending' || r.status === 'in_progress';
+              if (requestFilter === 'unavailable') return r.status === 'unavailable';
+              return true;
+            });
+
+            if (filteredRequests.length === 0) {
+              return (
+                <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  No requests matching this filter tab.
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredRequests.map((req) => {
+                  const isResolved = req.status === 'resolved';
+                  const isUnavailable = req.status === 'unavailable';
+                  const isInProgress = req.status === 'in_progress';
+
+                  return (
+                    <div
+                      key={req.id}
+                      className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-3 ${
+                        isResolved
+                          ? 'bg-emerald-50/40 border-emerald-200 hover:border-emerald-300'
+                          : isUnavailable
+                          ? 'bg-rose-50/40 border-rose-200 hover:border-rose-300'
+                          : 'bg-slate-50/70 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        {/* Status & Badges Header */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${
+                              isResolved
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : isUnavailable
+                                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                : isInProgress
+                                ? 'bg-sky-100 text-sky-800 border-sky-300'
+                                : 'bg-amber-100 text-amber-800 border-amber-300'
+                            }`}>
+                              {isResolved
+                                ? '● Available in Library'
+                                : isUnavailable
+                                ? '● Cannot Be Arranged'
+                                : isInProgress
+                                ? '● Arranging Notes'
+                                : '● Under Review'}
+                            </span>
+
+                            {req.subject_code && (
+                              <span className="font-mono text-xs font-black px-2 py-0.5 rounded-md bg-slate-900 text-white">
+                                {req.subject_code}
+                              </span>
+                            )}
+
+                            {req.user_year && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
+                                {formatYearName(req.user_year)}
+                              </span>
+                            )}
+                          </div>
+
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {formatTimeAgo(req.created_at)}
+                          </span>
+                        </div>
+
+                        {/* Title & Description */}
+                        <div>
+                          <h4 className="font-extrabold text-sm text-slate-900 leading-snug">
+                            {req.title}
+                          </h4>
+                          {req.description && (
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+                              {req.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Admin Response Callout Window */}
+                        {req.admin_note && (
+                          <div className={`p-3 rounded-xl border text-xs leading-relaxed space-y-1 ${
+                            isResolved
+                              ? 'bg-white border-emerald-200 text-emerald-950'
+                              : isUnavailable
+                              ? 'bg-white border-rose-200 text-rose-950'
+                              : 'bg-white border-sky-200 text-sky-950'
+                          }`}>
+                            <div className="flex items-center gap-1.5 font-bold text-[11px] uppercase tracking-wider">
+                              {isResolved ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : isUnavailable ? (
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                              ) : (
+                                <Clock className="w-3.5 h-3.5 text-sky-600" />
+                              )}
+                              <span>
+                                {isUnavailable ? 'Reason from Admin:' : 'Admin Response:'}
+                              </span>
+                            </div>
+                            <p className="text-xs whitespace-pre-wrap">{req.admin_note}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
+                        <span className="text-[11px] text-slate-400">
+                          {req.type === 'missing_subject' ? 'Missing Subject Request' : 'Bug Report'}
+                        </span>
+
+                        {isResolved && (
+                          <Link
+                            href={`/library?search=${encodeURIComponent(req.subject_code || req.title)}&year=${req.user_year || studentYear}`}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+                          >
+                            <span>Open in Library</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()
+        )}
+      </section>
 
       {/* ======================================================== */}
       {/* 2. 🔥 CONTINUE STUDYING (Priority #2: Most Important)    */}

@@ -256,9 +256,9 @@ export async function createFeedbackRequest(
   return localDb.createFeedbackRequest(data);
 }
 
-export async function getFeedbackRequests(status?: string): Promise<StudentFeedbackRequest[]> {
-  if (supabaseDb) return await supabaseDb.getFeedbackRequests(status);
-  return localDb.getFeedbackRequests(status);
+export async function getFeedbackRequests(status?: string, userId?: string): Promise<StudentFeedbackRequest[]> {
+  if (supabaseDb) return await supabaseDb.getFeedbackRequests(status, userId);
+  return localDb.getFeedbackRequests(status, userId);
 }
 
 export async function updateFeedbackRequestStatus(

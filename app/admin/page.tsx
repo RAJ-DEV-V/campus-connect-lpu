@@ -668,12 +668,16 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleUpdateFeedbackStatus = async (id: string, status: string) => {
+  const handleUpdateFeedbackStatus = async (id: string, status: string, adminNote?: string) => {
     try {
       const res = await fetch('/api/admin/feedback', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
+        body: JSON.stringify({ 
+          id, 
+          status, 
+          admin_note: adminNote !== undefined ? adminNote : undefined 
+        }),
       });
       if (res.ok) {
         await loadFeedback();
@@ -5104,10 +5108,12 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center gap-2">
                               <select
                                 value={item.status}
-                                onChange={(e) => handleUpdateFeedbackStatus(item.id, e.target.value)}
+                                onChange={(e) => handleUpdateFeedbackStatus(item.id, e.target.value, item.admin_note || undefined)}
                                 className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none cursor-pointer ${
                                   item.status === 'resolved'
                                     ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                    : item.status === 'unavailable'
+                                    ? 'bg-rose-50 text-rose-800 border-rose-300'
                                     : item.status === 'in_progress'
                                     ? 'bg-sky-50 text-sky-800 border-sky-300'
                                     : 'bg-amber-50 text-amber-800 border-amber-300'
@@ -5115,7 +5121,8 @@ export default function AdminDashboardPage() {
                               >
                                 <option value="pending">Pending</option>
                                 <option value="in_progress">In Progress</option>
-                                <option value="resolved">Resolved</option>
+                                <option value="resolved">Resolved (Available)</option>
+                                <option value="unavailable">Unavailable (Cannot Arrange)</option>
                               </select>
 
                               <button
@@ -5134,6 +5141,46 @@ export default function AdminDashboardPage() {
                             <p className="text-xs text-slate-600 mt-1 whitespace-pre-wrap leading-relaxed">
                               {item.description}
                             </p>
+                          </div>
+
+                          {/* Admin Response Note Box */}
+                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                              Response Note to Student (Shown on Student Dashboard)
+                            </label>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <input
+                                type="text"
+                                defaultValue={item.admin_note || ''}
+                                id={`note_input_${item.id}`}
+                                placeholder={
+                                  item.status === 'unavailable'
+                                    ? "Reason why it cannot be arranged (e.g. syllabus revised, exam was online)..."
+                                    : "e.g. Uploaded to Year 1 library, check CSE101..."
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleUpdateFeedbackStatus(item.id, item.status, (e.target as HTMLInputElement).value);
+                                  }
+                                }}
+                                className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:border-lpu-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const el = document.getElementById(`note_input_${item.id}`) as HTMLInputElement;
+                                  handleUpdateFeedbackStatus(item.id, item.status, el?.value || '');
+                                }}
+                                className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shrink-0 cursor-pointer shadow-2xs"
+                              >
+                                Save Note
+                              </button>
+                            </div>
+                            {item.admin_note && (
+                              <p className="text-[11px] text-emerald-700 font-medium">
+                                Active note to student: &ldquo;{item.admin_note}&rdquo;
+                              </p>
+                            )}
                           </div>
 
                           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-2">
