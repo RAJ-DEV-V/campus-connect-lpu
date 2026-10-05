@@ -84,7 +84,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // 3. Serve direct download with attachment header
     const cleanFilename = `${material.subject_code}_${material.material_type}_${targetTitle.slice(0, 30)}.pdf`.replace(/[^a-zA-Z0-9_.-]/g, '_');
 
-    // If local file path
+    // If local file path (development only)
     if (targetFileUrl.startsWith('/uploads/')) {
       const diskPath = path.join(process.cwd(), 'public', targetFileUrl.replace('/uploads/', 'uploads/'));
       if (fs.existsSync(diskPath)) {
@@ -101,13 +101,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       }
     }
 
+    // Google Drive direct download bypass (Google CDN handles all bandwidth at 0 Vercel Fast Origin cost)
     const driveId = extractDriveFileId(targetFileUrl);
     if (driveId) {
-      return NextResponse.redirect(getDriveDownloadUrl(driveId));
+      return NextResponse.redirect(getDriveDownloadUrl(driveId), 307);
     }
 
-    // If external or Supabase URL, redirect to it
-    return NextResponse.redirect(new URL(targetFileUrl, req.url));
+    // If external or Supabase Storage CDN URL, redirect directly to Supabase CDN at 0 Vercel Fast Origin cost
+    return NextResponse.redirect(new URL(targetFileUrl, req.url), 307);
   } catch (error: any) {
     console.error('Download error:', error);
     return NextResponse.json({ error: error.message || 'Download failed' }, { status: 500 });

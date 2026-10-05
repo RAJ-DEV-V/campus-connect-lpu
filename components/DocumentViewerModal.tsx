@@ -380,6 +380,14 @@ export default function DocumentViewerModal({
           return;
         }
 
+        // Direct Google Drive Embed (Zero Vercel Function egress!)
+        if (driveId) {
+          setIsImageType(false);
+          setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
+          setLoading(false);
+          return;
+        }
+
         // Try streaming the document binary via /api/materials/[id]/preview
         const previewQuery = multiFiles.length > 0 ? `?fileIndex=${activeFileIndex}` : '';
         const response = await fetch(`/api/materials/${material.id}/preview${previewQuery}`, {

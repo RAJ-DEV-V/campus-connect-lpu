@@ -15,15 +15,22 @@ export async function GET() {
       const totalUsers = usersRes.count ?? 0;
       const totalDownloads = downloadsRes.count ?? 0;
 
-      return NextResponse.json({
-        success: true,
-        stats: {
-          totalMaterials,
-          totalUsers,
-          totalDownloads,
-          academicYears: 4,
+      return NextResponse.json(
+        {
+          success: true,
+          stats: {
+            totalMaterials,
+            totalUsers,
+            totalDownloads,
+            academicYears: 4,
+          },
         },
-      });
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          },
+        }
+      );
     }
 
     const localDb = getLocalDatabase();

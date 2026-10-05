@@ -13,7 +13,14 @@ export async function GET(req: NextRequest) {
     const activeOnly = searchParams.get('all') !== 'true';
 
     const items = await getWhatsNew(activeOnly);
-    return NextResponse.json({ success: true, items });
+    return NextResponse.json(
+      { success: true, items },
+      {
+        headers: {
+          'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=180',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Fetch whats_new error:', error);
     return NextResponse.json({ error: 'Failed to fetch announcements' }, { status: 500 });

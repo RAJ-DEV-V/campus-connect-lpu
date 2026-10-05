@@ -47,13 +47,20 @@ export async function GET(req: NextRequest) {
 
     const result = await getMaterials(filters);
 
-    return NextResponse.json({
-      success: true,
-      materials: result.materials,
-      total: result.total,
-      page,
-      limit,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        materials: result.materials,
+        total: result.total,
+        page,
+        limit,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=120',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Error fetching materials:', error);
     return NextResponse.json({ error: error.message || 'Failed to fetch materials' }, { status: 500 });
