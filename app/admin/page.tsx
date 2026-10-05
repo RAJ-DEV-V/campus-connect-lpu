@@ -3241,7 +3241,7 @@ export default function AdminDashboardPage() {
                           <input
                             type="file"
                             id="addMoreImagesInput"
-                            accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,image/*"
+                            accept=".pdf,.zip,.rar,.7z,.tar,.gz,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,image/*"
                             multiple
                             onChange={(e) => {
                               if (e.target.files) handleIncomingFiles(e.target.files);
@@ -3490,7 +3490,7 @@ export default function AdminDashboardPage() {
                       <input
                         type="file"
                         id="pdfUploadInput"
-                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,image/*"
+                        accept=".pdf,.zip,.rar,.7z,.tar,.gz,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,image/*"
                         multiple
                         required={resourceMode === 'file' && !uploadFile && clubbedImages.length === 0}
                         onChange={(e) => {
@@ -3506,7 +3506,7 @@ export default function AdminDashboardPage() {
                               Drop file(s) here to upload
                             </span>
                             <span className="text-[11px] text-orange-600 font-semibold mt-1">
-                              Release to select multiple PDFs or image notes
+                              Release to upload PDF, ZIP archives, PPT presentations, or notes
                             </span>
                           </>
                         ) : uploadFile ? (
@@ -3535,11 +3535,11 @@ export default function AdminDashboardPage() {
                               <strong className="text-lpu-600 hover:underline">Choose file(s)</strong> or drag &amp; drop here
                             </span>
                             <span className="text-[11px] text-slate-500 font-medium mt-1">
-                              Select single or <strong>multiple PDFs</strong>, or <strong>note images (JPG, PNG, WEBP)</strong>
+                              Upload <strong>PDFs</strong>, <strong>ZIP / RAR Archives</strong>, <strong>PowerPoint Slides (.pptx)</strong>, or <strong>Images</strong>
                             </span>
                             <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-full mt-2 inline-flex items-center gap-1">
                               <Layers className="w-3 h-3 text-amber-600" />
-                              Supports multiple PDFs (merge into 1 or bundle with multi-part viewer) &amp; image notes
+                              Supports PDFs, ZIP/RAR bundles, PPT slides, Word docs &amp; multiple images
                             </span>
                           </>
                         )}
@@ -5540,7 +5540,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="file"
                     id="replaceFileInput"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                    accept=".pdf,.zip,.rar,.7z,.tar,.gz,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
                     onChange={(e) => setEditFile(e.target.files ? e.target.files[0] : null)}
                     className="hidden"
                   />

@@ -107,16 +107,18 @@ function LibraryContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Fetch materials whenever filters change
+  const [isSearchingBackend, setIsSearchingBackend] = useState<boolean>(false);
+
+  // Fetch materials whenever year or sort changes
   useEffect(() => {
+    let isCancelled = false;
     async function fetchMaterials() {
       setLoading(true);
       try {
         const params = new URLSearchParams();
         if (selectedYear > 0) params.set('year', selectedYear.toString());
-        if (searchQuery.trim()) params.set('search', searchQuery.trim());
         if (sortBy) params.set('sortBy', sortBy);
-        params.set('limit', '100');
+        params.set('limit', '1000');
 
         const res = await fetch(`/api/materials?${params.toString()}`);
         if (res.status === 401) {
@@ -129,19 +131,56 @@ function LibraryContent() {
         }
 
         const data = await res.json();
-        if (data.success) {
+        if (!isCancelled && data.success) {
           setMaterials(data.materials || []);
         }
       } catch (err) {
         console.error('Failed to load materials', err);
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     }
 
-    const timer = setTimeout(fetchMaterials, 150);
+    fetchMaterials();
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedYear, sortBy, router]);
+
+  // Background search across database if search query is entered (subtle sync without blocking UI)
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        setIsSearchingBackend(true);
+        const params = new URLSearchParams();
+        params.set('search', q);
+        if (selectedYear > 0) params.set('year', selectedYear.toString());
+        params.set('limit', '100');
+
+        const res = await fetch(`/api/materials?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.materials?.length) {
+            setMaterials((prev) => {
+              const existingIds = new Set(prev.map((m) => m.id));
+              const newItems = data.materials.filter((m: Material) => !existingIds.has(m.id));
+              if (newItems.length === 0) return prev;
+              return [...prev, ...newItems];
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Background search notice:', err);
+      } finally {
+        setIsSearchingBackend(false);
+      }
+    }, 400);
+
     return () => clearTimeout(timer);
-  }, [selectedYear, searchQuery, sortBy, router]);
+  }, [searchQuery, selectedYear]);
 
   // Extract unique subjects for the current selected Year to enable Year -> Subject hierarchy
   const availableSubjects = useMemo(() => {
@@ -163,7 +202,7 @@ function LibraryContent() {
     return counts;
   }, [materials]);
 
-  // Filter materials by both selectedType and selectedSubject
+  // Instant in-memory multi-attribute filtering (0ms typing response without skeleton flicker)
   const filteredMaterials = useMemo(() => {
     let list = materials;
     if (selectedType !== 'All') {
@@ -172,8 +211,19 @@ function LibraryContent() {
     if (selectedSubject !== 'All') {
       list = list.filter((m) => m.subject_code === selectedSubject || m.subject === selectedSubject);
     }
+    const q = searchQuery.toLowerCase().trim();
+    if (q) {
+      list = list.filter((m) => {
+        return (
+          m.title.toLowerCase().includes(q) ||
+          m.subject.toLowerCase().includes(q) ||
+          m.subject_code.toLowerCase().includes(q) ||
+          (m.description && m.description.toLowerCase().includes(q))
+        );
+      });
+    }
     return list;
-  }, [materials, selectedType, selectedSubject]);
+  }, [materials, selectedType, selectedSubject, searchQuery]);
 
   const clearAllFilters = () => {
     setSelectedYear(0);
@@ -257,7 +307,11 @@ function LibraryContent() {
               placeholder="Search (e.g. Programming in C, DSA, CSE101)..."
               className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-lpu-500 focus:outline-none text-xs text-slate-900 placeholder:text-slate-400 shadow-2xs"
             />
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {isSearchingBackend ? (
+              <div className="w-4 h-4 border-2 border-lpu-500 border-t-transparent rounded-full animate-spin absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            ) : (
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            )}
             {searchQuery ? (
               <button
                 onClick={() => setSearchQuery('')}

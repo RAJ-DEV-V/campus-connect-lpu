@@ -131,7 +131,21 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const fileBuffer = Buffer.from(arrayBuffer);
     const fileName = file.name;
-    const contentType = file.type || 'application/pdf';
+
+    // Detect accurate MIME type for ZIP, PPT, DOC, PDF
+    let contentType = file.type;
+    const fileExt = (fileName.split('.').pop() || '').toLowerCase();
+    if (!contentType || contentType === 'application/octet-stream') {
+      if (fileExt === 'zip') contentType = 'application/zip';
+      else if (fileExt === 'rar') contentType = 'application/vnd.rar';
+      else if (fileExt === '7z') contentType = 'application/x-7z-compressed';
+      else if (fileExt === 'ppt') contentType = 'application/vnd.ms-powerpoint';
+      else if (fileExt === 'pptx') contentType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      else if (fileExt === 'doc') contentType = 'application/msword';
+      else if (fileExt === 'docx') contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      else if (fileExt === 'pdf') contentType = 'application/pdf';
+      else contentType = 'application/octet-stream';
+    }
 
     const deleteSameName =
       formData.get('delete_same_name') === 'true' ||
@@ -188,6 +202,8 @@ export async function POST(req: NextRequest) {
       material_type: materialType as any,
       file_url: uploadResult.fileUrl,
       file_size: uploadResult.fileSizeFormatted,
+      file_name: fileName,
+      mime_type: contentType,
     });
 
     return NextResponse.json({

@@ -22,10 +22,13 @@ import {
   Globe,
   Sun,
   Moon,
-  Eye
+  Eye,
+  FileArchive,
+  Presentation
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
 import { isMaterialPreviewable } from '@/lib/drive-service';
+import { getMaterialFileFormat } from '@/components/MaterialCard';
 
 interface DocumentViewerModalProps {
   material: Material | null;
@@ -165,6 +168,10 @@ export default function DocumentViewerModal({
   // HOWEVER: If a file cannot be opened in the viewer (e.g. ZIP, RAR, 7Z, archives), or if rendering fails with an error,
   // normal students are allowed to download it so they are not blocked from the resource.
   const isPreviewable = material ? isMaterialPreviewable(material) : true;
+  const fileFormat = React.useMemo(() => {
+    return material ? getMaterialFileFormat(material) : { type: 'pdf' as const, label: 'PDF', ext: '.pdf', icon: FileText, badgeClass: '' };
+  }, [material]);
+
   const isDownloadPermitted = serverAllowDownloads !== null 
     ? (serverAllowDownloads && allowDownloads)
     : allowDownloads;
@@ -537,6 +544,17 @@ export default function DocumentViewerModal({
         const isDirectPdf = /\.pdf(\?.*)?$/i.test(activeUrl) || /\.pdf$/i.test(activeTitle);
         const isDirectImage = /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(activeUrl) || /\.(png|jpe?g|webp|gif|svg)$/i.test(activeTitle);
 
+        const isCurrentFilePreviewable = isMaterialPreviewable({
+          file_name: activeTitle,
+          file_url: activeUrl,
+          mime_type: material.mime_type,
+        });
+
+        if (!isCurrentFilePreviewable) {
+          setLoading(false);
+          return;
+        }
+
         // If it is an external web link (e.g. YouTube, documentation, drive folder, external webpage, notion, github, etc.)
         if (!driveId && !isSupabaseFile && !isDirectPdf && !isDirectImage && activeUrl.startsWith('http')) {
           setExternalLinkUrl(activeUrl);
@@ -772,130 +790,133 @@ export default function DocumentViewerModal({
 
           {/* Controls Bar */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            
-            {/* Page Navigation with Direct Page Jumper */}
-            {totalPages > 1 && (
-              <div className="flex items-center bg-slate-800/80 rounded-xl px-1 py-0.5 border border-slate-700/60 text-xs">
-                <button
-                  onClick={handlePrevPage}
-                  disabled={currentPage <= 1}
-                  className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
-                  title="Previous Page (Left Arrow, J, or Swipe Right on mobile)"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </button>
-                <div className="flex items-center px-0.5 sm:px-1">
-                  <input
-                    type="number"
-                    min={1}
-                    max={totalPages}
-                    value={pageInputValue}
-                    onChange={(e) => setPageInputValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const p = parseInt(pageInputValue, 10);
-                        if (!isNaN(p) && p >= 1 && p <= totalPages) {
-                          setCurrentPage(p);
-                          (e.target as HTMLInputElement).blur();
-                        } else {
-                          setPageInputValue(currentPage.toString());
-                        }
-                      }
-                    }}
-                    onBlur={() => {
-                      const p = parseInt(pageInputValue, 10);
-                      if (!isNaN(p) && p >= 1 && p <= totalPages) {
-                        setCurrentPage(p);
-                      } else {
-                        setPageInputValue(currentPage.toString());
-                      }
-                    }}
-                    className="w-7 sm:w-8 py-0.5 text-center text-[10px] sm:text-[11px] font-mono font-bold bg-slate-900 border border-slate-700/80 rounded text-amber-400 focus:outline-none focus:border-amber-500 shadow-2xs"
-                    title="Jump to page: type number & press Enter"
-                  />
-                  <span className="pl-1 text-[10px] sm:text-[11px] font-mono text-slate-400 select-none">
-                    /{totalPages}
-                  </span>
+            {isPreviewable && (
+              <>
+                {/* Page Navigation with Direct Page Jumper */}
+                {totalPages > 1 && (
+                  <div className="flex items-center bg-slate-800/80 rounded-xl px-1 py-0.5 border border-slate-700/60 text-xs">
+                    <button
+                      onClick={handlePrevPage}
+                      disabled={currentPage <= 1}
+                      className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
+                      title="Previous Page (Left Arrow, J, or Swipe Right on mobile)"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </button>
+                    <div className="flex items-center px-0.5 sm:px-1">
+                      <input
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        value={pageInputValue}
+                        onChange={(e) => setPageInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const p = parseInt(pageInputValue, 10);
+                            if (!isNaN(p) && p >= 1 && p <= totalPages) {
+                              setCurrentPage(p);
+                              (e.target as HTMLInputElement).blur();
+                            } else {
+                              setPageInputValue(currentPage.toString());
+                            }
+                          }
+                        }}
+                        onBlur={() => {
+                          const p = parseInt(pageInputValue, 10);
+                          if (!isNaN(p) && p >= 1 && p <= totalPages) {
+                            setCurrentPage(p);
+                          } else {
+                            setPageInputValue(currentPage.toString());
+                          }
+                        }}
+                        className="w-7 sm:w-8 py-0.5 text-center text-[10px] sm:text-[11px] font-mono font-bold bg-slate-900 border border-slate-700/80 rounded text-amber-400 focus:outline-none focus:border-amber-500 shadow-2xs"
+                        title="Jump to page: type number & press Enter"
+                      />
+                      <span className="pl-1 text-[10px] sm:text-[11px] font-mono text-slate-400 select-none">
+                        /{totalPages}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleNextPage}
+                      disabled={currentPage >= totalPages}
+                      className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
+                      title="Next Page (Right Arrow, K, or Swipe Left on mobile)"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Zoom Controls */}
+                <div className="flex items-center bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/60 text-xs">
+                  <button
+                    onClick={handleZoomOut}
+                    disabled={zoomLevel <= 40}
+                    className="p-1 sm:p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
+                    title="Zoom Out (-25%)"
+                  >
+                    <ZoomOut className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleResetZoom}
+                    className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-mono text-slate-200 hover:text-white cursor-pointer select-none"
+                    title="Two-finger pinch on touchpad or Ctrl + Scroll to zoom. Click to reset (100%)"
+                  >
+                    {zoomLevel}%
+                  </button>
+                  <button
+                    onClick={handleZoomIn}
+                    disabled={zoomLevel >= 300}
+                    className="p-1 sm:p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
+                    title="Zoom In (+25%)"
+                  >
+                    <ZoomIn className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
                 </div>
+
+                {/* Reading Comfort Mode (Eye Care / Dark Invert / Warm Sepia) */}
                 <button
-                  onClick={handleNextPage}
-                  disabled={currentPage >= totalPages}
-                  className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
-                  title="Next Page (Right Arrow, K, or Swipe Left on mobile)"
+                  onClick={cycleReadingMode}
+                  className={`p-1.5 sm:p-2 rounded-xl border transition-all flex items-center gap-1 select-none ${
+                    readingMode === 'dark'
+                      ? 'bg-indigo-950/90 text-indigo-300 border-indigo-700/80 shadow-xs'
+                      : readingMode === 'sepia'
+                        ? 'bg-amber-950/90 text-amber-300 border-amber-700/80 shadow-xs'
+                        : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700/60'
+                  }`}
+                  title={`Reading Mode: ${readingMode.toUpperCase()} (Click or press 'D' to cycle Normal / Dark Invert / Warm Sepia)`}
                 >
-                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  {readingMode === 'dark' ? (
+                    <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                  ) : readingMode === 'sepia' ? (
+                    <Eye className="w-3.5 h-3.5 text-amber-400" />
+                  ) : (
+                    <Sun className="w-3.5 h-3.5 text-slate-300" />
+                  )}
+                  <span className="hidden md:inline text-[10px] font-bold tracking-tight">
+                    {readingMode === 'dark' ? 'Dark' : readingMode === 'sepia' ? 'Sepia' : 'Normal'}
+                  </span>
                 </button>
-              </div>
+
+                {/* Rotation Control */}
+                <button
+                  onClick={handleRotate}
+                  className="p-1.5 sm:p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
+                  title="Rotate 90 degrees (Press R)"
+                >
+                  <RotateCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </button>
+
+                {/* Document Viewer Fullscreen (Desktop/Tablet only since mobile is already 100dvh full screen) */}
+                <button
+                  onClick={toggleViewerFullscreen}
+                  className="hidden sm:inline-flex p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
+                  title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Document Viewer'}
+                >
+                  {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+                </button>
+              </>
             )}
-
-            {/* Zoom Controls */}
-            <div className="flex items-center bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/60 text-xs">
-              <button
-                onClick={handleZoomOut}
-                disabled={zoomLevel <= 40}
-                className="p-1 sm:p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
-                title="Zoom Out (-25%)"
-              >
-                <ZoomOut className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              </button>
-              <button
-                onClick={handleResetZoom}
-                className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-mono text-slate-200 hover:text-white cursor-pointer select-none"
-                title="Two-finger pinch on touchpad or Ctrl + Scroll to zoom. Click to reset (100%)"
-              >
-                {zoomLevel}%
-              </button>
-              <button
-                onClick={handleZoomIn}
-                disabled={zoomLevel >= 300}
-                className="p-1 sm:p-1.5 text-slate-300 hover:text-white hover:bg-slate-700/80 rounded-lg disabled:opacity-40 transition-colors"
-                title="Zoom In (+25%)"
-              >
-                <ZoomIn className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              </button>
-            </div>
-
-            {/* Reading Comfort Mode (Eye Care / Dark Invert / Warm Sepia) */}
-            <button
-              onClick={cycleReadingMode}
-              className={`p-1.5 sm:p-2 rounded-xl border transition-all flex items-center gap-1 select-none ${
-                readingMode === 'dark'
-                  ? 'bg-indigo-950/90 text-indigo-300 border-indigo-700/80 shadow-xs'
-                  : readingMode === 'sepia'
-                    ? 'bg-amber-950/90 text-amber-300 border-amber-700/80 shadow-xs'
-                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700/60'
-              }`}
-              title={`Reading Mode: ${readingMode.toUpperCase()} (Click or press 'D' to cycle Normal / Dark Invert / Warm Sepia)`}
-            >
-              {readingMode === 'dark' ? (
-                <Moon className="w-3.5 h-3.5 text-indigo-400" />
-              ) : readingMode === 'sepia' ? (
-                <Eye className="w-3.5 h-3.5 text-amber-400" />
-              ) : (
-                <Sun className="w-3.5 h-3.5 text-slate-300" />
-              )}
-              <span className="hidden md:inline text-[10px] font-bold tracking-tight">
-                {readingMode === 'dark' ? 'Dark' : readingMode === 'sepia' ? 'Sepia' : 'Normal'}
-              </span>
-            </button>
-
-            {/* Rotation Control */}
-            <button
-              onClick={handleRotate}
-              className="p-1.5 sm:p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
-              title="Rotate 90 degrees (Press R)"
-            >
-              <RotateCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-            </button>
-
-            {/* Document Viewer Fullscreen (Desktop/Tablet only since mobile is already 100dvh full screen) */}
-            <button
-              onClick={toggleViewerFullscreen}
-              className="hidden sm:inline-flex p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Document Viewer'}
-            >
-              {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
-            </button>
 
             {/* Download Button */}
             {canDownload ? (
@@ -982,6 +1003,59 @@ export default function DocumentViewerModal({
             <div className="flex flex-col items-center justify-center text-slate-400">
               <div className="w-10 h-10 border-4 border-lpu-500 border-t-transparent rounded-full animate-spin mb-3" />
               <p className="text-xs font-semibold">Loading document inside viewer...</p>
+            </div>
+          ) : !isPreviewable ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 max-w-lg text-center mx-4 shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-orange-500/10">
+                {fileFormat.type === 'zip' ? (
+                  <FileArchive className="w-8 h-8 text-purple-400" />
+                ) : fileFormat.type === 'ppt' ? (
+                  <Presentation className="w-8 h-8 text-amber-400" />
+                ) : (
+                  <FileText className="w-8 h-8 text-blue-400" />
+                )}
+              </div>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border mb-3 ${
+                fileFormat.type === 'zip'
+                  ? 'bg-purple-950/80 text-purple-300 border-purple-800'
+                  : fileFormat.type === 'ppt'
+                  ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                  : 'bg-blue-950/80 text-blue-300 border-blue-800'
+              }`}>
+                {fileFormat.label}
+              </span>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2 leading-snug">
+                {material.title}
+              </h3>
+              <p className="text-xs text-slate-400 mb-6 max-w-sm mx-auto leading-relaxed">
+                {material.description || `This ${fileFormat.label} contains downloadable course files. Download to extract and view locally on your device.`}
+              </p>
+              <div className="bg-slate-950/80 rounded-2xl p-3 border border-slate-800 mb-6 flex flex-col gap-1 items-center justify-center text-center overflow-hidden">
+                <span className="truncate text-xs font-mono text-slate-300 max-w-xs font-semibold">
+                  {material.file_name || `${material.title}${fileFormat.ext}`}
+                </span>
+                {material.file_size && (
+                  <span className="text-[11px] font-mono text-slate-500">
+                    File Size: {material.file_size}
+                  </span>
+                )}
+              </div>
+              {canDownload ? (
+                <button
+                  onClick={() => {
+                    if (onDownload) {
+                      onDownload(material);
+                    } else {
+                      const dlQuery = multiFiles.length > 0 ? `?fileIndex=${activeFileIndex}` : '';
+                      window.open(`/api/materials/${material.id}/download${dlQuery}`, '_blank');
+                    }
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white font-bold text-sm shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download {fileFormat.label}</span>
+                </button>
+              ) : null}
             </div>
           ) : externalLinkUrl ? (
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 max-w-lg text-center mx-4 shadow-2xl animate-in zoom-in-95 duration-200">

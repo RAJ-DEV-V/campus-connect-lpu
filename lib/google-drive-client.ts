@@ -202,10 +202,30 @@ export async function uploadToGoogleDriveResumable(
   // 2. Resolve target folder
   const folderId = await getOrCreateDriveFolder(accessToken);
 
+  const ext = (file.name || '').toLowerCase();
+  let resolvedMime = file.type;
+  if (!resolvedMime || resolvedMime === 'application/octet-stream') {
+    if (ext.endsWith('.zip')) resolvedMime = 'application/zip';
+    else if (ext.endsWith('.rar')) resolvedMime = 'application/vnd.rar';
+    else if (ext.endsWith('.7z')) resolvedMime = 'application/x-7z-compressed';
+    else if (ext.endsWith('.tar')) resolvedMime = 'application/x-tar';
+    else if (ext.endsWith('.gz')) resolvedMime = 'application/gzip';
+    else if (ext.endsWith('.pptx')) resolvedMime = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    else if (ext.endsWith('.ppt')) resolvedMime = 'application/vnd.ms-powerpoint';
+    else if (ext.endsWith('.docx')) resolvedMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    else if (ext.endsWith('.doc')) resolvedMime = 'application/msword';
+    else if (ext.endsWith('.xlsx')) resolvedMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    else if (ext.endsWith('.xls')) resolvedMime = 'application/vnd.ms-excel';
+    else if (ext.endsWith('.png')) resolvedMime = 'image/png';
+    else if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) resolvedMime = 'image/jpeg';
+    else if (ext.endsWith('.webp')) resolvedMime = 'image/webp';
+    else resolvedMime = file.type || 'application/pdf';
+  }
+
   // 3. Initiate Resumable Upload session directly with Google Drive API v3
   const metadata: any = {
     name: file.name,
-    mimeType: file.type || 'application/pdf',
+    mimeType: resolvedMime,
     description: `Campus Connect LPU | ${title} | ${subjectCode} | Year ${year} | ${materialType}${
       description ? ` | ${description}` : ''
     }`,
@@ -220,7 +240,7 @@ export async function uploadToGoogleDriveResumable(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json; charset=UTF-8',
-      'X-Upload-Content-Type': file.type || 'application/pdf',
+      'X-Upload-Content-Type': resolvedMime,
       'X-Upload-Content-Length': file.size.toString(),
     },
     body: JSON.stringify(metadata),
@@ -246,7 +266,7 @@ export async function uploadToGoogleDriveResumable(
   const driveFile: any = await new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', uploadLocation, true);
-    xhr.setRequestHeader('Content-Type', file.type || 'application/pdf');
+    xhr.setRequestHeader('Content-Type', resolvedMime);
 
     if (xhr.upload && onProgress) {
       xhr.upload.onprogress = (e) => {
@@ -310,7 +330,7 @@ export async function uploadToGoogleDriveResumable(
     fileName: file.name,
     fileSizeFormatted: formatBytes(file.size),
     fileSize: file.size,
-    mimeType: file.type || 'application/pdf',
+    mimeType: resolvedMime,
     fileUrl,
     previewUrl,
   };

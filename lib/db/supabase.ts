@@ -39,6 +39,8 @@ export class SupabaseDatabaseStore {
   private localFallback = getLocalDatabase();
   private academicYearsCache: Record<string, number> = {};
   private academicYearsCacheTime: number = 0;
+  private materialsCache: Material[] | null = null;
+  private materialsCacheTime: number = 0;
 
   async getUserAcademicYear(userId: string): Promise<number | null> {
     const now = Date.now();
@@ -590,6 +592,75 @@ export class SupabaseDatabaseStore {
 
   async getMaterials(filters: MaterialFilters = {}): Promise<{ materials: Material[]; total: number }> {
     try {
+      const now = Date.now();
+      // Cache warming / refresh: keeps entire library in RAM, refreshed every 60 seconds or on mutation
+      if (!this.materialsCache || (now - this.materialsCacheTime > 60000)) {
+        const { data, error } = await this.client
+          .from('materials')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(3000);
+
+        if (!error && data) {
+          this.materialsCache = data as Material[];
+          this.materialsCacheTime = now;
+        }
+      }
+
+      if (this.materialsCache && this.materialsCache.length > 0) {
+        let filtered = this.materialsCache;
+
+        if (filters.year && filters.year > 0) {
+          filtered = filtered.filter((m) => m.year === filters.year);
+        }
+
+        if (filters.material_type && filters.material_type !== 'All') {
+          filtered = filtered.filter((m) => m.material_type === filters.material_type);
+        }
+
+        if (filters.subject) {
+          const sub = filters.subject.toLowerCase();
+          filtered = filtered.filter((m) => m.subject.toLowerCase().includes(sub));
+        }
+
+        if (filters.subject_code) {
+          const code = filters.subject_code.toLowerCase();
+          filtered = filtered.filter((m) => m.subject_code.toLowerCase().includes(code));
+        }
+
+        if (filters.search) {
+          const q = filters.search.toLowerCase().trim();
+          filtered = filtered.filter((m) => {
+            return (
+              m.title.toLowerCase().includes(q) ||
+              m.subject.toLowerCase().includes(q) ||
+              m.subject_code.toLowerCase().includes(q) ||
+              (m.description && m.description.toLowerCase().includes(q))
+            );
+          });
+        }
+
+        if (filters.sortBy === 'downloads') {
+          filtered = [...filtered].sort((a, b) => (b.download_count || 0) - (a.download_count || 0));
+        } else if (filters.sortBy === 'title') {
+          filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title));
+        } else {
+          filtered = [...filtered].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        }
+
+        const total = filtered.length;
+        if (filters.page && filters.limit) {
+          const from = (filters.page - 1) * filters.limit;
+          const to = from + filters.limit;
+          filtered = filtered.slice(from, to);
+        }
+
+        return { materials: filtered, total };
+      }
+
+      // Fallback direct query if cache empty
       let query = this.client.from('materials').select('*', { count: 'exact' });
 
       if (filters.year && filters.year > 0) {
@@ -629,7 +700,6 @@ export class SupabaseDatabaseStore {
 
       const { data, count, error } = await query;
       if (error || !data) {
-        // Fallback to local store only on database error
         return this.localFallback.getMaterials(filters);
       }
 
@@ -675,6 +745,8 @@ export class SupabaseDatabaseStore {
       if (error) {
         return this.localFallback.createMaterial(data);
       }
+      this.materialsCache = null;
+      this.materialsCacheTime = 0;
       // Dual-sync: Keep local fallback memory/file store identically up to date
       const synced = created as Material;
       try {
@@ -692,6 +764,8 @@ export class SupabaseDatabaseStore {
 
   async updateMaterial(id: string, data: Partial<Omit<Material, 'id' | 'download_count' | 'created_at'>>): Promise<Material | null> {
     try {
+      this.materialsCache = null;
+      this.materialsCacheTime = 0;
       const { data: updated, error } = await this.client
         .from('materials')
         .update({
@@ -712,6 +786,8 @@ export class SupabaseDatabaseStore {
 
   async deleteMaterial(id: string): Promise<boolean> {
     try {
+      this.materialsCache = null;
+      this.materialsCacheTime = 0;
       const { error } = await this.client
         .from('materials')
         .delete()

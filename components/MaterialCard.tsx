@@ -13,10 +13,32 @@ import {
   HelpCircle,
   Award,
   Layers,
-  Bookmark
+  Bookmark,
+  FileArchive,
+  Presentation
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
 import { isMaterialPreviewable } from '@/lib/drive-service';
+
+export function getMaterialFileFormat(material: { file_name?: string | null; file_url?: string; mime_type?: string | null }) {
+  const name = (material.file_name || '').toLowerCase();
+  const url = (material.file_url || '').toLowerCase();
+  const mime = (material.mime_type || '').toLowerCase();
+
+  if (name.endsWith('.zip') || name.endsWith('.rar') || name.endsWith('.7z') || url.includes('.zip') || mime.includes('zip') || mime.includes('compressed')) {
+    return { type: 'zip' as const, label: 'ZIP Archive', badgeClass: 'bg-purple-50 text-purple-700 border-purple-200/90', icon: FileArchive, ext: '.zip' };
+  }
+  if (name.endsWith('.pptx') || name.endsWith('.ppt') || url.includes('.pptx') || url.includes('.ppt') || mime.includes('presentation') || mime.includes('powerpoint')) {
+    return { type: 'ppt' as const, label: 'PPT Slides', badgeClass: 'bg-amber-50 text-amber-800 border-amber-200/90', icon: Presentation, ext: name.endsWith('.ppt') ? '.ppt' : '.pptx' };
+  }
+  if (name.endsWith('.docx') || name.endsWith('.doc') || url.includes('.docx') || mime.includes('word')) {
+    return { type: 'doc' as const, label: 'Word Doc', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/90', icon: FileText, ext: '.docx' };
+  }
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp') || mime.startsWith('image/')) {
+    return { type: 'image' as const, label: 'Images', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/90', icon: FileText, ext: '.jpg' };
+  }
+  return { type: 'pdf' as const, label: 'PDF', badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/90', icon: FileText, ext: '.pdf' };
+}
 
 interface MaterialCardProps {
   material: Material;
@@ -56,9 +78,10 @@ export default function MaterialCard({
   const [downloadCount, setDownloadCount] = useState(material.download_count);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
-  // Normal users can download if global downloads are ON, or if the file CANNOT be previewed in the previewer (e.g. ZIP, RAR, 7Z, etc.)
+  // Normal users can download if global downloads are ON, or if the file CANNOT be previewed in the previewer (e.g. ZIP, RAR, 7Z, PPT, etc.)
   const canPreview = isMaterialPreviewable(material);
   const canDownload = allowDownloads || !canPreview;
+  const fileFormat = getMaterialFileFormat(material);
 
   const handleDownload = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -70,7 +93,8 @@ export default function MaterialCard({
       
       const link = document.createElement('a');
       link.href = downloadEndpoint;
-      link.setAttribute('download', `${material.subject_code}_${material.title}.pdf`);
+      const cleanTitle = material.title.replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 30);
+      link.setAttribute('download', `${material.subject_code}_${cleanTitle}${fileFormat.ext}`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -126,16 +150,21 @@ export default function MaterialCard({
 
   const badge = getTypeBadge();
   const BadgeIcon = badge.icon;
+  const FormatIcon = fileFormat.icon;
 
   return (
     <div className="group bg-white rounded-2xl border border-slate-200/90 hover:border-lpu-300/90 p-5 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between">
       <div>
-        {/* Top Badges: Material Type + Year Badge + Subject Code + Bookmark */}
+        {/* Top Badges: Material Type + File Format + Year Badge + Subject Code + Bookmark */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.8 rounded-full border shadow-2xs ${badge.classes}`}>
               <BadgeIcon className="w-3.5 h-3.5" />
               {material.material_type}
+            </span>
+            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.8 rounded-md border shadow-2xs ${fileFormat.badgeClass}`}>
+              <FormatIcon className="w-3.5 h-3.5" />
+              {fileFormat.label}
             </span>
             <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.8 rounded-md shadow-2xs">
               {formatYearName(material.year)}

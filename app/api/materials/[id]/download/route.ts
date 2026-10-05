@@ -82,7 +82,28 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // 3. Serve direct download with attachment header
-    const cleanFilename = `${material.subject_code}_${material.material_type}_${targetTitle.slice(0, 30)}.pdf`.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const rawExt = material.file_name?.split('.').pop() || targetFileUrl.split('?')[0].split('.').pop() || 'pdf';
+    let fileExtension = `.${rawExt.toLowerCase()}`;
+    if (!['.pdf', '.zip', '.rar', '.7z', '.ppt', '.pptx', '.doc', '.docx', '.png', '.jpg', '.jpeg'].includes(fileExtension)) {
+      fileExtension = '.pdf';
+    }
+
+    const cleanFilename = `${material.subject_code}_${material.material_type}_${targetTitle.slice(0, 30)}${fileExtension}`.replace(/[^a-zA-Z0-9_.-]/g, '_');
+
+    let mimeType = 'application/pdf';
+    switch (fileExtension) {
+      case '.zip': mimeType = 'application/zip'; break;
+      case '.rar': mimeType = 'application/vnd.rar'; break;
+      case '.7z': mimeType = 'application/x-7z-compressed'; break;
+      case '.ppt': mimeType = 'application/vnd.ms-powerpoint'; break;
+      case '.pptx': mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'; break;
+      case '.doc': mimeType = 'application/msword'; break;
+      case '.docx': mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'; break;
+      case '.jpg':
+      case '.jpeg': mimeType = 'image/jpeg'; break;
+      case '.png': mimeType = 'image/png'; break;
+      default: mimeType = 'application/pdf';
+    }
 
     // If local file path (development only)
     if (targetFileUrl.startsWith('/uploads/')) {
@@ -92,7 +113,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         return new NextResponse(fileBuffer, {
           status: 200,
           headers: {
-            'Content-Type': 'application/pdf',
+            'Content-Type': mimeType,
             'Content-Disposition': `attachment; filename="${cleanFilename}"`,
             'Content-Length': fileBuffer.length.toString(),
             'Cache-Control': 'no-cache',

@@ -187,9 +187,10 @@ export function isMaterialPreviewable(material: {
   const name = (material.file_name || material.title || '').toLowerCase().trim();
   const mime = (material.mime_type || '').toLowerCase().trim();
 
-  // Explicit non-previewable archive & binary extensions
+  // Explicit non-previewable archive, presentation, and document extensions
   const nonPreviewableExtensions = [
     '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.tgz',
+    '.ppt', '.pptx', '.doc', '.docx', '.xls', '.xlsx',
     '.iso', '.dmg', '.pkg', '.apk', '.exe', '.msi', '.bin',
     '.csv', '.sqlite', '.db'
   ];
@@ -205,6 +206,10 @@ export function isMaterialPreviewable(material: {
     mime.includes('zip') ||
     mime.includes('compressed') ||
     mime.includes('archive') ||
+    mime.includes('powerpoint') ||
+    mime.includes('presentation') ||
+    mime.includes('msword') ||
+    mime.includes('wordprocessingml') ||
     mime.includes('octet-stream')
   ) {
     // If it's a PDF or image, it is previewable despite generic octet-stream

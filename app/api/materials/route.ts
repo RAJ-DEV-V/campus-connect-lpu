@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Touch user activity
-    await touchUserActivity(session.userId);
+    // Touch user activity in background so it never blocks or slows down search responses
+    touchUserActivity(session.userId).catch(() => {});
 
     const { searchParams } = new URL(req.url);
     const year = searchParams.get('year') 
