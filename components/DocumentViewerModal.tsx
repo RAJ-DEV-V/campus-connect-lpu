@@ -19,7 +19,10 @@ import {
   FileText,
   FolderOpen,
   ExternalLink,
-  Globe
+  Globe,
+  Sun,
+  Moon,
+  Eye
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
 import { isMaterialPreviewable } from '@/lib/drive-service';
@@ -45,8 +48,34 @@ export default function DocumentViewerModal({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [pageInputValue, setPageInputValue] = useState<string>('1');
+  const [readingMode, setReadingMode] = useState<'normal' | 'dark' | 'sepia'>('normal');
+  const [resumedToast, setResumedToast] = useState<string | null>(null);
+  const [swipeFeedback, setSwipeFeedback] = useState<'prev' | 'next' | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const currentPageRef = useRef<number>(currentPage);
+  const totalPagesRef = useRef<number>(totalPages);
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+    setPageInputValue(currentPage.toString());
+  }, [currentPage]);
+
+  useEffect(() => {
+    totalPagesRef.current = totalPages;
+  }, [totalPages]);
+
+  const cycleReadingMode = () => {
+    setReadingMode((prev) => (prev === 'normal' ? 'dark' : prev === 'dark' ? 'sepia' : 'normal'));
+  };
+
+  const readingFilterStyle = readingMode === 'dark'
+    ? 'invert(90%) hue-rotate(180deg) contrast(110%) brightness(95%)'
+    : readingMode === 'sepia'
+      ? 'sepia(45%) contrast(98%) brightness(96%)'
+      : 'none';
 
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [driveEmbedUrl, setDriveEmbedUrl] = useState<string | null>(null);
@@ -68,6 +97,7 @@ export default function DocumentViewerModal({
 
   useEffect(() => {
     setActiveFileIndex(0);
+    setReadingMode('normal');
     if (material?.id) {
       // Record open event in user material open history
       fetch('/api/materials/history', {
@@ -220,31 +250,101 @@ export default function DocumentViewerModal({
     };
   }, []);
 
-  // Handle ESC key to exit fullscreen or close modal
+  const toggleViewerFullscreen = () => {
+    if (!viewerContainerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      viewerContainerRef.current.requestFullscreen().catch((err) => {
+        console.error('Error attempting to enable fullscreen:', err);
+      });
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(prev + 25, 300));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => Math.max(prev - 25, 40));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(100);
+  };
+
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  // Keyboard Hotkeys: Arrows / J / K (page flip), + / - (zoom), 0 (reset), F (fullscreen), R (rotate), D (dark/sepia), Esc (close)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+
       if (e.key === 'Escape') {
         if (document.fullscreenElement) {
           document.exitFullscreen().catch(() => {});
         } else {
           onClose();
         }
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown' || e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (currentPageRef.current < totalPagesRef.current) {
+          setCurrentPage((prev) => prev + 1);
+        }
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp' || e.key.toLowerCase() === 'j') {
+        e.preventDefault();
+        if (currentPageRef.current > 1) {
+          setCurrentPage((prev) => prev - 1);
+        }
+      } else if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        handleZoomIn();
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        handleZoomOut();
+      } else if (e.key === '0') {
+        e.preventDefault();
+        handleResetZoom();
+      } else if (e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        toggleViewerFullscreen();
+      } else if (e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        handleRotate();
+      } else if (e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        cycleReadingMode();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Handle two-finger trackpad / mouse pad pinch-to-zoom (Wheel with ctrlKey) and touch pinch
+  // Handle two-finger trackpad/touch pinch-to-zoom and 1-finger horizontal swipe page turns on mobile
   useEffect(() => {
     const container = viewerContainerRef.current;
     if (!container) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // Touchpad pinch-to-zoom on Windows/Mac and Ctrl + mouse wheel both set e.ctrlKey = true
-      if (e.ctrlKey) {
+      // Use Alt + mouse wheel for document zoom so it never conflicts with Chrome's native Ctrl + Scroll browser zoom
+      if (e.altKey) {
         e.preventDefault();
-        // deltaY < 0 is pinch out (zoom in), deltaY > 0 is pinch in (zoom out)
         const zoomDelta = -e.deltaY * 0.45;
         setZoomLevel((prev) => {
           const next = Math.round(prev + zoomDelta);
@@ -267,17 +367,25 @@ export default function DocumentViewerModal({
       }
     };
 
-    // Touchscreen 2-finger pinch
+    // Touchscreen: 2-finger pinch-to-zoom & 1-finger swipe page navigation
     let initialTouchDist = 0;
     let initialTouchZoom = 100;
+    let singleTouchStart: { x: number; y: number; time: number } | null = null;
 
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
+        singleTouchStart = null;
         initialTouchDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
         initialTouchZoom = zoomLevelRef.current;
+      } else if (e.touches.length === 1) {
+        singleTouchStart = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+          time: Date.now(),
+        };
       }
     };
 
@@ -294,8 +402,31 @@ export default function DocumentViewerModal({
       }
     };
 
-    const handleTouchEnd = () => {
+    const handleTouchEnd = (e: TouchEvent) => {
       initialTouchDist = 0;
+      if (singleTouchStart && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - singleTouchStart.x;
+        const dy = touch.clientY - singleTouchStart.y;
+        const duration = Date.now() - singleTouchStart.time;
+        singleTouchStart = null;
+
+        // Mobile touch swipe page turning:
+        // When not deeply zoomed in (zoom <= 115%), horizontal swipe > 45px, predominantly horizontal, within 600ms
+        if (zoomLevelRef.current <= 115 && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3 && duration < 600) {
+          if (dx < -45 && currentPageRef.current < totalPagesRef.current) {
+            // Swipe Left -> Next Page
+            setSwipeFeedback('next');
+            setTimeout(() => setSwipeFeedback(null), 500);
+            setCurrentPage((prev) => Math.min(prev + 1, totalPagesRef.current));
+          } else if (dx > 45 && currentPageRef.current > 1) {
+            // Swipe Right -> Previous Page
+            setSwipeFeedback('prev');
+            setTimeout(() => setSwipeFeedback(null), 500);
+            setCurrentPage((prev) => Math.max(prev - 1, 1));
+          }
+        }
+      }
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
@@ -314,6 +445,36 @@ export default function DocumentViewerModal({
       container.removeEventListener('touchend', handleTouchEnd);
     };
   }, []);
+
+  // Restore saved page position for this material from localStorage
+  useEffect(() => {
+    if (!material?.id || totalPages <= 1) return;
+    try {
+      const savedKey = `lpu_doc_page_${material.id}`;
+      const saved = localStorage.getItem(savedKey);
+      if (saved) {
+        const pageNum = parseInt(saved, 10);
+        if (!isNaN(pageNum) && pageNum > 1 && pageNum <= totalPages) {
+          setCurrentPage(pageNum);
+          setResumedToast(`Resumed at page ${pageNum}`);
+          const t = setTimeout(() => setResumedToast(null), 3000);
+          return () => clearTimeout(t);
+        }
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [material?.id, totalPages]);
+
+  // Persist current page to localStorage
+  useEffect(() => {
+    if (!material?.id || currentPage <= 0) return;
+    try {
+      localStorage.setItem(`lpu_doc_page_${material.id}`, currentPage.toString());
+    } catch {
+      // Ignore
+    }
+  }, [material?.id, currentPage]);
 
   // Mouse drag-to-pan handlers for zoomed documents
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -578,46 +739,6 @@ export default function DocumentViewerModal({
 
   if (!material) return null;
 
-  const toggleViewerFullscreen = () => {
-    if (!viewerContainerRef.current) return;
-
-    if (!document.fullscreenElement) {
-      viewerContainerRef.current.requestFullscreen().catch((err) => {
-        console.error('Error attempting to enable fullscreen:', err);
-      });
-    } else {
-      document.exitFullscreen().catch(() => {});
-    }
-  };
-
-  const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(prev + 25, 300));
-  };
-
-  const handleZoomOut = () => {
-    setZoomLevel((prev) => Math.max(prev - 25, 40));
-  };
-
-  const handleResetZoom = () => {
-    setZoomLevel(100);
-  };
-
-  const handleRotate = () => {
-    setRotation((prev) => (prev + 90) % 360);
-  };
-
-  const handlePrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage((prev) => prev - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage((prev) => prev + 1);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/90 backdrop-blur-xs animate-in fade-in duration-200">
       
@@ -652,25 +773,55 @@ export default function DocumentViewerModal({
           {/* Controls Bar */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             
-            {/* Page Navigation */}
+            {/* Page Navigation with Direct Page Jumper */}
             {totalPages > 1 && (
               <div className="flex items-center bg-slate-800/80 rounded-xl px-1 py-0.5 border border-slate-700/60 text-xs">
                 <button
                   onClick={handlePrevPage}
                   disabled={currentPage <= 1}
                   className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
-                  title="Previous Page"
+                  title="Previous Page (Left Arrow, J, or Swipe Right on mobile)"
                 >
                   <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
-                <span className="px-1.5 text-[10px] sm:text-[11px] font-mono text-slate-300">
-                  {currentPage}/{totalPages}
-                </span>
+                <div className="flex items-center px-0.5 sm:px-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={pageInputValue}
+                    onChange={(e) => setPageInputValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const p = parseInt(pageInputValue, 10);
+                        if (!isNaN(p) && p >= 1 && p <= totalPages) {
+                          setCurrentPage(p);
+                          (e.target as HTMLInputElement).blur();
+                        } else {
+                          setPageInputValue(currentPage.toString());
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      const p = parseInt(pageInputValue, 10);
+                      if (!isNaN(p) && p >= 1 && p <= totalPages) {
+                        setCurrentPage(p);
+                      } else {
+                        setPageInputValue(currentPage.toString());
+                      }
+                    }}
+                    className="w-7 sm:w-8 py-0.5 text-center text-[10px] sm:text-[11px] font-mono font-bold bg-slate-900 border border-slate-700/80 rounded text-amber-400 focus:outline-none focus:border-amber-500 shadow-2xs"
+                    title="Jump to page: type number & press Enter"
+                  />
+                  <span className="pl-1 text-[10px] sm:text-[11px] font-mono text-slate-400 select-none">
+                    /{totalPages}
+                  </span>
+                </div>
                 <button
                   onClick={handleNextPage}
                   disabled={currentPage >= totalPages}
                   className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition-colors"
-                  title="Next Page"
+                  title="Next Page (Right Arrow, K, or Swipe Left on mobile)"
                 >
                   <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
@@ -704,11 +855,35 @@ export default function DocumentViewerModal({
               </button>
             </div>
 
+            {/* Reading Comfort Mode (Eye Care / Dark Invert / Warm Sepia) */}
+            <button
+              onClick={cycleReadingMode}
+              className={`p-1.5 sm:p-2 rounded-xl border transition-all flex items-center gap-1 select-none ${
+                readingMode === 'dark'
+                  ? 'bg-indigo-950/90 text-indigo-300 border-indigo-700/80 shadow-xs'
+                  : readingMode === 'sepia'
+                    ? 'bg-amber-950/90 text-amber-300 border-amber-700/80 shadow-xs'
+                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700/60'
+              }`}
+              title={`Reading Mode: ${readingMode.toUpperCase()} (Click or press 'D' to cycle Normal / Dark Invert / Warm Sepia)`}
+            >
+              {readingMode === 'dark' ? (
+                <Moon className="w-3.5 h-3.5 text-indigo-400" />
+              ) : readingMode === 'sepia' ? (
+                <Eye className="w-3.5 h-3.5 text-amber-400" />
+              ) : (
+                <Sun className="w-3.5 h-3.5 text-slate-300" />
+              )}
+              <span className="hidden md:inline text-[10px] font-bold tracking-tight">
+                {readingMode === 'dark' ? 'Dark' : readingMode === 'sepia' ? 'Sepia' : 'Normal'}
+              </span>
+            </button>
+
             {/* Rotation Control */}
             <button
               onClick={handleRotate}
               className="p-1.5 sm:p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
-              title="Rotate 90 degrees"
+              title="Rotate 90 degrees (Press R)"
             >
               <RotateCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </button>
@@ -862,7 +1037,10 @@ export default function DocumentViewerModal({
               <img
                 src={previewBlobUrl}
                 alt={material.title}
-                className="max-w-full max-h-full rounded-none sm:rounded-lg shadow-2xl object-contain bg-white"
+                className="max-w-full max-h-full rounded-none sm:rounded-lg shadow-2xl object-contain bg-white transition-all duration-150"
+                style={{
+                  filter: readingFilterStyle,
+                }}
               />
             </div>
           ) : driveEmbedUrl ? (
@@ -877,7 +1055,10 @@ export default function DocumentViewerModal({
                 <iframe
                   src={driveEmbedUrl}
                   title={material.title}
-                  className="w-full h-full rounded-none sm:rounded-xl border-0 bg-black min-h-[500px]"
+                  className="w-full h-full rounded-none sm:rounded-xl border-0 bg-black min-h-[500px] transition-all duration-150"
+                  style={{
+                    filter: readingFilterStyle,
+                  }}
                   sandbox="allow-scripts allow-same-origin allow-forms"
                 />
                 {/* Security Shield: Covers and blocks the Google Drive top-right pop-out button */}
@@ -902,14 +1083,34 @@ export default function DocumentViewerModal({
             >
               <canvas
                 ref={canvasRef}
-                className="rounded-lg sm:rounded-xl shadow-2xl bg-white max-w-full"
+                className="rounded-lg sm:rounded-xl shadow-2xl bg-white max-w-full transition-all duration-150"
                 style={{
                   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+                  filter: readingFilterStyle,
                 }}
               />
             </div>
           ) : (
             <div className="text-xs text-slate-400">Loading document...</div>
+          )}
+
+          {/* Mobile Touch Swipe / Resume Feedback Toast */}
+          {(swipeFeedback || resumedToast) && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 px-3.5 py-1.5 rounded-full bg-slate-950/90 text-white border border-slate-700/80 shadow-2xl text-xs font-semibold backdrop-blur-md flex items-center gap-2 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+              {swipeFeedback === 'next' ? (
+                <>
+                  <span>Page {currentPage} of {totalPages}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                </>
+              ) : swipeFeedback === 'prev' ? (
+                <>
+                  <ChevronLeft className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  <span>Page {currentPage} of {totalPages}</span>
+                </>
+              ) : (
+                <span>{resumedToast}</span>
+              )}
+            </div>
           )}
         </div>
 
@@ -930,7 +1131,10 @@ export default function DocumentViewerModal({
             </span>
             <span className="text-slate-600 hidden sm:inline">•</span>
             <span className="text-[11px] text-slate-400 hidden sm:inline">
-              Trackpad 2-finger pinch / Ctrl + Scroll to zoom
+              Flip: Arrow Keys • Zoom: +/- or Alt+Scroll • Fullscreen: F • Eye Care: D • Rotate: R
+            </span>
+            <span className="text-[11px] text-amber-400/90 sm:hidden">
+              👆 Swipe left/right to flip pages
             </span>
           </div>
 
