@@ -462,18 +462,23 @@ export class SupabaseDatabaseStore {
   }
 
   async revokeUsersVerifiedViaLink(linkId: string): Promise<number> {
-    const count = this.localFallback.revokeUsersVerifiedViaLink(linkId);
+    this.localFallback.revokeUsersVerifiedViaLink(linkId);
     try {
-      await this.client
+      const { data, error } = await this.client
         .from('users')
         .update({
           community_joined: false,
           community_verified_at: null,
           community_verification_link_id: null,
         })
-        .eq('community_verification_link_id', linkId);
+        .eq('community_verification_link_id', linkId)
+        .select('id');
+
+      if (!error && data) {
+        return data.length;
+      }
     } catch {}
-    return count;
+    return this.localFallback.revokeUsersVerifiedViaLink(linkId);
   }
 
   async getAllUsers(): Promise<User[]> {
@@ -612,18 +617,43 @@ export class SupabaseDatabaseStore {
   }
 
   async revokeUserCommunityAccess(userId: string): Promise<boolean> {
-    const local = this.localFallback.revokeUserCommunityAccess(userId);
+    this.localFallback.revokeUserCommunityAccess(userId);
     try {
-      await this.client
+      const now = new Date().toISOString();
+      const { data, error } = await this.client
         .from('users')
         .update({
           community_joined: false,
           community_verified_at: null,
           community_verification_link_id: null,
+          last_active_at: now,
         })
-        .eq('id', userId);
-    } catch {}
-    return local;
+        .eq('id', userId)
+        .select('id');
+
+      if (!error && data && data.length > 0) {
+        return true;
+      }
+
+      // If id didn't match (e.g. email was supplied), attempt email match
+      const emailRes = await this.client
+        .from('users')
+        .update({
+          community_joined: false,
+          community_verified_at: null,
+          community_verification_link_id: null,
+          last_active_at: now,
+        })
+        .eq('email', userId)
+        .select('id');
+
+      if (!emailRes.error && emailRes.data && emailRes.data.length > 0) {
+        return true;
+      }
+    } catch (e) {
+      console.error('Supabase revokeUserCommunityAccess error:', e);
+    }
+    return this.localFallback.revokeUserCommunityAccess(userId);
   }
 
   async getMaterials(filters: MaterialFilters = {}): Promise<{ materials: Material[]; total: number }> {

@@ -284,7 +284,7 @@ export class LocalDatabaseStore {
     joined: boolean, 
     linkId?: string | null
   ): User | null {
-    const user = this.data.users.find((u) => u.id === userId);
+    const user = this.data.users.find((u) => u.id === userId || u.email?.toLowerCase() === userId.toLowerCase());
     if (!user) return null;
     const now = new Date().toISOString();
     user.community_joined = joined;
@@ -502,7 +502,7 @@ export class LocalDatabaseStore {
   }
 
   revokeUserCommunityAccess(userId: string): boolean {
-    const user = this.data.users.find((u) => u.id === userId);
+    const user = this.data.users.find((u) => u.id === userId || u.email?.toLowerCase() === userId.toLowerCase());
     if (!user) return false;
     user.community_joined = false;
     user.community_verified_at = null;

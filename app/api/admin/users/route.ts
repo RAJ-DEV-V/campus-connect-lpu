@@ -42,7 +42,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getCurrentSession();
-    if (!session || !session.isAdmin) {
+    if (!session || (!session.isAdmin && !session.isOwner)) {
       return NextResponse.json({ error: 'Unauthorized: Admin privileges required.' }, { status: 403 });
     }
 
@@ -56,7 +56,11 @@ export async function PATCH(req: NextRequest) {
     if (action === 'revoke_verification') {
       const success = await revokeUserCommunityAccess(userId);
       if (!success) {
-        return NextResponse.json({ error: 'User not found or revocation failed' }, { status: 404 });
+        const { updateCommunityJoined } = await import('@/lib/db');
+        const fallback = await updateCommunityJoined(userId, false, null);
+        if (!fallback) {
+          return NextResponse.json({ error: 'User not found or revocation failed' }, { status: 404 });
+        }
       }
       return NextResponse.json({ success: true, message: 'User community verification access revoked successfully.' });
     }
