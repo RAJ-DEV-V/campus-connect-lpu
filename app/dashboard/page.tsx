@@ -547,15 +547,12 @@ export default function DashboardPage() {
       {/* ======================================================== */}
       {/* 1. PERSONALIZED HEADER & ACADEMIC PROFILE                 */}
       {/* ======================================================== */}
-      <div className="relative rounded-3xl p-6 sm:p-10 text-white overflow-hidden shadow-2xl border border-slate-750 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950">
-        {/* Ambient Radial Mesh Glows */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-orange-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 rounded-3xl p-6 sm:p-10 text-white relative overflow-hidden shadow-xl border border-slate-800">
         <div className="absolute right-0 top-0 bottom-0 w-1/3 academic-grid-pattern opacity-10 pointer-events-none hidden md:block" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-semibold mb-3 border border-emerald-500/30 backdrop-blur-md">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-semibold mb-3 border border-emerald-500/30">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Verified LPU Member • Campus Connect 2.0
             </div>
@@ -576,43 +573,38 @@ export default function DashboardPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={`Search ${formatYearName(studentYear)} subjects, PYQs, notes...`}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-white placeholder:text-slate-400 text-xs focus:outline-none focus:border-lpu-500 transition-colors shadow-inner"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-white placeholder:text-slate-400 text-xs focus:outline-none focus:border-lpu-500"
                 />
               </div>
               <button
                 type="submit"
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition-all shrink-0 cursor-pointer active:scale-95"
+                className="px-4 py-2.5 rounded-xl bg-lpu-600 hover:bg-lpu-700 text-white font-bold text-xs shadow-xs transition-colors shrink-0"
               >
                 Search
               </button>
             </form>
 
-            {/* Quick 1-Click Year Switcher (Segmented Pill Control) */}
-            <div className="mt-5 flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
+            {/* Quick 1-Click Year Switcher */}
+            <div className="mt-4 flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mr-1">
                 Batch:
               </span>
-              <div className="inline-flex items-center p-1 bg-slate-950/70 border border-slate-800 rounded-xl backdrop-blur-md shadow-inner gap-1">
-                {[1, 2, 3, 4].map((yr) => {
-                  const isActive = studentYear === yr;
-                  return (
-                    <button
-                      key={yr}
-                      type="button"
-                      disabled={savingProfile}
-                      onClick={() => handleQuickSwitchYear(yr)}
-                      className={`relative px-3 py-1 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                        isActive
-                          ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-black shadow-md shadow-orange-500/20 scale-[1.02]'
-                          : 'text-slate-300 hover:text-white hover:bg-white/5 active:scale-95'
-                      } ${savingProfile ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      title={`Switch to ${formatYearName(yr)}`}
-                    >
-                      {formatYearName(yr)}
-                    </button>
-                  );
-                })}
-              </div>
+              {[1, 2, 3, 4].map((yr) => (
+                <button
+                  key={yr}
+                  type="button"
+                  disabled={savingProfile}
+                  onClick={() => handleQuickSwitchYear(yr)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    studentYear === yr
+                      ? 'bg-amber-400 text-slate-950 font-black shadow-sm ring-2 ring-amber-400/40'
+                      : 'bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-slate-600'
+                  }`}
+                  title={`Switch to ${formatYearName(yr)}`}
+                >
+                  {formatYearName(yr)}
+                </button>
+              ))}
             </div>
 
             {/* Quick Student Actions: Request Subject & Report Bug */}
