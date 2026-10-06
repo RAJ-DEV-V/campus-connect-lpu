@@ -153,20 +153,24 @@ export default function MaterialCard({
   const FormatIcon = fileFormat.icon;
 
   return (
-    <div className="group bg-white rounded-2xl border border-slate-200/90 hover:border-lpu-300/90 p-5 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between">
+    <div className="group relative bg-white hover:bg-gradient-to-b hover:from-white hover:to-orange-50/15 rounded-2xl border border-slate-200/80 hover:border-orange-400/60 p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_16px_32px_-10px_rgba(249,115,22,0.14)] hover:-translate-y-1.5 transition-all duration-300 ease-out flex flex-col justify-between overflow-hidden">
+      {/* Top subtle ambient glow bar on card hover */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-orange-400/0 to-transparent group-hover:via-orange-500/80 transition-all duration-500 pointer-events-none" />
+
       <div>
         {/* Top Badges: Material Type + File Format + Year Badge + Subject Code + Bookmark */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.8 rounded-full border shadow-2xs ${badge.classes}`}>
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${badge.classes}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${badge.dot} animate-pulse`} />
               <BadgeIcon className="w-3.5 h-3.5" />
               {material.material_type}
             </span>
-            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.8 rounded-md border shadow-2xs ${fileFormat.badgeClass}`}>
+            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md border shadow-2xs ${fileFormat.badgeClass}`}>
               <FormatIcon className="w-3.5 h-3.5" />
               {fileFormat.label}
             </span>
-            <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.8 rounded-md shadow-2xs">
+            <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs">
               {formatYearName(material.year)}
             </span>
             {material.file_url?.startsWith('[') && (() => {
@@ -174,7 +178,7 @@ export default function MaterialCard({
                 const arr = JSON.parse(material.file_url);
                 if (Array.isArray(arr) && arr.length > 1) {
                   return (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/90 px-2 py-0.8 rounded-md">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/90 px-2 py-0.5 rounded-md">
                       <Layers className="w-3.5 h-3.5 text-amber-600" />
                       {arr.length} PDFs
                     </span>
@@ -186,7 +190,7 @@ export default function MaterialCard({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-mono font-bold text-slate-800 bg-orange-50 border border-orange-200/70 px-2 py-0.5 rounded">
+            <span className="text-[10.5px] font-mono font-bold text-orange-950 bg-orange-100/80 border border-orange-200/90 px-2 py-0.5 rounded-md shadow-2xs tracking-tight">
               {material.subject_code}
             </span>
             {onToggleSave && (
@@ -196,9 +200,9 @@ export default function MaterialCard({
                   e.stopPropagation();
                   onToggleSave(material);
                 }}
-                className={`p-1 rounded-lg transition-colors ${
+                className={`p-1.5 rounded-lg transition-all ${
                   isSaved
-                    ? 'text-amber-500 bg-amber-50 hover:bg-amber-100'
+                    ? 'text-amber-500 bg-amber-50 hover:bg-amber-100 ring-1 ring-amber-300/50'
                     : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
                 }`}
                 title={isSaved ? 'Remove from Saved' : 'Save Material'}
@@ -250,10 +254,10 @@ export default function MaterialCard({
             <button
               onClick={() => onPreview(material)}
               type="button"
-              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 canDownload 
-                  ? 'text-slate-700 bg-slate-100/80 hover:bg-slate-200/90 hover:text-slate-900 border border-slate-200/80 shadow-2xs' 
-                  : 'col-span-2 text-white bg-slate-900 hover:bg-slate-800 font-bold shadow-xs'
+                  ? 'text-slate-700 bg-slate-100/90 hover:bg-slate-200 hover:text-slate-900 border border-slate-200/90 shadow-2xs active:scale-98' 
+                  : 'col-span-2 text-white bg-slate-900 hover:bg-slate-800 font-bold shadow-xs active:scale-98'
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
@@ -266,7 +270,7 @@ export default function MaterialCard({
               onClick={handleDownload}
               disabled={downloading}
               type="button"
-              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-white shadow-xs transition-all active:scale-95 ${
+              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-white shadow-xs transition-all active:scale-95 cursor-pointer ${
                 downloadSuccess
                   ? 'bg-emerald-600'
                   : 'bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 shadow-orange-500/25 hover:shadow-md'
