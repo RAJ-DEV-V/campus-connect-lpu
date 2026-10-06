@@ -20,15 +20,12 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    if (!name || typeof name !== 'string' || !name.trim()) {
-      return NextResponse.json(
-        { error: 'Student name is required.' },
-        { status: 400 }
-      );
-    }
+    const studentName = (typeof name === 'string' && name.trim()) 
+      ? name.trim() 
+      : (session.name?.trim() || 'Student');
 
     let updatedUser = await updateUserProfile(session.userId, {
-      name: name.trim(),
+      name: studentName,
       year: parsedYear,
     });
 
@@ -36,7 +33,7 @@ export async function PATCH(req: NextRequest) {
       // Fallback: If student profile record is missing, auto-create/upsert it
       updatedUser = await upsertUser({
         id: session.userId,
-        name: name.trim(),
+        name: studentName,
         email: session.email,
         avatar_url: session.avatar_url,
         community_joined: session.community_joined,

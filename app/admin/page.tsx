@@ -683,6 +683,9 @@ export default function AdminDashboardPage() {
   };
 
   const handleUpdateFeedbackStatus = async (id: string, status: string, adminNote?: string) => {
+    if (status === 'resolved') {
+      setFeedbackList((prev) => prev.filter((r) => r.id !== id));
+    }
     try {
       const res = await fetch('/api/admin/feedback', {
         method: 'PATCH',
@@ -702,6 +705,8 @@ export default function AdminDashboardPage() {
   };
 
   const handleApproveFeedbackVerification = async (id: string, userName?: string) => {
+    // Optimistically remove from records list immediately
+    setFeedbackList((prev) => prev.filter((r) => r.id !== id));
     try {
       const res = await fetch('/api/admin/feedback', {
         method: 'PATCH',
@@ -715,12 +720,14 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         await Promise.all([loadFeedback(), loadUsers(), loadStats()]);
-        alert(`Access approved! Student "${userName || 'Student'}" is now verified and has full library access.`);
+        alert(`Access approved! Student "${userName || 'Student'}" is now verified and has full library access. Record cleared.`);
       } else {
+        await loadFeedback();
         alert(data.error || 'Failed to approve verification');
       }
     } catch (e) {
       console.error(e);
+      await loadFeedback();
       alert('Network error approving verification');
     }
   };
@@ -1651,6 +1658,8 @@ export default function AdminDashboardPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userId: u.id,
+              email: u.email,
+              name: u.name,
               action: 'approve_verification',
             }),
           });

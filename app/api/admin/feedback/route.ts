@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'approve_verification') {
-      const { getFeedbackRequests, updateCommunityJoined, getCommunityVerificationLinks } = await import('@/lib/db');
+      const { getFeedbackRequests, updateCommunityJoined, getCommunityVerificationLinks, deleteFeedbackRequest } = await import('@/lib/db');
       const allRequests = await getFeedbackRequests();
       const targetReq = allRequests.find((r) => r.id === id);
       if (!targetReq) {
@@ -58,21 +58,28 @@ export async function PATCH(req: NextRequest) {
       const primaryLink = links.find((l) => l.is_active) || links[0];
       await updateCommunityJoined(targetReq.user_id, true, primaryLink?.id);
 
-      const updated = await updateFeedbackRequestStatus(
-        id,
-        'resolved',
-        admin_note || 'Approved & verified by Admin via WhatsApp request.'
-      );
+      // Automatically delete record from database once approved
+      await deleteFeedbackRequest(id);
 
       return NextResponse.json({
         success: true,
-        request: updated,
-        message: 'Student verified and library unlocked successfully.',
+        deleted: true,
+        message: 'Student verified and library unlocked successfully. Record removed.',
       });
     }
 
     if (!status) {
       return NextResponse.json({ error: 'Status is required' }, { status: 400 });
+    }
+
+    if (status === 'resolved') {
+      // Automatically delete record from database once marked resolved
+      await deleteFeedbackRequest(id);
+      return NextResponse.json({
+        success: true,
+        deleted: true,
+        message: 'Request resolved and automatically removed from records.',
+      });
     }
 
     const updated = await updateFeedbackRequestStatus(id, status, admin_note);

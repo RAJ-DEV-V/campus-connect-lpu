@@ -50,10 +50,10 @@ export class SupabaseDatabaseStore {
   private rolesCache: Record<string, 'owner' | 'admin' | 'user'> = {};
   private rolesCacheTime: number = 0;
 
-  async getUserAcademicYear(userId: string): Promise<number | null> {
+  async getAllAcademicYearsMap(): Promise<Record<string, number>> {
     const now = Date.now();
-    if (this.academicYearsCache[userId] && (now - this.academicYearsCacheTime < 60000)) {
-      return this.academicYearsCache[userId];
+    if (Object.keys(this.academicYearsCache).length > 0 && (now - this.academicYearsCacheTime < 60000)) {
+      return this.academicYearsCache;
     }
     try {
       const { data } = await this.client
@@ -65,21 +65,37 @@ export class SupabaseDatabaseStore {
       if (data && data.value && typeof data.value === 'object') {
         const val = data.value as Record<string, any>;
         for (const [uid, info] of Object.entries(val)) {
-          if (info && typeof info === 'object' && (info as any).year) {
-            this.academicYearsCache[uid] = Number((info as any).year);
-          } else if (typeof info === 'number') {
+          if (info && typeof info === 'object') {
+            const yr = Number((info as any).year);
+            if ([1, 2, 3, 4].includes(yr)) {
+              this.academicYearsCache[uid] = yr;
+              if ((info as any).email) {
+                this.academicYearsCache[String((info as any).email).toLowerCase()] = yr;
+              }
+            }
+          } else if (typeof info === 'number' && [1, 2, 3, 4].includes(info)) {
             this.academicYearsCache[uid] = info;
           }
         }
         this.academicYearsCacheTime = now;
-        return this.academicYearsCache[userId] || null;
       }
     } catch {}
-    return null;
+    return this.academicYearsCache;
   }
 
-  async setUserAcademicYear(userId: string, year: number, name?: string): Promise<void> {
+  async getUserAcademicYear(userIdOrEmail: string): Promise<number | null> {
+    const term = userIdOrEmail.toLowerCase().trim();
+    if (this.academicYearsCache[term]) return this.academicYearsCache[term];
+    if (this.academicYearsCache[userIdOrEmail]) return this.academicYearsCache[userIdOrEmail];
+    const map = await this.getAllAcademicYearsMap();
+    return map[userIdOrEmail] || map[term] || null;
+  }
+
+  async setUserAcademicYear(userId: string, year: number, name?: string, email?: string): Promise<void> {
     this.academicYearsCache[userId] = year;
+    if (email) {
+      this.academicYearsCache[email.toLowerCase()] = year;
+    }
     try {
       const { data } = await this.client
         .from('app_settings')
@@ -91,8 +107,17 @@ export class SupabaseDatabaseStore {
       map[userId] = {
         year,
         name: name || undefined,
+        email: email || undefined,
         updated_at: new Date().toISOString()
       };
+      if (email) {
+        map[email.toLowerCase()] = {
+          year,
+          name: name || undefined,
+          email: email.toLowerCase(),
+          updated_at: new Date().toISOString()
+        };
+      }
 
       await this.client
         .from('app_settings')
@@ -119,7 +144,7 @@ export class SupabaseDatabaseStore {
         return this.localFallback.getUserById(id);
       }
       const local = this.localFallback.getUserById(id);
-      const savedYear = await this.getUserAcademicYear(id);
+      const savedYear = (await this.getUserAcademicYear(id)) ?? (data.email ? await this.getUserAcademicYear(data.email) : null);
       const resolvedYear = (data as any).year ?? savedYear ?? local?.year ?? null;
 
       return {
@@ -144,7 +169,7 @@ export class SupabaseDatabaseStore {
         return this.localFallback.getUserByEmail(email);
       }
       const local = this.localFallback.getUserByEmail(email);
-      const savedYear = await this.getUserAcademicYear(data.id);
+      const savedYear = (await this.getUserAcademicYear(data.id)) ?? (await this.getUserAcademicYear(email));
       const resolvedYear = (data as any).year ?? savedYear ?? local?.year ?? null;
 
       return {
@@ -210,7 +235,8 @@ export class SupabaseDatabaseStore {
 
     // Strict persistence: Preserve existing student year so they never have to set it again
     const localUser = this.localFallback.getUserByEmail(userData.email);
-    const existingYear = existingProfile?.year ?? localUser?.year ?? null;
+    const savedYear = (await this.getUserAcademicYear(userId)) ?? (userData.email ? await this.getUserAcademicYear(userData.email) : null);
+    const existingYear = existingProfile?.year ?? savedYear ?? localUser?.year ?? null;
     const finalYear = (userData.year !== undefined && userData.year !== null) 
       ? userData.year 
       : existingYear;
@@ -226,6 +252,10 @@ export class SupabaseDatabaseStore {
       last_login: now,
       last_active_at: now,
     };
+
+    if (finalYear) {
+      this.setUserAcademicYear(userId, finalYear, userData.name, userData.email).catch(() => {});
+    }
 
     try {
       const { data, error } = await this.client
@@ -274,8 +304,16 @@ export class SupabaseDatabaseStore {
       community_joined: joined,
       last_active_at: now,
     };
+    if (joined) {
+      updatePayload.community_verified_at = now;
+      if (linkId) updatePayload.community_verification_link_id = linkId;
+    } else {
+      updatePayload.community_verified_at = null;
+      updatePayload.community_verification_link_id = null;
+    }
 
     try {
+      // 1. Try updating by id
       const { data, error } = await this.client
         .from('users')
         .update(updatePayload)
@@ -285,10 +323,80 @@ export class SupabaseDatabaseStore {
 
       if (!error && data) {
         this.localFallback.updateCommunityJoined(userId, joined, linkId);
+        this.adminStatsCache = null;
         return data as User;
       }
-    } catch {}
-    return this.localFallback.updateCommunityJoined(userId, joined, linkId);
+
+      // 2. Try updating by email if userId didn't match UUID
+      const emailRes = await this.client
+        .from('users')
+        .update(updatePayload)
+        .ilike('email', userId)
+        .select('*')
+        .single();
+
+      if (!emailRes.error && emailRes.data) {
+        this.localFallback.updateCommunityJoined(emailRes.data.id, joined, linkId);
+        this.adminStatsCache = null;
+        return emailRes.data as User;
+      }
+
+      // 3. Fallback without linkId in case linkId had a foreign-key constraint error
+      if (linkId) {
+        delete updatePayload.community_verification_link_id;
+        const retryRes = await this.client
+          .from('users')
+          .update(updatePayload)
+          .eq('id', userId)
+          .select('*')
+          .single();
+
+        if (!retryRes.error && retryRes.data) {
+          this.localFallback.updateCommunityJoined(userId, joined, null);
+          this.adminStatsCache = null;
+          return retryRes.data as User;
+        }
+
+        const retryEmailRes = await this.client
+          .from('users')
+          .update(updatePayload)
+          .ilike('email', userId)
+          .select('*')
+          .single();
+
+        if (!retryEmailRes.error && retryEmailRes.data) {
+          this.localFallback.updateCommunityJoined(retryEmailRes.data.id, joined, null);
+          this.adminStatsCache = null;
+          return retryEmailRes.data as User;
+        }
+      }
+    } catch (e) {
+      console.error('Supabase updateCommunityJoined error:', e);
+    }
+
+    // 4. Update in local store
+    const local = this.localFallback.updateCommunityJoined(userId, joined, linkId);
+    if (local) {
+      this.adminStatsCache = null;
+      return local;
+    }
+
+    // 5. Ultimate fallback: if user wasn't in DB yet, upsert them so approval never fails
+    try {
+      const email = userId.includes('@') ? userId.toLowerCase() : `${userId}@student.lpu.in`;
+      const created = await this.upsertUser({
+        id: userId,
+        name: 'Student',
+        email,
+        community_joined: joined,
+      });
+      this.adminStatsCache = null;
+      return created;
+    } catch (e) {
+      console.error('Final fallback upsert in updateCommunityJoined error:', e);
+    }
+
+    return null;
   }
 
   // --- Community Verification Links ---
@@ -491,7 +599,21 @@ export class SupabaseDatabaseStore {
       if (error || !data) {
         return this.localFallback.getAllUsers();
       }
-      return data as User[];
+
+      const yearsMap = await this.getAllAcademicYearsMap();
+
+      return (data as any[]).map((u) => {
+        const local = this.localFallback.getUserById(u.id) || (u.email ? this.localFallback.getUserByEmail(u.email) : null);
+        const term = u.email ? u.email.toLowerCase() : '';
+        const savedYear = yearsMap[u.id] ?? (term ? yearsMap[term] : undefined);
+        const resolvedYear = u.year ?? savedYear ?? local?.year ?? null;
+
+        return {
+          ...u,
+          year: resolvedYear,
+          profile_completed: Boolean(u.name && resolvedYear),
+        } as User;
+      });
     } catch {
       return this.localFallback.getAllUsers();
     }
@@ -998,7 +1120,7 @@ export class SupabaseDatabaseStore {
         this.client.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', thirtyDaysAgo),
         this.client.from('materials').select('year, material_type, download_count', { count: 'exact' }),
         this.client.from('downloads').select('*', { count: 'exact', head: true }),
-        this.client.from('users').select('year'),
+        this.client.from('users').select('id, email, year'),
       ]);
 
       const totalUsers = totalUsersRes.count;
@@ -1033,10 +1155,14 @@ export class SupabaseDatabaseStore {
         }
       });
 
-      const allUsersForYears = usersYearRes.data;
+      const yearsMap = await this.getAllAcademicYearsMap();
+      const allUsersForYears = (usersYearRes.data as any[]) || [];
       const studentYearBreakdown: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
-      (allUsersForYears || []).forEach((u: any) => {
-        const y = Number(u.year);
+      allUsersForYears.forEach((u: any) => {
+        const local = this.localFallback.getUserById(u.id) || (u.email ? this.localFallback.getUserByEmail(u.email) : null);
+        const term = u.email ? u.email.toLowerCase() : '';
+        const savedYear = yearsMap[u.id] ?? (term ? yearsMap[term] : undefined);
+        const y = Number(u.year ?? savedYear ?? local?.year);
         if ([1, 2, 3, 4].includes(y)) {
           studentYearBreakdown[y] = (studentYearBreakdown[y] || 0) + 1;
         }
@@ -1135,25 +1261,51 @@ export class SupabaseDatabaseStore {
       const newYear = data.year && [1, 2, 3, 4].includes(data.year) ? data.year : (currentUser?.year || null);
 
       if (currentUser) {
-        // Safe updates for columns guaranteed to exist in users table
+        // Safe updates for columns in users table
         const safeUpdates: any = {
           last_active_at: new Date().toISOString(),
         };
         if (data.name && data.name.trim()) {
           safeUpdates.name = data.name.trim();
         }
+        if (newYear) {
+          safeUpdates.year = newYear;
+        }
 
-        const { data: updated } = await this.client
-          .from('users')
-          .update(safeUpdates)
-          .eq('id', userId)
-          .select('*')
-          .single();
+        let updated: any = null;
+        try {
+          const { data: updData, error: updErr } = await this.client
+            .from('users')
+            .update(safeUpdates)
+            .eq('id', userId)
+            .select('*')
+            .single();
+
+          if (!updErr && updData) {
+            updated = updData;
+          } else if (updErr) {
+            // If year column doesn't exist, retry without year
+            delete safeUpdates.year;
+            const { data: retryData } = await this.client
+              .from('users')
+              .update(safeUpdates)
+              .eq('id', userId)
+              .select('*')
+              .single();
+            if (retryData) updated = retryData;
+          }
+        } catch (e) {
+          console.warn('Update users error:', e);
+        }
 
         // Persist academic year to app_settings cloud store
         if (newYear) {
-          await this.setUserAcademicYear(userId, newYear, newName);
+          await this.setUserAcademicYear(userId, newYear, newName, currentUser.email);
         }
+
+        // Sync localFallback and invalidate cache
+        this.localFallback.updateUserProfile(userId, { name: newName, year: newYear || undefined });
+        this.adminStatsCache = null;
 
         const baseUser = updated || currentUser;
         return {
@@ -1168,12 +1320,17 @@ export class SupabaseDatabaseStore {
           last_login: baseUser.last_login,
           last_active_at: new Date().toISOString(),
         };
+      } else {
+        if (newYear) {
+          await this.setUserAcademicYear(userId, newYear, newName);
+        }
       }
     } catch (err) {
       console.warn('Supabase updateUserProfile error:', err);
     }
 
     const local = this.localFallback.updateUserProfile(userId, data);
+    this.adminStatsCache = null;
     return local;
   }
 

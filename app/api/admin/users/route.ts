@@ -66,12 +66,21 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'approve_verification') {
-      const { updateCommunityJoined, getCommunityVerificationLinks } = await import('@/lib/db');
+      const { updateCommunityJoined, getCommunityVerificationLinks, upsertUser } = await import('@/lib/db');
       const links = await getCommunityVerificationLinks();
       const primaryLink = links.find((l) => l.is_active) || links[0];
-      const updatedUser = await updateCommunityJoined(userId, true, primaryLink?.id);
+      let updatedUser = await updateCommunityJoined(userId, true, primaryLink?.id);
+      if (!updatedUser && body.email) {
+        updatedUser = await updateCommunityJoined(body.email, true, primaryLink?.id);
+      }
       if (!updatedUser) {
-        return NextResponse.json({ error: 'User not found or approval failed' }, { status: 404 });
+        const email = body.email || (userId.includes('@') ? userId : `${userId}@student.lpu.in`);
+        updatedUser = await upsertUser({
+          id: userId,
+          name: body.name || 'Student',
+          email,
+          community_joined: true,
+        });
       }
       return NextResponse.json({ success: true, message: 'User community verification approved successfully.' });
     }
