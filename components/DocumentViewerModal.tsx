@@ -1146,16 +1146,19 @@ export default function DocumentViewerModal({
           ) : driveEmbedUrl ? (
             <div className="w-full h-full overflow-auto flex items-start justify-center p-0 sm:p-4 select-none">
               <div 
-                className="w-full h-full relative rounded-none sm:rounded-xl overflow-hidden bg-black shadow-2xl transition-transform duration-100 ease-out origin-top"
+                className="relative rounded-none sm:rounded-xl overflow-hidden bg-black shadow-2xl transition-all duration-150 ease-out origin-top shrink-0"
                 style={{
-                  transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                  minHeight: '500px',
+                  width: zoomLevel <= 100 ? '100%' : `${zoomLevel}%`,
+                  height: zoomLevel <= 100 ? '100%' : `${zoomLevel}%`,
+                  minHeight: '600px',
+                  transform: zoomLevel < 100 ? `scale(${zoomLevel / 100}) rotate(${rotation}deg)` : (rotation ? `rotate(${rotation}deg)` : undefined),
+                  transformOrigin: 'top center',
                 }}
               >
                 <iframe
                   src={driveEmbedUrl}
                   title={material.title}
-                  className="w-full h-full rounded-none sm:rounded-xl border-0 bg-black min-h-[500px] transition-all duration-150"
+                  className="w-full h-full rounded-none sm:rounded-xl border-0 bg-black min-h-[600px] transition-all duration-150"
                   style={{
                     filter: readingFilterStyle,
                   }}
@@ -1183,7 +1186,7 @@ export default function DocumentViewerModal({
             >
               <canvas
                 ref={canvasRef}
-                className="rounded-lg sm:rounded-xl shadow-2xl bg-white max-w-full transition-all duration-150"
+                className="rounded-lg sm:rounded-xl shadow-2xl bg-white transition-all duration-150"
                 style={{
                   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
                   filter: readingFilterStyle,

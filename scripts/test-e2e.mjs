@@ -111,19 +111,15 @@ async function runTests() {
   assert(secondLoginData.user.community_joined === true, 'Database REMEMBERS community_joined = TRUE');
   assert(secondLoginData.redirectUrl === '/library', 'DIRECTLY OPENS LIBRARY (/library) without asking for invite link');
 
-  // TEST 5: If verified user manually navigates to /community or /login -> forward directly to /library
-  console.log('\n[Test 5/8] Verified Student Visiting /community or /login...');
+  // TEST 5: Verified user visits /community -> community hub is accessible (no redirect away to /library)
+  console.log('\n[Test 5/8] Verified Student Visiting /community (Community Hub)...');
   const newDeviceCookie = secondLoginRes.headers.get('set-cookie')?.split(';')[0];
 
   const visitCommunityRes = await fetch(`${BASE}/community`, {
     headers: { 'Cookie': newDeviceCookie },
     redirect: 'manual',
   });
-  const forwardedToLibrary = 
-    visitCommunityRes.status === 307 || 
-    visitCommunityRes.status === 302 || 
-    (visitCommunityRes.headers.get('location') && visitCommunityRes.headers.get('location').includes('/library'));
-  assert(forwardedToLibrary, 'Verified student visiting /community is automatically forwarded to /library');
+  assert(visitCommunityRes.status === 200, 'Verified student can view /community hub without forced redirect');
 
   // TEST 6: Link Disablement Immunity Test
   // "If an admin disables/removes the invite link that the student originally used, do NOT make already-verified students verify again."

@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
       description, 
       subject_code, 
       subject_name, 
-      material_type 
+      material_type,
+      whatsapp_number,
     } = body;
 
     if (!type || !title || !description) {
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
       type,
       title: title.trim(),
       description: description.trim(),
+      whatsapp_number: whatsapp_number ? String(whatsapp_number).trim() : undefined,
       subject_code: subject_code ? subject_code.trim().toUpperCase() : undefined,
       subject_name: subject_name ? subject_name.trim() : undefined,
       material_type: material_type ? material_type.trim() : undefined,

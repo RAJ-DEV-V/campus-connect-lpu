@@ -132,7 +132,7 @@ export interface AppSettings {
   updated_by?: string;
 }
 
-export type FeedbackRequestType = 'bug_report' | 'missing_subject' | 'general_feedback';
+export type FeedbackRequestType = 'bug_report' | 'missing_subject' | 'general_feedback' | 'community_verification';
 export type FeedbackRequestStatus = 'pending' | 'in_progress' | 'resolved' | 'unavailable';
 
 export interface StudentFeedbackRequest {
@@ -152,6 +152,7 @@ export interface StudentFeedbackRequest {
   created_at: string;
   resolved_at?: string | null;
   admin_note?: string | null;
+  whatsapp_number?: string | null;
 }
 
 

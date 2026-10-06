@@ -1368,6 +1368,7 @@ export class SupabaseDatabaseStore {
           material_type: data.material_type || null,
           title: data.title,
           description: data.description,
+          whatsapp_number: data.whatsapp_number || null,
           status: 'pending',
         }])
         .select('*')

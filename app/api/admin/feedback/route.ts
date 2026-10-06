@@ -40,10 +40,39 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, status, admin_note } = body;
+    const { id, status, admin_note, action } = body;
 
-    if (!id || !status) {
-      return NextResponse.json({ error: 'Request ID and status are required' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'Request ID is required' }, { status: 400 });
+    }
+
+    if (action === 'approve_verification') {
+      const { getFeedbackRequests, updateCommunityJoined, getCommunityVerificationLinks } = await import('@/lib/db');
+      const allRequests = await getFeedbackRequests();
+      const targetReq = allRequests.find((r) => r.id === id);
+      if (!targetReq) {
+        return NextResponse.json({ error: 'Feedback request not found' }, { status: 404 });
+      }
+
+      const links = await getCommunityVerificationLinks();
+      const primaryLink = links.find((l) => l.is_active) || links[0];
+      await updateCommunityJoined(targetReq.user_id, true, primaryLink?.id);
+
+      const updated = await updateFeedbackRequestStatus(
+        id,
+        'resolved',
+        admin_note || 'Approved & verified by Admin via WhatsApp request.'
+      );
+
+      return NextResponse.json({
+        success: true,
+        request: updated,
+        message: 'Student verified and library unlocked successfully.',
+      });
+    }
+
+    if (!status) {
+      return NextResponse.json({ error: 'Status is required' }, { status: 400 });
     }
 
     const updated = await updateFeedbackRequestStatus(id, status, admin_note);

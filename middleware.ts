@@ -162,11 +162,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // If already joined community and tries to visit /community, forward directly to library
-  if (session.community_joined && pathname === '/community') {
-    return NextResponse.redirect(new URL('/library', request.url));
-  }
-
   return response;
 }
 

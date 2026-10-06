@@ -870,6 +870,7 @@ export class LocalDatabaseStore {
       material_type: data.material_type || '',
       title: data.title,
       description: data.description,
+      whatsapp_number: data.whatsapp_number || undefined,
       status: 'pending',
       created_at: new Date().toISOString(),
     };

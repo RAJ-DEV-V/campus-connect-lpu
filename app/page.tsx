@@ -35,6 +35,10 @@ export default function LandingPage() {
     academicYears: 4,
   });
 
+  const [communityInviteUrl, setCommunityInviteUrl] = useState<string>(
+    'https://chat.whatsapp.com/ElGakQUGGa1IMam5FlAiqw'
+  );
+
   useEffect(() => {
     async function loadStats() {
       try {
@@ -42,6 +46,7 @@ export default function LandingPage() {
         if (res.ok) {
           const d = await res.json();
           if (d.stats) setLiveStats(d.stats);
+          if (d.communityInviteUrl) setCommunityInviteUrl(d.communityInviteUrl);
         }
       } catch (err) {}
     }
@@ -166,13 +171,15 @@ export default function LandingPage() {
               <ArrowRight className="w-4 h-4 ml-1" />
             </Link>
 
-            <Link
-              href="/community"
+            <a
+              href={communityInviteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 transition-colors flex items-center justify-center gap-2 shadow-xs"
             >
               <Users className="w-4 h-4 text-emerald-600" />
               Join LPU Community
-            </Link>
+            </a>
           </div>
 
           {/* Search Bar */}

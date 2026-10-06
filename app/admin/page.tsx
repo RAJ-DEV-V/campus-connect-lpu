@@ -13,6 +13,8 @@ import {
   Search, 
   Filter, 
   CheckCircle2, 
+  CheckCircle,
+  MessageCircle,
   Clock, 
   AlertTriangle, 
   Activity,
@@ -695,6 +697,30 @@ export default function AdminDashboardPage() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleApproveFeedbackVerification = async (id: string, userName?: string) => {
+    try {
+      const res = await fetch('/api/admin/feedback', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id, 
+          action: 'approve_verification',
+          admin_note: 'Approved and verified by admin.' 
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        await Promise.all([loadFeedback(), loadUsers(), loadStats()]);
+        alert(`Access approved! Student "${userName || 'Student'}" is now verified and has full library access.`);
+      } else {
+        alert(data.error || 'Failed to approve verification');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Network error approving verification');
     }
   };
 
@@ -1609,7 +1635,37 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // --- User Access Revocation ---
+  // --- User Access Approval & Revocation ---
+  const requestApproveIndividualUser = (u: UserActivityRecord) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Approve Community Verification',
+      message: `Manually approve community access for student "${u.name}" (${u.email})? This will immediately unlock their access to the Study Material Library.`,
+      actionLabel: 'Approve & Unlock Access',
+      isDestructive: false,
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/admin/users', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: u.id,
+              action: 'approve_verification',
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            await Promise.all([loadUsers(), loadStats()]);
+          } else {
+            alert(data.error || 'Failed to approve user verification');
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      },
+    });
+  };
+
   const requestRevokeIndividualUser = (u: UserActivityRecord) => {
     setConfirmModal({
       isOpen: true,
@@ -3795,13 +3851,21 @@ export default function AdminDashboardPage() {
                           {new Date(u.created_at).toLocaleDateString()}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          {u.community_joined && (
+                          {u.community_joined ? (
                             <button
                               onClick={() => requestRevokeIndividualUser(u)}
-                              className="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200"
+                              className="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200 cursor-pointer"
                               title="Revoke library access for this student"
                             >
                               Revoke Access
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => requestApproveIndividualUser(u)}
+                              className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer shadow-2xs"
+                              title="Manually verify and grant library access to this student"
+                            >
+                              Approve Access
                             </button>
                           )}
                         </td>
@@ -5033,6 +5097,7 @@ export default function AdminDashboardPage() {
                     className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 focus:outline-none"
                   >
                     <option value="all">All Types</option>
+                    <option value="community_verification">📱 WhatsApp Verification Requests</option>
                     <option value="missing_subject">Missing Subject Requests</option>
                     <option value="bug_report">Bug Reports</option>
                   </select>
@@ -5090,11 +5155,17 @@ export default function AdminDashboardPage() {
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                             <div className="flex items-center gap-2.5 flex-wrap">
                               <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                                item.type === 'missing_subject'
+                                item.type === 'community_verification'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  : item.type === 'missing_subject'
                                   ? 'bg-amber-100 text-amber-800 border border-amber-200'
                                   : 'bg-rose-100 text-rose-800 border border-rose-200'
                               }`}>
-                                {item.type === 'missing_subject' ? '📚 Missing Subject' : '🐛 Bug Report'}
+                                {item.type === 'community_verification'
+                                  ? '📱 WhatsApp Verification'
+                                  : item.type === 'missing_subject'
+                                  ? '📚 Missing Subject'
+                                  : '🐛 Bug Report'}
                               </span>
 
                               {item.subject_code && (
@@ -5116,7 +5187,19 @@ export default function AdminDashboardPage() {
                               )}
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                              {item.type === 'community_verification' && item.status !== 'resolved' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveFeedbackVerification(item.id, item.user_name)}
+                                  className="px-2.5 py-1 text-[11px] font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                                  title="Approve student and immediately unlock library access"
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  Approve &amp; Verify
+                                </button>
+                              )}
+
                               <select
                                 value={item.status}
                                 onChange={(e) => handleUpdateFeedbackStatus(item.id, e.target.value, item.admin_note || undefined)}
@@ -5132,8 +5215,8 @@ export default function AdminDashboardPage() {
                               >
                                 <option value="pending">Pending</option>
                                 <option value="in_progress">In Progress</option>
-                                <option value="resolved">Resolved (Available)</option>
-                                <option value="unavailable">Unavailable (Cannot Arrange)</option>
+                                <option value="resolved">Resolved (Approved)</option>
+                                <option value="unavailable">Unavailable</option>
                               </select>
 
                               <button
@@ -5153,6 +5236,24 @@ export default function AdminDashboardPage() {
                               {item.description}
                             </p>
                           </div>
+
+                          {/* WhatsApp Number badge & wa.me link */}
+                          {item.whatsapp_number && (
+                            <div className="flex items-center gap-2 p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl">
+                              <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span className="text-xs font-bold text-slate-800">Student WhatsApp:</span>
+                              <a
+                                href={`https://wa.me/${item.whatsapp_number.replace(/[^0-9]/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-mono text-xs font-bold text-emerald-700 hover:text-emerald-900 underline flex items-center gap-1"
+                                title="Open WhatsApp chat with student"
+                              >
+                                {item.whatsapp_number}
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          )}
 
                           {/* Admin Response Note Box */}
                           <div className="pt-2 border-t border-slate-100 space-y-1.5">

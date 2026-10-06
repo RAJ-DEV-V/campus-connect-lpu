@@ -61,6 +61,17 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: true, message: 'User community verification access revoked successfully.' });
     }
 
+    if (action === 'approve_verification') {
+      const { updateCommunityJoined, getCommunityVerificationLinks } = await import('@/lib/db');
+      const links = await getCommunityVerificationLinks();
+      const primaryLink = links.find((l) => l.is_active) || links[0];
+      const updatedUser = await updateCommunityJoined(userId, true, primaryLink?.id);
+      if (!updatedUser) {
+        return NextResponse.json({ error: 'User not found or approval failed' }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, message: 'User community verification approved successfully.' });
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error: any) {
     console.error('Admin user action error:', error);
