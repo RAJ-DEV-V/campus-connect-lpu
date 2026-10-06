@@ -22,7 +22,7 @@ import {
 export default function CommunityVerificationPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [inviteUrl, setInviteUrl] = useState<string>('https://chat.whatsapp.com/campus-connect-lpu-2026');
+  const [inviteUrl, setInviteUrl] = useState<string>('https://chat.whatsapp.com/ElGakQUGGa1IMam5FlAiqw');
   const [hasClickedJoin, setHasClickedJoin] = useState(false);
   const [pastedLink, setPastedLink] = useState('');
   const [submitting, setSubmitting] = useState(false);

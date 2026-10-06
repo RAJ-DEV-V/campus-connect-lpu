@@ -360,6 +360,20 @@ export class SupabaseDatabaseStore {
 
   async getActiveCommunityInviteUrl(): Promise<string> {
     try {
+      // 1. Try to find the active main Community link specifically first
+      const { data: communityData, error: communityError } = await this.client
+        .from('community_verification_links')
+        .select('invite_url')
+        .eq('is_active', true)
+        .eq('type', 'community')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!communityError && communityData && communityData.length > 0) {
+        return communityData[0].invite_url;
+      }
+
+      // 2. Fallback to any active link
       const { data, error } = await this.client
         .from('community_verification_links')
         .select('invite_url')

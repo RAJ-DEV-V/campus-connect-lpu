@@ -4,16 +4,29 @@ import { getLocalDatabase } from '@/lib/db/local-store';
 
 export async function GET() {
   try {
+    let communityInviteUrl = 'https://chat.whatsapp.com/ElGakQUGGa1IMam5FlAiqw';
+
     if (isSupabaseConfigured && supabase) {
-      const [materialsRes, usersRes, downloadsRes] = await Promise.all([
+      const [materialsRes, usersRes, downloadsRes, communityLinkRes] = await Promise.all([
         supabase.from('materials').select('*', { count: 'exact', head: true }),
         supabase.from('users').select('*', { count: 'exact', head: true }),
         supabase.from('downloads').select('*', { count: 'exact', head: true }),
+        supabase
+          .from('community_verification_links')
+          .select('invite_url')
+          .eq('is_active', true)
+          .eq('type', 'community')
+          .order('created_at', { ascending: false })
+          .limit(1),
       ]);
 
       const totalMaterials = materialsRes.count ?? 0;
       const totalUsers = usersRes.count ?? 0;
       const totalDownloads = downloadsRes.count ?? 0;
+
+      if (communityLinkRes.data && communityLinkRes.data.length > 0) {
+        communityInviteUrl = communityLinkRes.data[0].invite_url;
+      }
 
       return NextResponse.json(
         {
@@ -24,6 +37,7 @@ export async function GET() {
             totalDownloads,
             academicYears: 4,
           },
+          communityInviteUrl,
         },
         {
           headers: {
@@ -35,6 +49,7 @@ export async function GET() {
 
     const localDb = getLocalDatabase();
     const stats = localDb.getAdminStats();
+    const localInviteUrl = localDb.getActiveCommunityInviteUrl();
     return NextResponse.json({
       success: true,
       stats: {
@@ -43,6 +58,7 @@ export async function GET() {
         totalDownloads: stats.totalDownloads,
         academicYears: 4,
       },
+      communityInviteUrl: localInviteUrl,
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -54,6 +70,7 @@ export async function GET() {
           totalDownloads: 0,
           academicYears: 4,
         },
+        communityInviteUrl: 'https://chat.whatsapp.com/ElGakQUGGa1IMam5FlAiqw',
       },
       { status: 200 }
     );

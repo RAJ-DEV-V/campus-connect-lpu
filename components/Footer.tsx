@@ -1,8 +1,29 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { GraduationCap, Heart, Shield, BookOpen, MessageCircle } from 'lucide-react';
 
 export default function Footer() {
+  const [communityUrl, setCommunityUrl] = useState<string>(
+    process.env.NEXT_PUBLIC_COMMUNITY_INVITE_URL || 'https://chat.whatsapp.com/ElGakQUGGa1IMam5FlAiqw'
+  );
+
+  useEffect(() => {
+    async function loadCommunityUrl() {
+      try {
+        const res = await fetch('/api/stats/public');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.communityInviteUrl) {
+            setCommunityUrl(data.communityInviteUrl);
+          }
+        }
+      } catch (e) {}
+    }
+    loadCommunityUrl();
+  }, []);
+
   return (
     <footer className="bg-slate-900 text-slate-300 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -23,7 +44,7 @@ export default function Footer() {
             </p>
             <div className="flex items-center gap-3 pt-2">
               <a
-                href={process.env.NEXT_PUBLIC_COMMUNITY_INVITE_URL || 'https://chat.whatsapp.com/invite/campus-connect-lpu-2026'}
+                href={communityUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"

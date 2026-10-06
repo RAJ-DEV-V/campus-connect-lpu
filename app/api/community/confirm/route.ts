@@ -13,7 +13,7 @@ export async function GET() {
   } catch (error: any) {
     return NextResponse.json({
       success: true,
-      inviteUrl: 'https://chat.whatsapp.com/campus-connect-lpu-2026',
+      inviteUrl: 'https://chat.whatsapp.com/ElGakQUGGa1IMam5FlAiqw',
     });
   }
 }

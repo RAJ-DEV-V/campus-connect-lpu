@@ -334,8 +334,11 @@ export class LocalDatabaseStore {
   }
 
   getActiveCommunityInviteUrl(): string {
-    const active = (this.data.community_verification_links || []).find((l) => l.is_active);
-    return active ? active.invite_url : 'https://chat.whatsapp.com/campus-connect-lpu-2026';
+    const links = this.data.community_verification_links || [];
+    const mainCommunity = links.find((l) => l.is_active && l.type === 'community');
+    if (mainCommunity) return mainCommunity.invite_url;
+    const active = links.find((l) => l.is_active);
+    return active ? active.invite_url : 'https://chat.whatsapp.com/ElGakQUGGa1IMam5FlAiqw';
   }
 
   createCommunityVerificationLink(data: {
