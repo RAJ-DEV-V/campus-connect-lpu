@@ -113,8 +113,10 @@ export default function DocumentViewerModal({
     }
   }, [material?.id]);
 
-  // Prevent background scroll and mobile viewport shifting when modal is open
+  // Prevent background scroll and mobile viewport shifting ONLY when modal is actually open
   useEffect(() => {
+    if (!material) return;
+
     const scrollY = window.scrollY;
     const originalOverflow = document.body.style.overflow;
     const originalPosition = document.body.style.position;
@@ -133,7 +135,7 @@ export default function DocumentViewerModal({
       document.body.style.width = originalWidth;
       window.scrollTo(0, scrollY);
     };
-  }, []);
+  }, [material]);
 
   // Panning state for zoomed views
   const [isDragging, setIsDragging] = useState<boolean>(false);

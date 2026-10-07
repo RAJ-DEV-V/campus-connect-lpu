@@ -63,10 +63,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className="min-h-full flex flex-col bg-slate-50 dark:bg-[#0b1120] text-slate-900 dark:text-slate-100 antialiased selection:bg-orange-500 selection:text-white transition-colors duration-150 w-full max-w-full overflow-x-hidden">
+      <body className="min-h-full flex flex-col bg-slate-50 dark:bg-[#0b1120] text-slate-900 dark:text-slate-100 antialiased selection:bg-orange-500 selection:text-white transition-colors duration-150">
         <ThemeProvider>
           <Navbar />
-          <main className="flex-1 w-full max-w-full overflow-x-hidden">{children}</main>
+          <main className="flex-1">{children}</main>
           <Footer />
           <PwaInstallPrompt />
         </ThemeProvider>
