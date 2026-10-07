@@ -58,6 +58,7 @@ import { Material, AdminStats, CommunityVerificationLink, Admin, WhatsNewItem, S
 import { formatYearName } from '@/components/MaterialCard';
 import { uploadToGoogleDriveResumable } from '@/lib/google-drive-client';
 import { mergeDocumentsToPdf, DocumentItem } from '@/lib/image-to-pdf';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface UserActivityRecord {
   id: string;
@@ -1839,94 +1840,97 @@ export default function AdminDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0b1120]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-lpu-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm font-bold text-slate-700">Verifying administrator credentials...</p>
-          <p className="text-xs text-slate-400 mt-1">Campus Connect LPU Security Gateway</p>
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Verifying administrator credentials...</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Campus Connect LPU Security Gateway</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] text-slate-900 dark:text-slate-100 flex flex-col lg:flex-row">
       
       {/* ============================================================== */}
       {/* RESPONSIVE SIDEBAR NAVIGATION                                 */}
       {/* ============================================================== */}
       
       {/* Mobile Top Header */}
-      <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+      <div className="lg:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-lpu-600 to-amber-500 text-white flex items-center justify-center font-black text-sm shadow-xs">
             CC
           </div>
           <div>
-            <h1 className="text-sm font-black text-slate-900 leading-tight">Admin Console</h1>
-            <p className="text-[10px] text-slate-400 font-medium">{currentUser?.isOwner ? 'Owner Access' : 'Admin Access'}</p>
+            <h1 className="text-sm font-black text-slate-900 dark:text-white leading-tight">Admin Console</h1>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{currentUser?.isOwner ? 'Owner Access' : 'Admin Access'}</p>
           </div>
         </div>
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 focus:outline-none"
-        >
-          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none"
+          >
+            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Sidebar Drawer */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:w-64 shrink-0
+        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:w-64 shrink-0
         ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div>
           {/* Brand header */}
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-lpu-600 to-amber-500 text-white flex items-center justify-center font-black text-base shadow-sm">
                 CC
               </div>
               <div>
-                <h2 className="text-base font-black text-slate-900 tracking-tight leading-none">
+                <h2 className="text-base font-black text-slate-900 dark:text-white tracking-tight leading-none">
                   Campus Connect
                 </h2>
-                <span className="text-[11px] font-bold text-lpu-600 uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-lpu-600 dark:text-orange-400 uppercase tracking-wider">
                   Admin Panel
                 </span>
               </div>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600"
+              className="lg:hidden p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Current Admin Badge */}
-          <div className="px-4 py-3 mx-3 my-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center gap-3">
+          <div className="px-4 py-3 mx-3 my-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl flex items-center gap-3">
             <img
               src={currentUser?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser?.name || 'Admin')}`}
               alt={currentUser?.name}
-              className="w-9 h-9 rounded-full border border-slate-200 object-cover"
+              className="w-9 h-9 rounded-full border border-slate-200 dark:border-slate-700 object-cover"
             />
             <div className="overflow-hidden">
-              <div className="text-xs font-black text-slate-900 truncate">
+              <div className="text-xs font-black text-slate-900 dark:text-white truncate">
                 {currentUser?.name || 'Administrator'}
               </div>
-              <div className="text-[10px] text-slate-500 truncate font-mono">
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-mono">
                 {currentUser?.email}
               </div>
               <div className="mt-1">
                 {currentUser?.isOwner ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md">
-                    <Sparkles className="w-3 h-3 text-amber-600" />
+                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-transparent dark:border-amber-800">
+                    <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                     System Owner
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md">
-                    <Shield className="w-3 h-3 text-blue-600" />
+                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-950/60 px-2 py-0.5 rounded-md border border-transparent dark:border-blue-800">
+                    <Shield className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                     Administrator
                   </span>
                 )}
@@ -1942,7 +1946,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'dashboard'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <Activity className="w-4 h-4 shrink-0" />
@@ -1954,7 +1958,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'materials'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -1962,7 +1966,7 @@ export default function AdminDashboardPage() {
                 <span>Materials Library</span>
               </div>
               <span className={`text-[10px] px-1.8 py-0.5 rounded-md font-bold ${
-                activeTab === 'materials' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                activeTab === 'materials' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
               }`}>
                 {materials.length}
               </span>
@@ -1973,7 +1977,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'upload'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <Upload className="w-4 h-4 shrink-0" />
@@ -1985,7 +1989,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'users'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -1993,7 +1997,7 @@ export default function AdminDashboardPage() {
                 <span>Users Telemetry</span>
               </div>
               <span className={`text-[10px] px-1.8 py-0.5 rounded-md font-bold ${
-                activeTab === 'users' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                activeTab === 'users' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
               }`}>
                 {users.length}
               </span>
@@ -2004,7 +2008,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'links'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -2012,7 +2016,7 @@ export default function AdminDashboardPage() {
                 <span>WhatsApp Links</span>
               </div>
               <span className={`text-[10px] px-1.8 py-0.5 rounded-md font-bold ${
-                activeTab === 'links' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                activeTab === 'links' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
               }`}>
                 {links.length}
               </span>
@@ -2023,7 +2027,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'analytics'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <BarChart2 className="w-4 h-4 shrink-0" />
@@ -2035,7 +2039,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'announcements'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -2043,7 +2047,7 @@ export default function AdminDashboardPage() {
                 <span>Announcements</span>
               </div>
               <span className={`text-[10px] px-1.8 py-0.5 rounded-md font-bold ${
-                activeTab === 'announcements' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                activeTab === 'announcements' ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
               }`}>
                 {announcements.filter(a => a.active !== false).length}
               </span>
@@ -2054,7 +2058,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'feedback'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -2067,7 +2071,7 @@ export default function AdminDashboardPage() {
                 </span>
               ) : (
                 <span className={`text-[10px] px-1.8 py-0.5 rounded-md font-bold ${
-                  activeTab === 'feedback' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  activeTab === 'feedback' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                 }`}>
                   {feedbackList.length}
                 </span>
@@ -2079,7 +2083,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'settings'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <Settings className="w-4 h-4 shrink-0" />
@@ -2091,7 +2095,7 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 activeTab === 'drive-sync'
                   ? 'bg-lpu-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -2099,7 +2103,7 @@ export default function AdminDashboardPage() {
                 <span>Drive Sync &amp; Migration</span>
               </div>
               <span className={`text-[10px] px-1.8 py-0.5 rounded-md font-bold ${
-                activeTab === 'drive-sync' ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-700'
+                activeTab === 'drive-sync' ? 'bg-white/20 text-white' : 'bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300'
               }`}>
                 Auto
               </span>
@@ -2107,8 +2111,8 @@ export default function AdminDashboardPage() {
 
             {/* OWNER ONLY SECTION */}
             {currentUser?.isOwner && (
-              <div className="pt-3 mt-3 border-t border-slate-100">
-                <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+              <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                   Owner Privileges
                 </div>
                 <button
@@ -2116,7 +2120,7 @@ export default function AdminDashboardPage() {
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
                     activeTab === 'admin-settings'
                       ? 'bg-amber-600 text-white shadow-xs'
-                      : 'text-amber-800 hover:bg-amber-50'
+                      : 'text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40'
                   }`}
                 >
                   <ShieldCheck className="w-4 h-4 shrink-0" />
@@ -2129,10 +2133,14 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Bottom Actions */}
-        <div className="p-4 border-t border-slate-100 space-y-2">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+          <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Theme</span>
+            <ThemeToggle />
+          </div>
           <button
             onClick={() => router.push('/library')}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
           >
             <FolderOpen className="w-4 h-4 text-slate-400" />
             <span>Switch to Student View</span>
@@ -2161,7 +2169,7 @@ export default function AdminDashboardPage() {
                 window.location.href = '/login';
               }
             }}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
           >
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
@@ -2189,13 +2197,13 @@ export default function AdminDashboardPage() {
           <div className="space-y-8">
             
             {/* Header banner */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <Activity className="w-6 h-6 text-lpu-600" />
+                <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <Activity className="w-6 h-6 text-lpu-600 dark:text-orange-400" />
                   Campus Connect Real-Time Dashboard
                 </h1>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   Database verified telemetry • Year-Wise Materials Bank • One-Time WhatsApp Verifications
                 </p>
               </div>
@@ -2208,7 +2216,7 @@ export default function AdminDashboardPage() {
                     loadMaterials();
                     loadAnalytics();
                   }}
-                  className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                  className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
                   title="Refresh Live Telemetry"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -2228,81 +2236,81 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               
               {/* Total Users */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-                <div className="flex items-center justify-between text-slate-400 mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs">
+                <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Total Users
                   </span>
-                  <Users className="w-4 h-4 text-slate-600" />
+                  <Users className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                 </div>
-                <div className="text-3xl font-black text-slate-900">
+                <div className="text-3xl font-black text-slate-900 dark:text-white">
                   {stats?.totalUsers ?? users.length}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1">
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                   Registered LPU students
                 </div>
               </div>
 
               {/* Active Users (30d) */}
-              <div className="bg-emerald-50/60 p-5 rounded-2xl border border-emerald-200/80 shadow-xs">
-                <div className="flex items-center justify-between text-emerald-600 mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
+              <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs">
+                <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                     Active Users
                   </span>
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                 </div>
-                <div className="text-3xl font-black text-emerald-700">
+                <div className="text-3xl font-black text-emerald-700 dark:text-emerald-300">
                   {stats?.activeUsers ?? 0}
                 </div>
-                <div className="text-[11px] font-medium text-emerald-800/80 mt-1">
+                <div className="text-[11px] font-medium text-emerald-800/80 dark:text-emerald-400/90 mt-1">
                   Active past 30 days
                 </div>
               </div>
 
               {/* Active Today (24h) */}
-              <div className="bg-blue-50/60 p-5 rounded-2xl border border-blue-200/80 shadow-xs">
-                <div className="flex items-center justify-between text-blue-600 mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800">
+              <div className="bg-blue-50/60 dark:bg-blue-950/30 p-5 rounded-2xl border border-blue-200/80 dark:border-blue-800/60 shadow-xs">
+                <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300">
                     Active Today
                   </span>
-                  <Clock className="w-4 h-4 text-blue-600" />
+                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                <div className="text-3xl font-black text-blue-700">
+                <div className="text-3xl font-black text-blue-700 dark:text-blue-300">
                   {stats?.activeToday ?? 0}
                 </div>
-                <div className="text-[11px] font-medium text-blue-800/80 mt-1">
+                <div className="text-[11px] font-medium text-blue-800/80 dark:text-blue-400/90 mt-1">
                   Active past 24 hours
                 </div>
               </div>
 
               {/* Active This Week (7d) */}
-              <div className="bg-teal-50/60 p-5 rounded-2xl border border-teal-200/80 shadow-xs">
-                <div className="flex items-center justify-between text-teal-600 mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-teal-800">
+              <div className="bg-teal-50/60 dark:bg-teal-950/30 p-5 rounded-2xl border border-teal-200/80 dark:border-teal-800/60 shadow-xs">
+                <div className="flex items-center justify-between text-teal-600 dark:text-teal-400 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">
                     Active This Week
                   </span>
-                  <Calendar className="w-4 h-4 text-teal-600" />
+                  <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 </div>
-                <div className="text-3xl font-black text-teal-700">
+                <div className="text-3xl font-black text-teal-700 dark:text-teal-300">
                   {stats?.activeThisWeek ?? 0}
                 </div>
-                <div className="text-[11px] font-medium text-teal-800/80 mt-1">
+                <div className="text-[11px] font-medium text-teal-800/80 dark:text-teal-400/90 mt-1">
                   Active past 7 days
                 </div>
               </div>
 
               {/* Community Confirmed Users */}
-              <div className="bg-orange-50/60 p-5 rounded-2xl border border-orange-200/80 shadow-xs">
-                <div className="flex items-center justify-between text-orange-600 mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-orange-800">
+              <div className="bg-orange-50/60 dark:bg-orange-950/30 p-5 rounded-2xl border border-orange-200/80 dark:border-orange-800/60 shadow-xs">
+                <div className="flex items-center justify-between text-orange-600 dark:text-orange-400 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-orange-800 dark:text-orange-300">
                     Community Confirmed
                   </span>
-                  <CheckCircle2 className="w-4 h-4 text-orange-600" />
+                  <CheckCircle2 className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                 </div>
-                <div className="text-3xl font-black text-orange-700">
+                <div className="text-3xl font-black text-orange-700 dark:text-orange-300">
                   {stats?.communityVerified ?? 0}
                 </div>
-                <div className="text-[11px] font-medium text-orange-800/80 mt-1">
+                <div className="text-[11px] font-medium text-orange-800/80 dark:text-orange-400/90 mt-1">
                   Full library unlocked
                 </div>
               </div>
@@ -2312,27 +2320,27 @@ export default function AdminDashboardPage() {
             {/* Global Document Access Mode Quick Controller */}
             <div className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
               allowUserDownloads 
-                ? 'bg-emerald-50/50 border-emerald-200' 
-                : 'bg-amber-50/50 border-amber-200'
+                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60' 
+                : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/60'
             }`}>
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  allowUserDownloads ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                  allowUserDownloads ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
                 }`}>
                   {allowUserDownloads ? <DownloadCloud className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-slate-900">
+                    <span className="text-xs font-black text-slate-900 dark:text-white">
                       Global Document Access Mode:
                     </span>
                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                      allowUserDownloads ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      allowUserDownloads ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
                     }`}>
                       {allowUserDownloads ? 'Downloads Allowed' : 'Preview Only'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 mt-0.5">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                     {allowUserDownloads 
                       ? 'Students have both [ Preview ] and [ Download ] buttons unlocked across all study materials.'
                       : 'Students have [ Preview Document ] enabled only. Direct file downloads are disabled globally.'}
@@ -2347,7 +2355,7 @@ export default function AdminDashboardPage() {
                   onClick={() => handleToggleDownloads(!allowUserDownloads)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
                     allowUserDownloads
-                      ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                      ? 'bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                   }`}
                 >
@@ -2355,7 +2363,7 @@ export default function AdminDashboardPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('settings')}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white border border-slate-200"
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700"
                 >
                   Settings ⚙️
                 </button>
@@ -2364,77 +2372,77 @@ export default function AdminDashboardPage() {
 
             {/* Secondary row: Materials & Downloads */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Total Study Materials
                   </span>
-                  <div className="text-2xl font-black text-slate-900 mt-1">
+                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
                     {stats?.totalMaterials ?? materials.length}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Organized across 1st-4th Year
                   </div>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center">
                   <BookOpen className="w-6 h-6" />
                 </div>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Total File Downloads
                   </span>
-                  <div className="text-2xl font-black text-slate-900 mt-1">
+                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
                     {stats?.totalDownloads ?? 0}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Verified student downloads
                   </div>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
                   <DownloadCloud className="w-6 h-6" />
                 </div>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between sm:col-span-2 lg:col-span-1">
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between sm:col-span-2 lg:col-span-1">
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Pending Verification
                   </span>
-                  <div className="text-2xl font-black text-amber-700 mt-1">
+                  <div className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1">
                     {stats?.communityPending ?? 0}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Awaiting WhatsApp invite link
                   </div>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6" />
                 </div>
               </div>
             </div>
 
             {/* Student Academic Year Distribution Section */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                 <div>
-                  <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
-                    <GraduationCap className="w-5 h-5 text-lpu-600" />
+                  <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-lpu-600 dark:text-orange-400" />
                     Student Academic Year Distribution
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Live breakdown of registered students across academic batches
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl">
-                    Total Students: <strong className="text-lpu-600">{stats?.totalUsers ?? users.length}</strong>
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-xl">
+                    Total Students: <strong className="text-lpu-600 dark:text-orange-400">{stats?.totalUsers ?? users.length}</strong>
                   </span>
                   <button
                     onClick={() => setActiveTab('users')}
-                    className="text-xs font-bold text-lpu-600 hover:text-lpu-700 hover:underline flex items-center gap-1"
+                    className="text-xs font-bold text-lpu-600 dark:text-orange-400 hover:text-lpu-700 dark:hover:text-orange-300 hover:underline flex items-center gap-1"
                   >
                     View in Users Tab <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -2445,72 +2453,72 @@ export default function AdminDashboardPage() {
                 {/* 1st Year */}
                 <div 
                   onClick={() => { setUserYearFilter('1'); setActiveTab('users'); }}
-                  className="p-4 rounded-xl border border-sky-200/80 bg-sky-50/50 hover:bg-sky-50 transition-all cursor-pointer group shadow-2xs"
+                  className="p-4 rounded-xl border border-sky-200/80 dark:border-sky-800/60 bg-sky-50/50 dark:bg-sky-950/20 hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-all cursor-pointer group shadow-2xs"
                 >
-                  <div className="flex items-center justify-between text-sky-700 text-xs font-bold uppercase tracking-wider mb-1">
+                  <div className="flex items-center justify-between text-sky-700 dark:text-sky-300 text-xs font-bold uppercase tracking-wider mb-1">
                     <span>1st Year</span>
-                    <span className="text-[10px] bg-sky-200/70 text-sky-800 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-sky-300 transition-colors">Freshmen</span>
+                    <span className="text-[10px] bg-sky-200/70 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-sky-300 dark:group-hover:bg-sky-800 transition-colors">Freshmen</span>
                   </div>
-                  <div className="text-3xl font-black text-sky-950 mt-1">
+                  <div className="text-3xl font-black text-sky-950 dark:text-sky-100 mt-1">
                     {stats?.studentYearBreakdown?.[1] ?? users.filter(u => u.year === 1).length}
                   </div>
-                  <p className="text-[11px] text-sky-800/70 mt-1 flex items-center justify-between">
+                  <p className="text-[11px] text-sky-800/70 dark:text-sky-300/80 mt-1 flex items-center justify-between">
                     <span>Registered students</span>
-                    <span className="text-[10px] text-sky-600 font-bold group-hover:underline">Filter &rarr;</span>
+                    <span className="text-[10px] text-sky-600 dark:text-sky-400 font-bold group-hover:underline">Filter &rarr;</span>
                   </p>
                 </div>
 
                 {/* 2nd Year */}
                 <div 
                   onClick={() => { setUserYearFilter('2'); setActiveTab('users'); }}
-                  className="p-4 rounded-xl border border-emerald-200/80 bg-emerald-50/50 hover:bg-emerald-50 transition-all cursor-pointer group shadow-2xs"
+                  className="p-4 rounded-xl border border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-all cursor-pointer group shadow-2xs"
                 >
-                  <div className="flex items-center justify-between text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1">
+                  <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 text-xs font-bold uppercase tracking-wider mb-1">
                     <span>2nd Year</span>
-                    <span className="text-[10px] bg-emerald-200/70 text-emerald-800 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-emerald-300 transition-colors">Core</span>
+                    <span className="text-[10px] bg-emerald-200/70 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-emerald-300 dark:group-hover:bg-emerald-800 transition-colors">Core</span>
                   </div>
-                  <div className="text-3xl font-black text-emerald-950 mt-1">
+                  <div className="text-3xl font-black text-emerald-950 dark:text-emerald-100 mt-1">
                     {stats?.studentYearBreakdown?.[2] ?? users.filter(u => u.year === 2).length}
                   </div>
-                  <p className="text-[11px] text-emerald-800/70 mt-1 flex items-center justify-between">
+                  <p className="text-[11px] text-emerald-800/70 dark:text-emerald-300/80 mt-1 flex items-center justify-between">
                     <span>Registered students</span>
-                    <span className="text-[10px] text-emerald-600 font-bold group-hover:underline">Filter &rarr;</span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold group-hover:underline">Filter &rarr;</span>
                   </p>
                 </div>
 
                 {/* 3rd Year */}
                 <div 
                   onClick={() => { setUserYearFilter('3'); setActiveTab('users'); }}
-                  className="p-4 rounded-xl border border-purple-200/80 bg-purple-50/50 hover:bg-purple-50 transition-all cursor-pointer group shadow-2xs"
+                  className="p-4 rounded-xl border border-purple-200/80 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/20 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-all cursor-pointer group shadow-2xs"
                 >
-                  <div className="flex items-center justify-between text-purple-700 text-xs font-bold uppercase tracking-wider mb-1">
+                  <div className="flex items-center justify-between text-purple-700 dark:text-purple-300 text-xs font-bold uppercase tracking-wider mb-1">
                     <span>3rd Year</span>
-                    <span className="text-[10px] bg-purple-200/70 text-purple-800 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-purple-300 transition-colors">Specialization</span>
+                    <span className="text-[10px] bg-purple-200/70 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-purple-300 dark:group-hover:bg-purple-800 transition-colors">Specialization</span>
                   </div>
-                  <div className="text-3xl font-black text-purple-950 mt-1">
+                  <div className="text-3xl font-black text-purple-950 dark:text-purple-100 mt-1">
                     {stats?.studentYearBreakdown?.[3] ?? users.filter(u => u.year === 3).length}
                   </div>
-                  <p className="text-[11px] text-purple-800/70 mt-1 flex items-center justify-between">
+                  <p className="text-[11px] text-purple-800/70 dark:text-purple-300/80 mt-1 flex items-center justify-between">
                     <span>Registered students</span>
-                    <span className="text-[10px] text-purple-600 font-bold group-hover:underline">Filter &rarr;</span>
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold group-hover:underline">Filter &rarr;</span>
                   </p>
                 </div>
 
                 {/* 4th Year */}
                 <div 
                   onClick={() => { setUserYearFilter('4'); setActiveTab('users'); }}
-                  className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/50 hover:bg-amber-50 transition-all cursor-pointer group shadow-2xs"
+                  className="p-4 rounded-xl border border-amber-200/80 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-all cursor-pointer group shadow-2xs"
                 >
-                  <div className="flex items-center justify-between text-amber-700 text-xs font-bold uppercase tracking-wider mb-1">
+                  <div className="flex items-center justify-between text-amber-700 dark:text-amber-300 text-xs font-bold uppercase tracking-wider mb-1">
                     <span>4th Year</span>
-                    <span className="text-[10px] bg-amber-200/70 text-amber-800 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-amber-300 transition-colors">Graduating</span>
+                    <span className="text-[10px] bg-amber-200/70 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded-md font-extrabold group-hover:bg-amber-300 dark:group-hover:bg-amber-800 transition-colors">Graduating</span>
                   </div>
-                  <div className="text-3xl font-black text-amber-950 mt-1">
+                  <div className="text-3xl font-black text-amber-950 dark:text-amber-100 mt-1">
                     {stats?.studentYearBreakdown?.[4] ?? users.filter(u => u.year === 4).length}
                   </div>
-                  <p className="text-[11px] text-amber-800/70 mt-1 flex items-center justify-between">
+                  <p className="text-[11px] text-amber-800/70 dark:text-amber-300/80 mt-1 flex items-center justify-between">
                     <span>Registered students</span>
-                    <span className="text-[10px] text-amber-600 font-bold group-hover:underline">Filter &rarr;</span>
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold group-hover:underline">Filter &rarr;</span>
                   </p>
                 </div>
               </div>
@@ -2520,19 +2528,19 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
               {/* Recent Users Activity */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <div>
-                    <h3 className="font-extrabold text-sm text-slate-900">
+                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                       Recent Student Activity
                     </h3>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
                       Real-time authenticated student presence
                     </p>
                   </div>
                   <button
                     onClick={() => setActiveTab('users')}
-                    className="text-xs font-bold text-lpu-600 hover:text-lpu-700 flex items-center gap-1"
+                    className="text-xs font-bold text-lpu-600 dark:text-orange-400 hover:text-lpu-700 dark:hover:text-orange-300 flex items-center gap-1"
                   >
                     View All ({users.length}) <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -2540,47 +2548,47 @@ export default function AdminDashboardPage() {
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-100">
+                    <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] border-b border-slate-100 dark:border-slate-800">
                       <tr>
                         <th className="py-2.5 px-4">Student</th>
                         <th className="py-2.5 px-4">Status</th>
                         <th className="py-2.5 px-4">Last Active</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {users.length > 0 ? (
                         users.slice(0, 5).map((u) => (
-                          <tr key={u.id} className="hover:bg-slate-50/70">
-                            <td className="py-2.5 px-4 font-semibold text-slate-900 flex items-center gap-2">
+                          <tr key={u.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+                            <td className="py-2.5 px-4 font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                               <img
                                 src={u.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name)}`}
                                 alt={u.name}
-                                className="w-6 h-6 rounded-full border border-slate-200 object-cover"
+                                className="w-6 h-6 rounded-full border border-slate-200 dark:border-slate-700 object-cover"
                               />
                               <div className="truncate max-w-[140px]">
                                 <div className="font-bold truncate">{u.name}</div>
-                                <div className="text-[10px] text-slate-400 font-mono truncate">{u.email}</div>
+                                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate">{u.email}</div>
                               </div>
                             </td>
                             <td className="py-2.5 px-4">
                               {u.community_joined ? (
-                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                                   Verified ✓
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
                                   Pending
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-4 text-slate-500 font-medium text-[11px]">
+                            <td className="py-2.5 px-4 text-slate-500 dark:text-slate-400 font-medium text-[11px]">
                               {formatRelativeTime(u.last_active_at || u.last_login)}
                             </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={3} className="py-6 text-center text-xs text-slate-400">
+                          <td colSpan={3} className="py-6 text-center text-xs text-slate-400 dark:text-slate-500">
                             No users found.
                           </td>
                         </tr>
@@ -2591,19 +2599,19 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Most Downloaded Study Materials */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <div>
-                    <h3 className="font-extrabold text-sm text-slate-900">
+                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                       Popular Study Materials
                     </h3>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
                       Highest download volume across campus
                     </p>
                   </div>
                   <button
                     onClick={() => setActiveTab('materials')}
-                    className="text-xs font-bold text-lpu-600 hover:text-lpu-700 flex items-center gap-1"
+                    className="text-xs font-bold text-lpu-600 dark:text-orange-400 hover:text-lpu-700 dark:hover:text-orange-300 flex items-center gap-1"
                   >
                     Manage ({materials.length}) <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -2611,39 +2619,39 @@ export default function AdminDashboardPage() {
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-100">
+                    <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] border-b border-slate-100 dark:border-slate-800">
                       <tr>
                         <th className="py-2.5 px-4">Title & Subject</th>
                         <th className="py-2.5 px-4">Year</th>
                         <th className="py-2.5 px-4 text-right">Downloads</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {materials.length > 0 ? (
                         [...materials]
                           .sort((a, b) => b.download_count - a.download_count)
                           .slice(0, 5)
                           .map((mat) => (
-                            <tr key={mat.id} className="hover:bg-slate-50/70">
+                            <tr key={mat.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
                               <td className="py-2.5 px-4">
-                                <div className="font-bold text-slate-900 line-clamp-1">{mat.title}</div>
-                                <div className="text-[10px] text-slate-400 font-mono">
+                                <div className="font-bold text-slate-900 dark:text-white line-clamp-1">{mat.title}</div>
+                                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
                                   {mat.subject_code} • {mat.material_type}
                                 </div>
                               </td>
                               <td className="py-2.5 px-4">
-                                <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[10px]">
+                                <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-[10px]">
                                   {formatYearName(mat.year)}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-4 text-right font-black text-slate-900 text-xs">
+                              <td className="py-2.5 px-4 text-right font-black text-slate-900 dark:text-white text-xs">
                                 {mat.download_count}
                               </td>
                             </tr>
                           ))
                       ) : (
                         <tr>
-                          <td colSpan={3} className="py-6 text-center text-xs text-slate-400">
+                          <td colSpan={3} className="py-6 text-center text-xs text-slate-400 dark:text-slate-500">
                             No study materials available yet.
                           </td>
                         </tr>
@@ -2665,11 +2673,11 @@ export default function AdminDashboardPage() {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-lpu-600" />
+                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-lpu-600 dark:text-orange-400" />
                   Study Materials Bank
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Search, filter, update, replace documents, or remove items across 1st to 4th Year curricula.
                 </p>
               </div>
@@ -2684,17 +2692,17 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Filters Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
               
               {/* Search */}
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={matSearch}
                   onChange={(e) => setMatSearch(e.target.value)}
                   placeholder="Search by title, subject name, or code (e.g. CSE101)..."
-                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-lpu-500"
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-lpu-500"
                 />
               </div>
 
@@ -2703,7 +2711,7 @@ export default function AdminDashboardPage() {
                 <select
                   value={matYearFilter}
                   onChange={(e) => setMatYearFilter(parseInt(e.target.value, 10))}
-                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-lpu-500 text-slate-700"
+                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-lpu-500 text-slate-700 dark:text-slate-200"
                 >
                   <option value={0}>All Years</option>
                   <option value={1}>1st Year</option>
@@ -2716,7 +2724,7 @@ export default function AdminDashboardPage() {
                 <select
                   value={matTypeFilter}
                   onChange={(e) => setMatTypeFilter(e.target.value)}
-                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-lpu-500 text-slate-700"
+                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-lpu-500 text-slate-700 dark:text-slate-200"
                 >
                   <option value="All">All Types</option>
                   <option value="Notes">Notes</option>
@@ -2728,10 +2736,10 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-3 px-4">Title & Subject</th>
                       <th className="py-3 px-4">Year</th>
@@ -2741,29 +2749,29 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {filteredMaterials.map((mat) => (
-                      <tr key={mat.id} className="hover:bg-slate-50/60 transition-colors">
+                      <tr key={mat.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors">
                         <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900 line-clamp-1">{mat.title}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">
+                          <div className="font-bold text-slate-900 dark:text-white line-clamp-1">{mat.title}</div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                             {mat.subject_code} • {mat.subject}
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                          <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-[11px]">
                             {formatYearName(mat.year)}
                           </span>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="font-semibold text-slate-800 text-[11px]">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">
                             {mat.material_type}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
                           {mat.file_size}
                         </td>
-                        <td className="py-3 px-4 font-bold text-slate-800">
+                        <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">
                           {mat.download_count}
                         </td>
                         <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
@@ -2771,7 +2779,7 @@ export default function AdminDashboardPage() {
                             href={`/api/materials/${mat.id}/preview`}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-block"
+                            className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 inline-block"
                             title="Preview Document"
                           >
                             <Eye className="w-4 h-4" />
@@ -2781,14 +2789,14 @@ export default function AdminDashboardPage() {
                               setEditingMaterial(mat);
                               setEditFile(null);
                             }}
-                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 inline-block"
+                            className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 inline-block"
                             title="Edit & Replace File"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => requestDeleteMaterial(mat.id, mat.title)}
-                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 inline-block"
+                            className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 inline-block"
                             title="Permanently Delete Material"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -2798,7 +2806,7 @@ export default function AdminDashboardPage() {
                     ))}
                     {filteredMaterials.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                        <td colSpan={6} className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs">
                           No study materials found matching the specified filters.
                         </td>
                       </tr>
@@ -2814,13 +2822,13 @@ export default function AdminDashboardPage() {
         {/* TAB 3: UPLOAD MATERIAL                                       */}
         {/* ============================================================ */}
         {activeTab === 'upload' && (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-10 max-w-2xl mx-auto">
-            <div className="mb-6 pb-4 border-b border-slate-100">
-              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                <Upload className="w-5 h-5 text-lpu-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md p-6 sm:p-10 max-w-2xl mx-auto">
+            <div className="mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Upload className="w-5 h-5 text-lpu-600 dark:text-orange-400" />
                 Upload New Study Material
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Add verified subject notes, mid-term papers, end-term papers, or PYQs organized strictly year-wise.
               </p>
             </div>
@@ -2829,10 +2837,10 @@ export default function AdminDashboardPage() {
               <div
                 className={`p-4 rounded-xl mb-6 text-xs font-bold ${
                   uploadMessage.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                     : uploadMessage.type === 'info'
-                    ? 'bg-amber-50 text-amber-900 border border-amber-300'
-                    : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                 }`}
               >
                 {uploadMessage.text}
@@ -2843,13 +2851,13 @@ export default function AdminDashboardPage() {
               
               {/* Year Selector */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Academic Year *
                 </label>
                 <select
                   value={uploadYear}
                   onChange={(e) => setUploadYear(parseInt(e.target.value, 10))}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-lpu-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-lpu-500"
                   required
                 >
                   <option value={1}>1st Year (Freshmen)</option>
@@ -2862,7 +2870,7 @@ export default function AdminDashboardPage() {
               {/* Subject Name & Code */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Subject Name *
                   </label>
                   <input
@@ -2870,13 +2878,13 @@ export default function AdminDashboardPage() {
                     value={uploadSubject}
                     onChange={(e) => setUploadSubject(e.target.value)}
                     placeholder="e.g. Programming in C"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-lpu-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-lpu-500"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Subject Code *
                   </label>
                   <input
@@ -2884,7 +2892,7 @@ export default function AdminDashboardPage() {
                     value={uploadSubjectCode}
                     onChange={(e) => setUploadSubjectCode(e.target.value.toUpperCase())}
                     placeholder="e.g. CSE101"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono uppercase text-slate-800 focus:outline-none focus:border-lpu-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono uppercase text-slate-800 dark:text-slate-100 focus:outline-none focus:border-lpu-500"
                     required
                   />
                 </div>
@@ -2892,13 +2900,13 @@ export default function AdminDashboardPage() {
 
               {/* Material Type */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Material Type *
                 </label>
                 <select
                   value={uploadType}
                   onChange={(e) => setUploadType(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-lpu-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-lpu-500"
                   required
                 >
                   <option value="Notes">📚 Notes (Theory, slides, handwritten)</option>
@@ -2911,7 +2919,7 @@ export default function AdminDashboardPage() {
 
               {/* Title */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Resource Title *
                 </label>
                 <input
@@ -2919,12 +2927,12 @@ export default function AdminDashboardPage() {
                   value={uploadTitle}
                   onChange={(e) => setUploadTitle(e.target.value)}
                   placeholder="e.g. Unit 1 to 4 Complete Notes with Solved Programs"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-lpu-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-lpu-500"
                   required
                 />
                 {deleteSameNameOnUpload && existingSameNameMatch && (
-                  <div className="flex items-center gap-2 mt-1.5 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-800">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div className="flex items-center gap-2 mt-1.5 p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-800 dark:text-amber-300">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                     <span>
                       Notice: Existing material &quot;{existingSameNameMatch.title}&quot; found in {existingSameNameMatch.subject_code} ({formatYearName(existingSameNameMatch.year)}). It will be automatically deleted and replaced upon upload.
                     </span>
@@ -2934,7 +2942,7 @@ export default function AdminDashboardPage() {
 
               {/* Description */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Description / Highlights
                 </label>
                 <textarea
@@ -2942,30 +2950,30 @@ export default function AdminDashboardPage() {
                   onChange={(e) => setUploadDescription(e.target.value)}
                   rows={3}
                   placeholder="Key concepts covered, unit breakdowns, exam relevance..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-lpu-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-lpu-500"
                 />
               </div>
 
               {/* Option: Delete Files with Same Name When Uploaded */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-start justify-between gap-4 transition-all shadow-2xs">
+              <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex items-start justify-between gap-4 transition-all shadow-2xs">
                 <div className="flex items-start gap-3">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    deleteSameNameOnUpload ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'
+                    deleteSameNameOnUpload ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
                   }`}>
                     <Trash2 className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-slate-900">
+                      <span className="text-xs font-black text-slate-900 dark:text-white">
                         Delete Files with Same Name When Uploaded
                       </span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        deleteSameNameOnUpload ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500'
+                        deleteSameNameOnUpload ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                       }`}>
                         {deleteSameNameOnUpload ? 'Enabled' : 'Disabled'}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
                       If a study material or document with the same name already exists in this subject, automatically delete the old version to prevent duplicate files in the library.
                     </p>
                   </div>
@@ -2977,7 +2985,7 @@ export default function AdminDashboardPage() {
                   aria-checked={deleteSameNameOnUpload}
                   onClick={() => setDeleteSameNameOnUpload(!deleteSameNameOnUpload)}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    deleteSameNameOnUpload ? 'bg-rose-600' : 'bg-slate-300'
+                    deleteSameNameOnUpload ? 'bg-rose-600' : 'bg-slate-300 dark:bg-slate-700'
                   }`}
                 >
                   <span
@@ -2990,20 +2998,20 @@ export default function AdminDashboardPage() {
 
               {/* Resource Source Selector: Upload Files vs Paste Link */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   Choose Material Source <span className="text-rose-500">*</span>
                 </label>
-                <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
                   <button
                     type="button"
                     onClick={() => setResourceMode('file')}
                     className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                       resourceMode === 'file'
-                        ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                        : 'text-slate-500 hover:text-slate-800'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs border border-slate-200 dark:border-slate-700'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
-                    <Upload className="w-4 h-4 text-lpu-600" />
+                    <Upload className="w-4 h-4 text-lpu-600 dark:text-orange-400" />
                     <span>Upload File / Multi-Page Images</span>
                   </button>
                   <button
@@ -3011,11 +3019,11 @@ export default function AdminDashboardPage() {
                     onClick={() => setResourceMode('link')}
                     className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                       resourceMode === 'link'
-                        ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                        : 'text-slate-500 hover:text-slate-800'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs border border-slate-200 dark:border-slate-700'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
-                    <LinkIcon className="w-4 h-4 text-amber-600" />
+                    <LinkIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     <span>Paste Resource Link (URL)</span>
                   </button>
                 </div>
@@ -3024,25 +3032,25 @@ export default function AdminDashboardPage() {
               {/* Resource Content: Link Mode vs File Upload Mode */}
               {resourceMode === 'link' ? (
                 /* Link Mode Input Card */
-                <div className="bg-gradient-to-br from-amber-50/50 via-white to-orange-50/30 border-2 border-dashed border-amber-300 rounded-2xl p-5 space-y-4">
+                <div className="bg-gradient-to-br from-amber-50/50 via-white to-orange-50/30 dark:from-amber-950/20 dark:via-slate-900 dark:to-orange-950/10 border-2 border-dashed border-amber-300 dark:border-amber-700/60 rounded-2xl p-5 space-y-4">
                   {/* Header & Mode Switcher for Single vs Multiple Links */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200/80">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200/80 dark:border-amber-800/60">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-xs">
-                        <LinkIcon className="w-5 h-5 text-amber-600" />
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-xs">
+                        <LinkIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <label className="block text-xs font-black text-slate-900">
+                          <label className="block text-xs font-black text-slate-900 dark:text-white">
                             {isMultiLink ? 'Upload Multiple Links at Once' : 'Resource URL / Cloud Link'} <span className="text-rose-500">*</span>
                           </label>
                           <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                            isMultiLink ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600'
+                            isMultiLink ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                           }`}>
                             {isMultiLink ? 'Multi-Link Mode Active' : 'Single Link Mode'}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                           {isMultiLink
                             ? 'Paste multiple Google Drive or cloud URLs (separated by newlines, commas, or spaces).'
                             : 'Paste a Google Drive view link, OneDrive, Dropbox, Notion, or external study document.'}
@@ -3051,14 +3059,14 @@ export default function AdminDashboardPage() {
                     </div>
 
                     {/* Mode Selector Pill Buttons & Switch */}
-                    <div className="flex items-center gap-2 bg-white/90 border border-amber-200/90 rounded-2xl p-1.5 shrink-0 shadow-xs">
+                    <div className="flex items-center gap-2 bg-white/90 dark:bg-slate-800 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-1.5 shrink-0 shadow-xs">
                       <button
                         type="button"
                         onClick={() => setIsMultiLink(false)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                           !isMultiLink
                             ? 'bg-amber-500 text-white shadow-xs'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
                       >
                         <LinkIcon className="w-3.5 h-3.5" />
@@ -3070,7 +3078,7 @@ export default function AdminDashboardPage() {
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                           isMultiLink
                             ? 'bg-amber-500 text-white shadow-xs'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
                       >
                         <Layers className="w-3.5 h-3.5" />
@@ -3102,7 +3110,7 @@ export default function AdminDashboardPage() {
                             }
                           }}
                           placeholder="e.g. https://drive.google.com/file/d/1a2b3c.../view?usp=sharing"
-                          className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                          className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
                           required={resourceMode === 'link' && !isMultiLink}
                         />
                         {resourceLink && (
@@ -3120,17 +3128,17 @@ export default function AdminDashboardPage() {
                       {resourceLink.trim() && (
                         <div className="flex flex-wrap items-center gap-2 pt-1">
                           {resourceLink.includes('drive.google.com') ? (
-                            <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span className="text-[11px] font-black text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                               Google Drive Link Detected — Embedded preview is fully enabled for students!
                             </span>
                           ) : resourceLink.includes('onedrive') || resourceLink.includes('1drv.ms') ? (
-                            <span className="text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
-                              <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                            <span className="text-[11px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xs">
+                              <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                               OneDrive Cloud Resource Detected
                             </span>
                           ) : (
-                            <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl flex items-center gap-1.5">
+                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-xl flex items-center gap-1.5">
                               <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
                               External Study Link Resource
                             </span>
@@ -3138,7 +3146,7 @@ export default function AdminDashboardPage() {
                         </div>
                       )}
 
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
                         💡 Tip: You can also paste multiple links at once into this box — it will automatically switch to Multiple Links mode.
                       </p>
                     </div>
@@ -3147,11 +3155,11 @@ export default function AdminDashboardPage() {
                     <div className="space-y-3">
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
-                          <label className="text-[11px] font-bold text-slate-700">
+                          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
                             Paste Links (One per line or separated by spaces/commas) <span className="text-rose-500">*</span>
                           </label>
                           {multiLinksText.trim() && (
-                            <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
+                            <span className="text-[10px] font-black text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800">
                               {extractValidUrls(multiLinksText).length} valid link(s) detected
                             </span>
                           )}
@@ -3161,7 +3169,7 @@ export default function AdminDashboardPage() {
                           value={multiLinksText}
                           onChange={(e) => setMultiLinksText(e.target.value)}
                           placeholder={"https://drive.google.com/file/d/1A2B3C.../view\nhttps://drive.google.com/file/d/4D5E6F.../view\nhttps://example.com/notes-part3.pdf"}
-                          className="w-full p-3.5 rounded-xl bg-white border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs leading-relaxed"
+                          className="w-full p-3.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs leading-relaxed"
                           required={resourceMode === 'link' && isMultiLink}
                         />
                       </div>
@@ -3171,34 +3179,34 @@ export default function AdminDashboardPage() {
                         const validLinks = extractValidUrls(multiLinksText);
                         if (validLinks.length === 0) return null;
                         return (
-                          <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-3.5 space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold text-amber-950">
+                          <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/80 rounded-2xl p-3.5 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-amber-950 dark:text-amber-200">
                               <span className="flex items-center gap-1.5">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 Detected Links Preview ({validLinks.length}):
                               </span>
                               <button
                                 type="button"
                                 onClick={() => setMultiLinksText('')}
-                                className="text-[11px] text-rose-600 hover:underline font-semibold"
+                                className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline font-semibold"
                               >
                                 Clear All
                               </button>
                             </div>
                             <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
                               {validLinks.map((lnk, idx) => (
-                                <div key={idx} className="flex items-center justify-between bg-white px-3 py-1.5 rounded-xl border border-amber-200/80 text-xs shadow-2xs">
+                                <div key={idx} className="flex items-center justify-between bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-amber-200/80 dark:border-amber-800/60 text-xs shadow-2xs">
                                   <div className="flex items-center gap-2 truncate">
-                                    <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md shrink-0">
+                                    <span className="text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 px-2 py-0.5 rounded-md shrink-0">
                                       Part {idx + 1}
                                     </span>
-                                    <span className="font-mono text-[11px] text-slate-800 truncate">{lnk}</span>
+                                    <span className="font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate">{lnk}</span>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const remaining = validLinks.filter((_, i) => i !== idx);
-                                      setMultiLinksText(remaining.join('\n'));
+                                       const remaining = validLinks.filter((_, i) => i !== idx);
+                                       setMultiLinksText(remaining.join('\n'));
                                     }}
                                     className="text-slate-400 hover:text-rose-500 p-0.5 ml-2 shrink-0 transition-colors"
                                     title="Remove this link"
@@ -3213,8 +3221,8 @@ export default function AdminDashboardPage() {
                       })()}
 
                       {/* Processing Mode for Multiple Links */}
-                      <div className="bg-white/90 border border-amber-200/80 rounded-2xl p-3.5">
-                        <div className="text-[11px] font-bold text-slate-800 mb-2">
+                      <div className="bg-white/90 dark:bg-slate-800 border border-amber-200/80 dark:border-amber-800/60 rounded-2xl p-3.5">
+                        <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 mb-2">
                           How should these {extractValidUrls(multiLinksText).length || ''} links be published?
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -3223,18 +3231,18 @@ export default function AdminDashboardPage() {
                             onClick={() => setMultiLinkProcessingMode('bundle')}
                             className={`p-3 rounded-xl text-left border transition-all flex items-start gap-2.5 ${
                               multiLinkProcessingMode === 'bundle'
-                                ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs ring-1 ring-amber-500/30'
-                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                                ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-900 dark:text-amber-300 shadow-xs ring-1 ring-amber-500/30'
+                                : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-850'
                             }`}
                           >
                             <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                              multiLinkProcessingMode === 'bundle' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-200 text-slate-500'
+                              multiLinkProcessingMode === 'bundle' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                             }`}>
                               <Layers className="w-3.5 h-3.5" />
                             </div>
                             <div>
-                              <div className="text-xs font-bold text-slate-900">1 Card with Multi-File Switcher</div>
-                              <div className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                              <div className="text-xs font-bold text-slate-900 dark:text-white">1 Card with Multi-File Switcher</div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
                                 Clubs all links into a single card with Part 1, Part 2 tabs (recommended for multi-part notes)
                               </div>
                             </div>
@@ -3245,18 +3253,18 @@ export default function AdminDashboardPage() {
                             onClick={() => setMultiLinkProcessingMode('batch')}
                             className={`p-3 rounded-xl text-left border transition-all flex items-start gap-2.5 ${
                               multiLinkProcessingMode === 'batch'
-                                ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs ring-1 ring-amber-500/30'
-                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                                ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-900 dark:text-amber-300 shadow-xs ring-1 ring-amber-500/30'
+                                : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-850'
                             }`}
                           >
                             <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                              multiLinkProcessingMode === 'batch' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-200 text-slate-500'
+                              multiLinkProcessingMode === 'batch' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                             }`}>
                               <Upload className="w-3.5 h-3.5" />
                             </div>
                             <div>
-                              <div className="text-xs font-bold text-slate-900">Separate Cards for Each Link</div>
-                              <div className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                              <div className="text-xs font-bold text-slate-900 dark:text-white">Separate Cards for Each Link</div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
                                 Publishes each link as an individual library card with its own title
                               </div>
                             </div>
@@ -3270,11 +3278,11 @@ export default function AdminDashboardPage() {
                 /* File Upload with Drag & Drop & Multi-Image Clubbing */
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-slate-700">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                       Upload Study Documents (PDF, JPG, PNG, WEBP, DOCX) <span className="text-rose-500">*</span>
                     </label>
                     {clubbedImages.length > 0 && (
-                      <span className="text-[11px] font-black text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                      <span className="text-[11px] font-black text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
                         {multiPdfMode === 'merge' ? '📑 Auto-merging into 1 PDF' : multiPdfMode === 'bundle' ? '🗂️ Bundling as Multi-File Document' : '📦 Batch Uploading as Separate Cards'}
                       </span>
                     )}
@@ -3282,9 +3290,9 @@ export default function AdminDashboardPage() {
 
                   {clubbedImages.length > 0 ? (
                     /* Multi-Document Queue View (Handles multiple PDFs, images, or mixed) */
-                    <div className="border-2 border-amber-300 bg-amber-50/30 rounded-2xl p-4 sm:p-5 space-y-4 transition-all shadow-sm">
+                    <div className="border-2 border-amber-300 dark:border-amber-700/60 bg-amber-50/30 dark:bg-amber-950/10 rounded-2xl p-4 sm:p-5 space-y-4 transition-all shadow-sm">
                       {/* Header Banner */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200/60">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200/60 dark:border-amber-800/60">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-xl text-white flex items-center justify-center font-black shadow-md ${
                             multiPdfMode === 'bundle'
@@ -3303,7 +3311,7 @@ export default function AdminDashboardPage() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-black text-slate-900">
+                              <span className="text-xs font-black text-slate-900 dark:text-white">
                                 {clubbedImages.length} {clubbedImages.length === 1 ? 'Document Selected' : 'Documents Selected'}
                               </span>
                               <span className="bg-gradient-to-r from-lpu-600 to-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
@@ -3311,7 +3319,7 @@ export default function AdminDashboardPage() {
                                 {clubbedImages.filter(i => i.type === 'image').length > 0 && ` • ${clubbedImages.filter(i => i.type === 'image').length} Images`}
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-600 mt-0.5">
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
                               {multiPdfMode === 'merge'
                                 ? `All ${clubbedImages.length} files will be merged into 1 continuous PDF in the order shown below.`
                                 : multiPdfMode === 'bundle'
@@ -3324,7 +3332,7 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center gap-2 self-end sm:self-center">
                           <label
                             htmlFor="addMoreImagesInput"
-                            className="cursor-pointer px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-lpu-500 hover:text-lpu-600 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                            className="cursor-pointer px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-lpu-500 hover:text-lpu-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
                           >
                             <Plus className="w-3.5 h-3.5 text-lpu-600" />
                             Add More Files
@@ -3354,7 +3362,7 @@ export default function AdminDashboardPage() {
                           <button
                             type="button"
                             onClick={clearClubbedPages}
-                            className="px-2.5 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1"
+                            className="px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/80 text-xs font-bold transition-all flex items-center gap-1"
                             title="Remove all files"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -3365,24 +3373,24 @@ export default function AdminDashboardPage() {
 
                       {/* Multi-Document Strategy Switcher (When 2 or more files are selected) */}
                       {clubbedImages.length > 1 && (
-                        <div className="bg-white/90 p-3 rounded-xl border border-amber-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="bg-white/90 dark:bg-slate-800 p-3 rounded-xl border border-amber-200/80 dark:border-amber-800/60 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
                           <div>
-                            <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                            <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                               Multi-File Strategy:
                             </span>
-                            <span className="text-[11px] text-slate-500">
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400">
                               Choose how these {clubbedImages.length} files should be organized and viewed by students:
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
                             <button
                               type="button"
                               onClick={() => setMultiPdfMode('merge')}
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                                 multiPdfMode === 'merge'
                                   ? 'bg-amber-500 text-white shadow-sm'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800'
                               }`}
                               title="Stitch all files into one single PDF document"
                             >
@@ -3395,7 +3403,7 @@ export default function AdminDashboardPage() {
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                                 multiPdfMode === 'bundle'
                                   ? 'bg-indigo-600 text-white shadow-sm'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800'
                               }`}
                               title="Keep separate files under one card with an interactive part switcher in the viewer"
                             >
@@ -3408,7 +3416,7 @@ export default function AdminDashboardPage() {
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                                 multiPdfMode === 'batch'
                                   ? 'bg-emerald-600 text-white shadow-sm'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800'
                               }`}
                               title="Upload each file as a separate study material card"
                             >
@@ -3421,8 +3429,8 @@ export default function AdminDashboardPage() {
 
                       {/* Duplicate Files in Queue Alert Banner */}
                       {duplicateNameGroups.length > 0 && (
-                        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-2xs">
-                          <div className="flex items-center gap-2 text-rose-800">
+                        <div className="bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-2xs">
+                          <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300">
                             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                             <span>
                               <strong>{duplicateNameGroups.length} file name(s)</strong> have duplicate copies in this upload list ({duplicateNameGroups.map(([name, count]) => `"${name}" [${count}x]`).slice(0, 3).join(', ')}).
@@ -3444,12 +3452,12 @@ export default function AdminDashboardPage() {
                         {clubbedImages.map((item, idx) => (
                           <div
                             key={item.id}
-                            className="flex items-center gap-3 p-2.5 bg-white border border-slate-200 hover:border-amber-300 rounded-xl transition-all shadow-xs group"
+                            className="flex items-center gap-3 p-2.5 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 hover:border-amber-300 rounded-xl transition-all shadow-xs group"
                           >
                             {/* Mini Thumbnail or PDF Icon */}
-                            <div className="relative w-12 h-14 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200 flex items-center justify-center">
+                            <div className="relative w-12 h-14 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
                               {item.type === 'pdf' ? (
-                                <div className="w-full h-full bg-rose-50 flex flex-col items-center justify-center text-rose-600">
+                                <div className="w-full h-full bg-rose-50 dark:bg-rose-950/50 flex flex-col items-center justify-center text-rose-600 dark:text-rose-400">
                                   <FileText className="w-5 h-5" />
                                   <span className="text-[8px] font-black uppercase tracking-wider mt-0.5">PDF</span>
                                 </div>
@@ -3470,18 +3478,18 @@ export default function AdminDashboardPage() {
                             {/* Details */}
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-black text-slate-800 truncate">
+                                <span className="text-xs font-black text-slate-800 dark:text-slate-100 truncate">
                                   {item.type === 'pdf' ? `File ${idx + 1}: ` : `Page ${idx + 1}: `}
                                   {item.name}
                                 </span>
                                 <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded uppercase ${
-                                  item.type === 'pdf' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
+                                  item.type === 'pdf' ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300' : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
                                 }`}>
                                   {item.type}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[10px] text-slate-400 font-mono">
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
                                   {(item.size / (1024 * 1024)).toFixed(2)} MB
                                 </span>
                               </div>
@@ -3493,7 +3501,7 @@ export default function AdminDashboardPage() {
                                 type="button"
                                 disabled={idx === 0}
                                 onClick={() => movePage(idx, 'up')}
-                                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-lpu-600 hover:border-lpu-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-lpu-600 hover:border-lpu-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                                 title="Move up in order"
                               >
                                 <ChevronUp className="w-3.5 h-3.5" />
@@ -3502,7 +3510,7 @@ export default function AdminDashboardPage() {
                                 type="button"
                                 disabled={idx === clubbedImages.length - 1}
                                 onClick={() => movePage(idx, 'down')}
-                                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-lpu-600 hover:border-lpu-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-lpu-600 hover:border-lpu-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                                 title="Move down in order"
                               >
                                 <ChevronDown className="w-3.5 h-3.5" />
@@ -3510,7 +3518,7 @@ export default function AdminDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => removePage(idx)}
-                                className="p-1.5 rounded-lg bg-rose-50 border border-rose-100 text-rose-500 hover:text-rose-700 hover:bg-rose-100 transition-colors ml-1"
+                                className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-100 dark:border-rose-900/60 text-rose-500 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-100 transition-colors ml-1"
                                 title="Remove file"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -3536,9 +3544,9 @@ export default function AdminDashboardPage() {
                           if (e.dataTransfer.files) handleIncomingFiles(e.dataTransfer.files);
                         }}
                         onClick={() => document.getElementById('addMoreImagesInput')?.click()}
-                        className="p-3 border-2 border-dashed border-amber-300 hover:border-amber-500 hover:bg-amber-100/40 rounded-xl text-center cursor-pointer transition-all"
+                        className="p-3 border-2 border-dashed border-amber-300 dark:border-amber-700 hover:border-amber-500 hover:bg-amber-100/40 rounded-xl text-center cursor-pointer transition-all"
                       >
-                        <span className="text-[11px] text-amber-800 font-bold flex items-center justify-center gap-1.5">
+                        <span className="text-[11px] text-amber-800 dark:text-amber-300 font-bold flex items-center justify-center gap-1.5">
                           <Plus className="w-3.5 h-3.5 text-lpu-600" />
                           Drag &amp; drop more PDF files or image pages here or click to add
                         </span>
@@ -3572,10 +3580,10 @@ export default function AdminDashboardPage() {
                       }}
                       className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
                         isDraggingFile
-                          ? 'border-lpu-500 bg-orange-50/80 scale-[1.01] shadow-lg shadow-orange-500/10'
+                          ? 'border-lpu-500 bg-orange-50/80 dark:bg-orange-950/30 scale-[1.01] shadow-lg shadow-orange-500/10'
                           : uploadFile
-                          ? 'border-emerald-400 bg-emerald-50/40 hover:border-emerald-500'
-                          : 'border-slate-300 hover:border-lpu-500 hover:bg-slate-50/60'
+                          ? 'border-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/20 hover:border-emerald-500'
+                          : 'border-slate-300 dark:border-slate-700 hover:border-lpu-500 hover:bg-slate-50/60 dark:hover:bg-slate-800/40'
                       }`}
                     >
                       <input
@@ -3593,42 +3601,42 @@ export default function AdminDashboardPage() {
                         {isDraggingFile ? (
                           <>
                             <Upload className="w-10 h-10 text-lpu-600 animate-bounce mb-2" />
-                            <span className="text-sm font-extrabold text-lpu-700">
+                            <span className="text-sm font-extrabold text-lpu-700 dark:text-orange-400">
                               Drop file(s) here to upload
                             </span>
-                            <span className="text-[11px] text-orange-600 font-semibold mt-1">
+                            <span className="text-[11px] text-orange-600 dark:text-orange-300 font-semibold mt-1">
                               Release to upload PDF, ZIP archives, PPT presentations, or notes
                             </span>
                           </>
                         ) : uploadFile ? (
                           <>
-                            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-2">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2">
                               <CheckCircle2 className="w-6 h-6" />
                             </div>
-                            <span className="text-xs font-bold text-slate-800 break-all max-w-md">
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-100 break-all max-w-md">
                               {uploadFile.name}
                             </span>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[11px] font-mono text-emerald-600 font-bold bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                              <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-100/70 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md">
                                 {(uploadFile.size / (1024 * 1024)).toFixed(2)} MB
                               </span>
-                              <span className="text-[11px] text-slate-400">
+                              <span className="text-[11px] text-slate-400 dark:text-slate-500">
                                 • Click or drag another file to add or replace
                               </span>
                             </div>
                           </>
                         ) : (
                           <>
-                            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mb-2 group-hover:bg-orange-50 group-hover:text-lpu-600 transition-colors">
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center mb-2 group-hover:bg-orange-50 group-hover:text-lpu-600 transition-colors">
                               <Upload className="w-5 h-5 text-slate-400" />
                             </div>
-                            <span className="text-xs font-bold text-slate-700">
-                              <strong className="text-lpu-600 hover:underline">Choose file(s)</strong> or drag &amp; drop here
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              <strong className="text-lpu-600 dark:text-orange-400 hover:underline">Choose file(s)</strong> or drag &amp; drop here
                             </span>
-                            <span className="text-[11px] text-slate-500 font-medium mt-1">
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                               Upload <strong>PDFs</strong>, <strong>ZIP / RAR Archives</strong>, <strong>PowerPoint Slides (.pptx)</strong>, or <strong>Images</strong>
                             </span>
-                            <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-full mt-2 inline-flex items-center gap-1">
+                            <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800 px-2.5 py-1 rounded-full mt-2 inline-flex items-center gap-1">
                               <Layers className="w-3 h-3 text-amber-600" />
                               Supports PDFs, ZIP/RAR bundles, PPT slides, Word docs &amp; multiple images
                             </span>
@@ -3656,23 +3664,23 @@ export default function AdminDashboardPage() {
 
               {/* Upload & Merge Progress Indicator */}
               {(uploading || isMergingImages) && (
-                <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 animate-in fade-in">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <div className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-2 animate-in fade-in">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
                     <span className="flex items-center gap-2">
                       <div className="w-3.5 h-3.5 border-2 border-lpu-600 border-t-transparent rounded-full animate-spin" />
                       {uploadStage || (isMergingImages ? 'Merging pages into 1 PDF...' : 'Uploading to Google Drive...')}
                     </span>
-                    <span className="font-mono text-lpu-600">
+                    <span className="font-mono text-lpu-600 dark:text-orange-400">
                       {isMergingImages ? 'Generating PDF' : `${uploadProgress}%`}
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-lpu-600 to-amber-500 transition-all duration-300 rounded-full"
                       style={{ width: `${Math.max(5, isMergingImages ? 100 : uploadProgress)}%` }}
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
                     {isMergingImages
                       ? 'Combining and formatting multiple note images into a high-quality multi-page PDF...'
                       : 'Streaming directly from browser to Google Drive API. Avoid closing this tab during upload.'}
@@ -3735,22 +3743,22 @@ export default function AdminDashboardPage() {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <Users className="w-5 h-5 text-lpu-600" />
+                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <Users className="w-5 h-5 text-lpu-600 dark:text-orange-400" />
                   Student Activity & Access Control
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Real-time telemetry, Google authentication details, and community access status.
                 </p>
               </div>
 
-              <span className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-xl shadow-xs">
                 {users.length} Total Users Registered
               </span>
             </div>
 
             {/* Filter and Search Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -3758,7 +3766,7 @@ export default function AdminDashboardPage() {
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   placeholder="Search students by name, email, or user ID..."
-                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-lpu-500"
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-lpu-500 dark:focus:border-orange-500"
                 />
               </div>
 
@@ -3766,7 +3774,7 @@ export default function AdminDashboardPage() {
                 <select
                   value={userYearFilter}
                   onChange={(e) => setUserYearFilter(e.target.value as any)}
-                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-lpu-500 text-slate-700"
+                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-lpu-500 dark:focus:border-orange-500 text-slate-700 dark:text-slate-200"
                 >
                   <option value="all">🎓 All Academic Years ({users.length})</option>
                   <option value="1">1st Year ({users.filter(u => u.year === 1).length})</option>
@@ -3779,7 +3787,7 @@ export default function AdminDashboardPage() {
                 <select
                   value={userStatusFilter}
                   onChange={(e) => setUserStatusFilter(e.target.value as any)}
-                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-lpu-500 text-slate-700"
+                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-lpu-500 dark:focus:border-orange-500 text-slate-700 dark:text-slate-200"
                 >
                   <option value="all">All Statuses ({users.length})</option>
                   <option value="verified">Verified ({users.filter(u => u.community_joined).length})</option>
@@ -3789,10 +3797,10 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Users Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-3 px-4">Student</th>
                       <th className="py-3 px-4">Email</th>
@@ -3804,57 +3812,57 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {filteredUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2.5">
+                      <tr key={u.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white flex items-center gap-2.5">
                           <img
                             src={u.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name)}`}
                             alt={u.name}
-                            className="w-8 h-8 rounded-full border border-slate-200 object-cover"
+                            className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 object-cover"
                           />
                           <div>
-                            <div className="font-bold text-slate-900">{u.name}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{u.id}</div>
+                            <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
+                            <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">{u.id}</div>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-slate-700 font-mono text-[11px]">
+                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-mono text-[11px]">
                           {u.email}
                         </td>
                         <td className="py-3 px-4">
                           {u.role === 'owner' ? (
-                            <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                            <span className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/50 px-2 py-0.5 rounded">
                               Owner
                             </span>
                           ) : u.role === 'admin' ? (
-                            <span className="text-[10px] font-black uppercase text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
+                            <span className="text-[10px] font-black uppercase text-blue-800 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/50 px-2 py-0.5 rounded">
                               Admin
                             </span>
                           ) : (
-                            <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
                               Student
                             </span>
                           )}
                         </td>
                         <td className="py-3 px-4">
                           {u.year === 1 ? (
-                            <span className="text-[10px] font-bold text-sky-800 bg-sky-100 px-2 py-0.5 rounded-full border border-sky-200">
+                            <span className="text-[10px] font-bold text-sky-800 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/50 px-2 py-0.5 rounded-full border border-sky-200 dark:border-sky-800">
                               🎓 1st Year
                             </span>
                           ) : u.year === 2 ? (
-                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                            <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                               🎓 2nd Year
                             </span>
                           ) : u.year === 3 ? (
-                            <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-full border border-purple-200">
+                            <span className="text-[10px] font-bold text-purple-800 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/50 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
                               🎓 3rd Year
                             </span>
                           ) : u.year === 4 ? (
-                            <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                            <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
                               🎓 4th Year
                             </span>
                           ) : (
-                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
                               Not Set
                             </span>
                           )}
@@ -3862,34 +3870,34 @@ export default function AdminDashboardPage() {
                         <td className="py-3 px-4">
                           {u.community_joined ? (
                             <div>
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                 Verified ✓
                               </span>
                               {u.verification_link_name && (
-                                <div className="text-[9px] text-slate-400 mt-0.5 max-w-[140px] truncate" title={u.verification_link_name}>
+                                <div className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5 max-w-[140px] truncate" title={u.verification_link_name}>
                                   Via: {u.verification_link_name}
                                 </div>
                               )}
                             </div>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                               Unverified
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 font-medium text-slate-700 text-[11px]">
+                        <td className="py-3 px-4 font-medium text-slate-700 dark:text-slate-300 text-[11px]">
                           {formatRelativeTime(u.last_active_at || u.last_login)}
                         </td>
-                        <td className="py-3 px-4 text-slate-500 text-[11px]">
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-[11px]">
                           {new Date(u.created_at).toLocaleDateString()}
                         </td>
                         <td className="py-3 px-4 text-right">
                           {u.community_joined ? (
                             <button
                               onClick={() => requestRevokeIndividualUser(u)}
-                              className="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200 cursor-pointer"
+                              className="px-2.5 py-1 text-[11px] font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-lg transition-colors border border-rose-200 dark:border-rose-800 cursor-pointer"
                               title="Revoke library access for this student"
                             >
                               Revoke Access
@@ -3897,7 +3905,7 @@ export default function AdminDashboardPage() {
                           ) : (
                             <button
                               onClick={() => requestApproveIndividualUser(u)}
-                              className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer shadow-2xs"
+                              className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-lg transition-colors border border-emerald-200 dark:border-emerald-800 cursor-pointer shadow-2xs"
                               title="Manually verify and grant library access to this student"
                             >
                               Approve Access
@@ -3908,7 +3916,7 @@ export default function AdminDashboardPage() {
                     ))}
                     {filteredUsers.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
+                        <td colSpan={7} className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs">
                           No users found matching query.
                         </td>
                       </tr>
@@ -3927,11 +3935,11 @@ export default function AdminDashboardPage() {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <LinkIcon className="w-5 h-5 text-emerald-600" />
+                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <LinkIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   Approved WhatsApp Invite Links
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Manage the verified invite links students submit during one-time Community Verification.
                 </p>
               </div>
@@ -3948,10 +3956,10 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Links Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-3 px-5">Name & Category</th>
                       <th className="py-3 px-5">WhatsApp Invite URL</th>
@@ -3962,46 +3970,46 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {links.map((link) => (
-                      <tr key={link.id} className="hover:bg-slate-50/70 transition-colors">
+                      <tr key={link.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors">
                         <td className="py-3.5 px-5">
-                          <div className="font-bold text-slate-900">{link.name}</div>
-                          <div className="text-[10px] text-slate-500 capitalize">
+                          <div className="font-bold text-slate-900 dark:text-white">{link.name}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 capitalize">
                             {link.type.replace('_', ' ')}
                           </div>
                         </td>
-                        <td className="py-3.5 px-5 font-mono text-[11px] text-slate-600 max-w-[200px] truncate">
+                        <td className="py-3.5 px-5 font-mono text-[11px] text-slate-600 dark:text-slate-300 max-w-[200px] truncate">
                           <a
                             href={link.invite_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="hover:text-emerald-600 hover:underline flex items-center gap-1"
+                            className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline flex items-center gap-1"
                           >
                             {link.invite_url}
                             <ExternalLink className="w-3 h-3 opacity-60 shrink-0" />
                           </a>
                         </td>
-                        <td className="py-3.5 px-5 font-mono text-[11px] text-slate-700 font-bold">
+                        <td className="py-3.5 px-5 font-mono text-[11px] text-slate-700 dark:text-slate-200 font-bold">
                           {link.invite_code}
                         </td>
                         <td className="py-3.5 px-5">
                           {link.is_active ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               Active
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
                               <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                               Disabled
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-5 font-bold text-slate-900">
+                        <td className="py-3.5 px-5 font-bold text-slate-900 dark:text-white">
                           {link.verified_count || 0} students
                         </td>
-                        <td className="py-3.5 px-5 text-slate-500">
+                        <td className="py-3.5 px-5 text-slate-500 dark:text-slate-400">
                           {new Date(link.created_at).toLocaleDateString()}
                         </td>
                         <td className="py-3.5 px-5 text-right space-x-1.5 whitespace-nowrap">
@@ -4009,8 +4017,8 @@ export default function AdminDashboardPage() {
                             onClick={() => handleToggleLinkActive(link)}
                             className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors ${
                               link.is_active 
-                                ? 'text-amber-700 bg-amber-50 hover:bg-amber-100' 
-                                : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                                ? 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/50' 
+                                : 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
                             }`}
                           >
                             {link.is_active ? 'Disable' : 'Enable'}
@@ -4018,7 +4026,7 @@ export default function AdminDashboardPage() {
 
                           <button
                             onClick={() => requestRevokeUsersForLink(link)}
-                            className="px-2 py-1 rounded-lg text-[10px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors inline-flex items-center gap-1"
+                            className="px-2 py-1 rounded-lg text-[10px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors inline-flex items-center gap-1"
                             title="Revoke access for all students joined via this link"
                           >
                             <UserX className="w-3 h-3" />
@@ -4027,7 +4035,7 @@ export default function AdminDashboardPage() {
 
                           <button
                             onClick={() => requestDeleteLink(link)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 inline-block transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 inline-block transition-colors"
                             title="Delete Link"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -4037,7 +4045,7 @@ export default function AdminDashboardPage() {
                     ))}
                     {links.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
+                        <td colSpan={7} className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs">
                           No verification links configured yet. Click &quot;+ Add Verification Link&quot; above.
                         </td>
                       </tr>
@@ -4054,20 +4062,20 @@ export default function AdminDashboardPage() {
         {/* ============================================================ */}
         {activeTab === 'analytics' && (
           <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <BarChart2 className="w-5 h-5 text-lpu-600" />
+                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <BarChart2 className="w-5 h-5 text-lpu-600 dark:text-orange-400" />
                   Downloads & Curricular Analytics
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Real download volume distribution across academic years and material formats.
                 </p>
               </div>
 
               <button
                 onClick={loadAnalytics}
-                className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 shadow-xs"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Refresh Analytics</span>
@@ -4078,13 +4086,13 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Year Breakdown */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-lpu-600" />
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-lpu-600 dark:text-orange-400" />
                     Downloads by Academic Year
                   </h3>
-                  <span className="text-xs font-bold text-slate-500">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                     Total: {Object.values(analytics?.downloadsByYear || {}).reduce((a, b) => a + b, 0)}
                   </span>
                 </div>
@@ -4097,11 +4105,11 @@ export default function AdminDashboardPage() {
 
                     return (
                       <div key={year} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
                           <span>{formatYearName(year)}</span>
-                          <span className="font-mono text-slate-900">{count} downloads ({pct}%)</span>
+                          <span className="font-mono text-slate-900 dark:text-white">{count} downloads ({pct}%)</span>
                         </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
                           <div 
                             className="bg-gradient-to-r from-lpu-500 to-amber-500 h-2.5 rounded-full transition-all duration-500"
                             style={{ width: `${pct}%` }}
@@ -4114,13 +4122,13 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Material Type Breakdown */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-emerald-600" />
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     Downloads by Material Type
                   </h3>
-                  <span className="text-xs font-bold text-slate-500">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                     Total: {Object.values(analytics?.downloadsByType || {}).reduce((a, b) => a + b, 0)}
                   </span>
                 </div>
@@ -4133,11 +4141,11 @@ export default function AdminDashboardPage() {
 
                     return (
                       <div key={type} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
                           <span>{type}</span>
-                          <span className="font-mono text-slate-900">{count} downloads ({pct}%)</span>
+                          <span className="font-mono text-slate-900 dark:text-white">{count} downloads ({pct}%)</span>
                         </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
                           <div 
                             className="bg-emerald-500 h-2.5 rounded-full transition-all duration-500"
                             style={{ width: `${pct}%` }}
@@ -4152,19 +4160,19 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Recent Downloads Feed */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="p-5 border-b border-slate-100">
-                <h3 className="font-extrabold text-base text-slate-900">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+              <div className="p-5 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
                   Recent Verified File Downloads
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
                   Audit trail of files opened by students
                 </p>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-3 px-4">Material</th>
                       <th className="py-3 px-4">Subject</th>
@@ -4172,27 +4180,27 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Time</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {(analytics?.recentDownloads || []).map((dld) => (
-                      <tr key={dld.id} className="hover:bg-slate-50/70">
-                        <td className="py-3 px-4 font-bold text-slate-900">
+                      <tr key={dld.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+                        <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
                           {dld.material_title}
                         </td>
-                        <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
                           {dld.material_subject}
                         </td>
-                        <td className="py-3 px-4 text-slate-700">
+                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300">
                           <div className="font-semibold">{dld.user_name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">{dld.user_email}</div>
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">{dld.user_email}</div>
                         </td>
-                        <td className="py-3 px-4 text-slate-500 text-[11px]">
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-[11px]">
                           {formatRelativeTime(dld.downloaded_at)}
                         </td>
                       </tr>
                     ))}
                     {(analytics?.recentDownloads || []).length === 0 && (
                       <tr>
-                        <td colSpan={4} className="py-8 text-center text-slate-400 text-xs">
+                        <td colSpan={4} className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs">
                           No recent downloads recorded yet.
                         </td>
                       </tr>
@@ -4210,16 +4218,16 @@ export default function AdminDashboardPage() {
         {/* ============================================================ */}
         {activeTab === 'settings' && (
           <div className="space-y-6 max-w-4xl">
-            <div className="border-b border-slate-200 pb-4">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
               <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-orange-100 text-lpu-600 flex items-center justify-center font-bold">
+                <span className="w-8 h-8 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-lpu-600 dark:text-orange-400 flex items-center justify-center font-bold">
                   <Settings className="w-5 h-5" />
                 </span>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                   Platform Settings
                 </h2>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Configure global system behavior, document reading rules, and student permissions.
               </p>
             </div>
@@ -4228,8 +4236,8 @@ export default function AdminDashboardPage() {
               <div
                 className={`p-4 rounded-xl text-xs font-bold transition-all ${
                   settingsMessage.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                    : 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                 }`}
               >
                 {settingsMessage.text}
@@ -4237,29 +4245,29 @@ export default function AdminDashboardPage() {
             )}
 
             {/* Document Access Mode Setting Card */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-6">
-              <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-6">
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-extrabold text-slate-900">
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
                       Document Access Mode
                     </h3>
                     <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                       allowUserDownloads
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
+                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300'
                     }`}>
                       {allowUserDownloads ? 'Downloads Allowed' : 'Preview Only'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
                     Control whether students can save document files locally or are restricted to reading them exclusively inside the embedded viewer.
                   </p>
                 </div>
 
                 {/* Primary Toggle Switch */}
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-xs font-bold text-slate-600 hidden sm:inline">
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300 hidden sm:inline">
                     {allowUserDownloads ? 'Downloads ON' : 'Preview Only'}
                   </span>
                   <button
@@ -4269,7 +4277,7 @@ export default function AdminDashboardPage() {
                     disabled={updatingSettings || settingsLoading}
                     onClick={() => handleToggleDownloads(!allowUserDownloads)}
                     className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-lpu-500 focus:ring-offset-2 disabled:opacity-50 ${
-                      allowUserDownloads ? 'bg-emerald-600' : 'bg-slate-300'
+                      allowUserDownloads ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
                     }`}
                   >
                     <span
@@ -4289,23 +4297,23 @@ export default function AdminDashboardPage() {
                   onClick={() => !updatingSettings && handleToggleDownloads(true)}
                   className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
                     allowUserDownloads 
-                      ? 'border-emerald-500 bg-emerald-50/40' 
-                      : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30' 
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
-                      <DownloadCloud className={`w-4 h-4 ${allowUserDownloads ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <span className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <DownloadCloud className={`w-4 h-4 ${allowUserDownloads ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`} />
                       Allow Downloads (Open Mode)
                     </span>
                     {allowUserDownloads && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     )}
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Authenticated students can <strong className="text-slate-900">Preview</strong>, open in <strong className="text-slate-900">Fullscreen</strong>, and <strong className="text-slate-900">Download</strong> documents.
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Authenticated students can <strong className="text-slate-900 dark:text-white">Preview</strong>, open in <strong className="text-slate-900 dark:text-white">Fullscreen</strong>, and <strong className="text-slate-900 dark:text-white">Download</strong> documents.
                   </p>
-                  <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
                     Buttons shown: [ Preview ] [ Download ]
                   </div>
                 </div>
@@ -4315,34 +4323,34 @@ export default function AdminDashboardPage() {
                   onClick={() => !updatingSettings && handleToggleDownloads(false)}
                   className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
                     !allowUserDownloads 
-                      ? 'border-amber-500 bg-amber-50/40' 
-                      : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                      ? 'border-amber-500 bg-amber-50/40 dark:bg-amber-950/30' 
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
-                      <Eye className={`w-4 h-4 ${!allowUserDownloads ? 'text-amber-600' : 'text-slate-400'}`} />
+                    <span className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Eye className={`w-4 h-4 ${!allowUserDownloads ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`} />
                       Preview Only (Protected Mode)
                     </span>
                     {!allowUserDownloads && (
-                      <CheckCircle2 className="w-4 h-4 text-amber-600" />
+                      <CheckCircle2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     )}
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Students can <strong className="text-slate-900">Preview</strong>, <strong className="text-slate-900">Zoom</strong>, and <strong className="text-slate-900">Fullscreen</strong> documents. Direct file downloads are blocked by server security.
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Students can <strong className="text-slate-900 dark:text-white">Preview</strong>, <strong className="text-slate-900 dark:text-white">Zoom</strong>, and <strong className="text-slate-900 dark:text-white">Fullscreen</strong> documents. Direct file downloads are blocked by server security.
                   </p>
-                  <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
                     Buttons shown: [ Preview Document ]
                   </div>
                 </div>
               </div>
 
               {/* Administrative Notice */}
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-2.5 text-xs text-slate-600">
-                <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-2.5 text-xs text-slate-600 dark:text-slate-300">
+                <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-slate-900">Administrator Immunity: </strong>
-                  Platform Owners and Admins (<code className="text-slate-800 font-mono">mishra.rajvansh11@gmail.com</code> and authorized staff) can <strong className="text-slate-900">ALWAYS</strong> download documents regardless of this setting.
+                  <strong className="text-slate-900 dark:text-white">Administrator Immunity: </strong>
+                  Platform Owners and Admins (<code className="text-slate-800 dark:text-slate-200 font-mono">mishra.rajvansh11@gmail.com</code> and authorized staff) can <strong className="text-slate-900 dark:text-white">ALWAYS</strong> download documents regardless of this setting.
                 </div>
               </div>
             </div>
@@ -4354,16 +4362,16 @@ export default function AdminDashboardPage() {
         {/* ============================================================ */}
         {activeTab === 'admin-settings' && currentUser?.isOwner && (
           <div className="space-y-6 max-w-4xl">
-            <div className="border-b border-slate-200 pb-4">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
               <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                <span className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center font-bold">
                   <ShieldCheck className="w-5 h-5" />
                 </span>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                   Administrator Role Management
                 </h2>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Restricted Owner Console • Grant or revoke administrative access to the Campus Connect control panel.
               </p>
             </div>
@@ -4372,8 +4380,8 @@ export default function AdminDashboardPage() {
               <div
                 className={`p-4 rounded-xl text-xs font-bold ${
                   adminMgmtMsg.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                    : 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                 }`}
               >
                 {adminMgmtMsg.text}
@@ -4381,12 +4389,12 @@ export default function AdminDashboardPage() {
             )}
 
             {/* Add Admin Form */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-              <h3 className="font-extrabold text-sm text-slate-900 mb-1 flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-amber-600" />
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 Authorize New Administrator
               </h3>
-              <p className="text-xs text-slate-400 mb-4">
+              <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">
                 Enter the Google account email of the person you want to grant administrator access.
               </p>
 
@@ -4396,14 +4404,14 @@ export default function AdminDashboardPage() {
                   value={newAdminEmail}
                   onChange={(e) => setNewAdminEmail(e.target.value)}
                   placeholder="admin.student@lpu.in or gmail..."
-                  className="flex-1 px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                  className="flex-1 px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono"
                   required
                 />
 
                 <select
                   value={newAdminRole}
                   onChange={(e) => setNewAdminRole(e.target.value as any)}
-                  className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-amber-500 text-slate-700"
+                  className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-amber-500 text-slate-700 dark:text-slate-200"
                 >
                   <option value="admin">Administrator (Materials & Users)</option>
                   <option value="owner">Owner (Full Privileges)</option>
@@ -4420,24 +4428,24 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Admins Roster Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                  <h3 className="font-extrabold text-sm text-slate-900">
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                     Active Administrative Roster
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
                     Accounts permitted to access /admin and modify platform content
                   </p>
                 </div>
-                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
                   {admins.length} Admins
                 </span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-3 px-5">Admin Email</th>
                       <th className="py-3 px-5">Role Assigned</th>
@@ -4445,43 +4453,43 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {admins.map((adm) => {
                       const isMainOwner = adm.email.toLowerCase() === 'mishra.rajvansh11@gmail.com';
 
                       return (
-                        <tr key={adm.id} className="hover:bg-slate-50/70">
-                          <td className="py-3.5 px-5 font-mono font-bold text-slate-900">
+                        <tr key={adm.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+                          <td className="py-3.5 px-5 font-mono font-bold text-slate-900 dark:text-white">
                             {adm.email}
                             {isMainOwner && (
-                              <span className="ml-2 text-[10px] text-amber-700 font-sans font-bold bg-amber-100 px-2 py-0.5 rounded">
+                              <span className="ml-2 text-[10px] text-amber-700 dark:text-amber-300 font-sans font-bold bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded">
                                 Primary Owner
                               </span>
                             )}
                           </td>
                           <td className="py-3.5 px-5">
                             {adm.role === 'owner' ? (
-                              <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                              <span className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/50 px-2 py-0.5 rounded">
                                 Owner
                               </span>
                             ) : (
-                              <span className="text-[10px] font-black uppercase text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
+                              <span className="text-[10px] font-black uppercase text-blue-800 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/50 px-2 py-0.5 rounded">
                                 Admin
                               </span>
                             )}
                           </td>
-                          <td className="py-3.5 px-5 text-slate-500">
+                          <td className="py-3.5 px-5 text-slate-500 dark:text-slate-400">
                             {new Date(adm.created_at).toLocaleDateString()}
                           </td>
                           <td className="py-3.5 px-5 text-right">
                             {isMainOwner ? (
-                              <span className="text-[11px] font-bold text-slate-400 italic">
+                              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 italic">
                                 Permanent (Protected)
                               </span>
                             ) : (
                               <button
                                 onClick={() => requestRemoveAdmin(adm)}
-                                className="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200"
+                                className="px-2.5 py-1 text-[11px] font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-lg transition-colors border border-rose-200 dark:border-rose-800"
                               >
                                 Revoke Role
                               </button>
@@ -4504,26 +4512,26 @@ export default function AdminDashboardPage() {
         {activeTab === 'drive-sync' && (
           <div className="space-y-6 max-w-5xl">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center font-bold">
+                  <span className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
                     <HardDrive className="w-5 h-5" />
                   </span>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                  <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                     Google Drive Migration &amp; Automated Sync
                   </h2>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   Recursive folder scanner, metadata matcher, and automated zero-downtime migration engine for Google Drive.
                 </p>
               </div>
 
               <button
                 onClick={loadMigrationStats}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-2xs self-start sm:self-auto"
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl transition-colors shadow-2xs self-start sm:self-auto"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+                <RefreshCw className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                 <span>Refresh Telemetry</span>
               </button>
             </div>
@@ -4533,8 +4541,8 @@ export default function AdminDashboardPage() {
               <div
                 className={`p-4 rounded-xl text-xs font-bold transition-all ${
                   migrationMessage.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                    : 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                 }`}
               >
                 {migrationMessage.text}
@@ -4543,14 +4551,14 @@ export default function AdminDashboardPage() {
 
             {/* Rollback Snapshot Notice */}
             {migrationStats?.hasRollbackSnapshot && (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="text-xs font-black text-amber-900">
+                    <h4 className="text-xs font-black text-amber-900 dark:text-amber-200">
                       Rollback Snapshot Available
                     </h4>
-                    <p className="text-[11px] text-amber-700 mt-0.5">
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
                       A pre-migration restore snapshot was saved on{' '}
                       <strong>
                         {migrationStats.rollbackSnapshotDate
@@ -4566,7 +4574,7 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={handleRollbackMigration}
                   disabled={rollingBack}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-amber-900 bg-white hover:bg-amber-100/60 border border-amber-300 rounded-xl transition-colors shrink-0 shadow-2xs disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-amber-900 dark:text-amber-200 bg-white dark:bg-slate-800 hover:bg-amber-100/60 dark:hover:bg-slate-700 border border-amber-300 dark:border-amber-700 rounded-xl transition-colors shrink-0 shadow-2xs disabled:opacity-60"
                 >
                   <RotateCcw className={`w-3.5 h-3.5 ${rollingBack ? 'animate-spin' : ''}`} />
                   <span>{rollingBack ? 'Restoring Snapshot...' : 'Rollback Migration'}</span>
@@ -4576,65 +4584,65 @@ export default function AdminDashboardPage() {
 
             {/* Telemetry Overview Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
-                <div className="flex items-center justify-between text-slate-500 mb-2">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xs">
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider">Total Materials</span>
-                  <BookOpen className="w-4 h-4 text-slate-400" />
+                  <BookOpen className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                 </div>
-                <div className="text-2xl font-black text-slate-900">
+                <div className="text-2xl font-black text-slate-900 dark:text-white">
                   {migrationStats?.totalMaterials ?? materials.length}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">Total library items in Supabase</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Total library items in Supabase</p>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
-                <div className="flex items-center justify-between text-sky-600 mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Google Drive Files</span>
-                  <HardDrive className="w-4 h-4 text-sky-500" />
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xs">
+                <div className="flex items-center justify-between text-sky-600 dark:text-sky-400 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Google Drive Files</span>
+                  <HardDrive className="w-4 h-4 text-sky-500 dark:text-sky-400" />
                 </div>
-                <div className="text-2xl font-black text-sky-900">
+                <div className="text-2xl font-black text-sky-900 dark:text-sky-300">
                   {migrationStats?.driveMaterials ?? 0}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">Single files mapped to Google Drive</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Single files mapped to Google Drive</p>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
-                <div className="flex items-center justify-between text-indigo-600 mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Multi-File Bundles</span>
-                  <Layers className="w-4 h-4 text-indigo-500" />
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xs">
+                <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Multi-File Bundles</span>
+                  <Layers className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                 </div>
-                <div className="text-2xl font-black text-indigo-900">
+                <div className="text-2xl font-black text-indigo-900 dark:text-indigo-300">
                   {migrationStats?.bundleMaterials ?? 0}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">Bundled documents with multiple parts</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Bundled documents with multiple parts</p>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
-                <div className="flex items-center justify-between text-slate-500 mb-2">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xs">
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider">External Links</span>
-                  <LinkIcon className="w-4 h-4 text-slate-400" />
+                  <LinkIcon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                 </div>
-                <div className="text-2xl font-black text-slate-900">
+                <div className="text-2xl font-black text-slate-900 dark:text-white">
                   {migrationStats?.externalUrlMaterials ?? 0}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">Web URLs unaffected by migration</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Web URLs unaffected by migration</p>
               </div>
             </div>
 
             {/* Migration Scanner & Dry Run Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-5">
-              <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-base font-extrabold text-slate-900">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xs space-y-5">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
                   Automated Folder Scanner &amp; Matcher
                 </h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
                   Enter a Google Drive folder ID to scan recursively. The scanner will crawl subfolders, identify files, and fuzzy/exact match them to existing library materials by filename, subject code, academic year, and bundled document titles.
                 </p>
               </div>
 
               <form onSubmit={handleRunDryRun} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                     Target Google Drive Folder ID (Optional)
                   </label>
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -4643,7 +4651,7 @@ export default function AdminDashboardPage() {
                       value={migrationFolderId}
                       onChange={(e) => setMigrationFolderId(e.target.value)}
                       placeholder="Leave blank to use default configured Drive folder, or paste a new Folder ID"
-                      className="flex-1 px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:border-sky-500"
+                      className="flex-1 px-3.5 py-2.5 text-xs font-mono rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-sky-500"
                     />
                     <button
                       type="submit"
@@ -4654,40 +4662,40 @@ export default function AdminDashboardPage() {
                       <span>{migrationScanning ? 'Scanning Drive...' : 'Run Dry-Run Scan'}</span>
                     </button>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1.5">
-                    Tip: You can extract the Folder ID from any Google Drive link: <code className="text-slate-600 bg-slate-100 px-1 py-0.5 rounded font-mono">drive.google.com/drive/folders/<strong>[FOLDER_ID]</strong></code>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">
+                    Tip: You can extract the Folder ID from any Google Drive link: <code className="text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-mono">drive.google.com/drive/folders/<strong>[FOLDER_ID]</strong></code>
                   </p>
                 </div>
               </form>
 
               {/* Safety Assurances */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900 mb-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white mb-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>Non-Destructive Dry Run</span>
                   </div>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Dry-runs are 100% read-only. Nothing on Google Drive or Supabase is touched until you confirm.
                   </p>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900 mb-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white mb-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>Bundled File Support</span>
                   </div>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Automatically traverses and updates individual parts inside multi-file study bundles.
                   </p>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900 mb-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white mb-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>Automatic Rollback Snapshot</span>
                   </div>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Every applied migration takes an automatic database snapshot for instant one-click reversal.
                   </p>
                 </div>
@@ -4696,14 +4704,14 @@ export default function AdminDashboardPage() {
 
             {/* Dry Run Report & Match Table */}
             {migrationReport && (
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
                   <div>
-                    <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                       Dry-Run Scan Results ({migrationReport.matches.length} Matches Found)
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Scanned {migrationReport.totalDriveFilesScanned} files across Drive folders. Found {migrationReport.matches.length} matches for existing library materials.
                     </p>
                   </div>
@@ -4712,7 +4720,7 @@ export default function AdminDashboardPage() {
                     <button
                       type="button"
                       onClick={() => setMigrationReport(null)}
-                      className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                      className="px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
                     >
                       Clear
                     </button>
@@ -4730,9 +4738,9 @@ export default function AdminDashboardPage() {
 
                 {/* Match Table */}
                 {migrationReport.matches.length > 0 ? (
-                  <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto max-h-96">
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden overflow-x-auto max-h-96">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 sticky top-0">
+                      <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800 sticky top-0">
                         <tr>
                           <th className="py-2.5 px-3">Material Title</th>
                           <th className="py-2.5 px-3">Subject &amp; Year</th>
@@ -4741,32 +4749,32 @@ export default function AdminDashboardPage() {
                           <th className="py-2.5 px-3">Match Confidence</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {migrationReport.matches.map((m: any, idx: number) => (
-                          <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                            <td className="py-2.5 px-3 font-bold text-slate-900 max-w-xs truncate">
+                          <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors">
+                            <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white max-w-xs truncate">
                               {m.materialTitle}
                               {m.isBundlePart && (
-                                <span className="ml-1.5 text-[10px] font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                                <span className="ml-1.5 text-[10px] font-mono text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
                                   Part {m.bundleIndex + 1}
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-slate-600">
-                              <span className="font-mono font-bold text-slate-800">{m.subjectCode}</span>
-                              <span className="text-slate-400 ml-1">({formatYearName(m.year)})</span>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">
+                              <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{m.subjectCode}</span>
+                              <span className="text-slate-400 dark:text-slate-500 ml-1">({formatYearName(m.year)})</span>
                             </td>
-                            <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500 max-w-[150px] truncate" title={m.oldDriveFileId}>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 max-w-[150px] truncate" title={m.oldDriveFileId}>
                               {m.oldDriveFileId || 'None (New Map)'}
                             </td>
-                            <td className="py-2.5 px-3 font-mono text-[11px] text-emerald-700 font-bold max-w-[150px] truncate" title={m.newDriveFileId}>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-emerald-700 dark:text-emerald-400 font-bold max-w-[150px] truncate" title={m.newDriveFileId}>
                               {m.newDriveFileId}
                             </td>
                             <td className="py-2.5 px-3">
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                 m.confidence === 'exact'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-sky-100 text-sky-800'
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
+                                  : 'bg-sky-100 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300'
                               }`}>
                                 {m.confidence.toUpperCase()}
                               </span>
@@ -4777,15 +4785,15 @@ export default function AdminDashboardPage() {
                     </table>
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-xs text-slate-400">
+                  <div className="text-center py-8 text-xs text-slate-400 dark:text-slate-500">
                     No matching files found between the target Google Drive folder and existing Supabase materials.
                   </div>
                 )}
 
                 {/* Unmatched materials notice if any */}
                 {migrationReport.unmatchedMaterials?.length > 0 && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
-                    <span className="font-bold text-slate-800">
+                  <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-600 dark:text-slate-300">
+                    <span className="font-bold text-slate-800 dark:text-white">
                       {migrationReport.unmatchedMaterials.length} materials were not matched:
                     </span>{' '}
                     These items have external URLs or different filenames and will remain completely untouched.
@@ -4856,13 +4864,13 @@ export default function AdminDashboardPage() {
         {/* ============================================================ */}
         {activeTab === 'announcements' && (
           <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                   <Megaphone className="w-6 h-6 text-amber-500" />
                   Campus Broadcast Announcements
                 </h1>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   Publish notices, exam announcements, or system alerts visible to all students on their dashboards.
                 </p>
               </div>
@@ -4870,7 +4878,7 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={loadAnnouncements}
-                className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+                className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Refresh Announcements</span>
@@ -4878,26 +4886,26 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Broadcast Creation Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
                   <Plus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900 text-sm">Create New Broadcast Announcement</h3>
-                  <p className="text-[11px] text-slate-500">Visible immediately to students upon publish</p>
+                  <h3 className="font-black text-slate-900 dark:text-white text-sm">Create New Broadcast Announcement</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Visible immediately to students upon publish</p>
                 </div>
               </div>
 
               {announcementError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>{announcementError}</span>
                 </div>
               )}
 
               {announcementSuccess && (
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span>{announcementSuccess}</span>
                 </div>
@@ -4906,7 +4914,7 @@ export default function AdminDashboardPage() {
               <form onSubmit={handleCreateAnnouncement} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                       Announcement Title *
                     </label>
                     <input
@@ -4915,18 +4923,18 @@ export default function AdminDashboardPage() {
                       value={announcementTitle}
                       onChange={(e) => setAnnouncementTitle(e.target.value)}
                       placeholder="e.g. End-Term PYQs & Solutions Added for CSE 2nd Year"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-medium focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                       Announcement Category
                     </label>
                     <select
                       value={announcementType}
                       onChange={(e) => setAnnouncementType(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-medium focus:outline-none focus:border-lpu-500 bg-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:border-lpu-500"
                     >
                       <option value="announcement">General Announcement</option>
                       <option value="important">🚨 Important Alert</option>
@@ -4937,7 +4945,7 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                     Announcement Message / Description *
                   </label>
                   <textarea
@@ -4946,12 +4954,12 @@ export default function AdminDashboardPage() {
                     value={announcementDesc}
                     onChange={(e) => setAnnouncementDesc(e.target.value)}
                     placeholder="Provide details for students, examination instructions, or newly available subject resources..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-medium focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                     Action Link / URL (Optional)
                   </label>
                   <input
@@ -4959,7 +4967,7 @@ export default function AdminDashboardPage() {
                     value={announcementLink}
                     onChange={(e) => setAnnouncementLink(e.target.value)}
                     placeholder="https://... or /library?subject=CSE101"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-medium focus:outline-none focus:border-lpu-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:border-lpu-500"
                   />
                 </div>
 
@@ -4977,18 +4985,18 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Existing Announcements List */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="font-black text-slate-900 text-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="font-black text-slate-900 dark:text-white text-sm">
                   Active & Historical Announcements ({announcements.length})
                 </h3>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-400 dark:text-slate-500">
                   {announcements.filter(a => a.active !== false).length} currently active
                 </span>
               </div>
 
               {loadingAnnouncements ? (
-                <div className="p-8 text-center text-xs text-slate-500">
+                <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
                   <div className="w-6 h-6 border-2 border-lpu-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                   Loading announcements...
                 </div>
@@ -4999,35 +5007,35 @@ export default function AdminDashboardPage() {
                       key={item.id}
                       className={`p-4 rounded-xl border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                         item.active !== false
-                          ? 'bg-slate-50/70 border-slate-200'
-                          : 'bg-slate-100/50 border-slate-200/60 opacity-60'
+                          ? 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-750'
+                          : 'bg-slate-100/50 dark:bg-slate-800/20 border-slate-200/60 dark:border-slate-800 opacity-60'
                       }`}
                     >
                       <div className="space-y-1 max-w-2xl">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                             item.active !== false
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-slate-200 text-slate-600'
+                              ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                              : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                           }`}>
                             {item.active !== false ? '● Active' : 'Inactive'}
                           </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                             {item.type || 'announcement'}
                           </span>
-                          <span className="text-[11px] text-slate-400">
+                          <span className="text-[11px] text-slate-400 dark:text-slate-500">
                             {new Date(item.created_at).toLocaleDateString()}
                           </span>
                         </div>
-                        <h4 className="font-bold text-slate-900 text-sm">{item.title}</h4>
-                        <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">{item.title}</h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{item.description}</p>
                         {item.link && (
                           <div className="pt-1">
                             <a
                               href={item.link}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-xs text-amber-600 hover:text-amber-700 font-semibold inline-flex items-center gap-1"
+                              className="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-semibold inline-flex items-center gap-1"
                             >
                               Target Link: <span className="underline max-w-xs truncate">{item.link}</span>
                               <ExternalLink className="w-3 h-3" />
@@ -5042,8 +5050,8 @@ export default function AdminDashboardPage() {
                           onClick={() => handleToggleAnnouncementActive(item)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
                             item.active !== false
-                              ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                              ? 'bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700'
+                              : 'bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                           }`}
                         >
                           {item.active !== false ? 'Deactivate' : 'Activate'}
@@ -5051,7 +5059,7 @@ export default function AdminDashboardPage() {
                         <button
                           type="button"
                           onClick={() => handleDeleteAnnouncement(item.id)}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-rose-500 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
                           title="Delete announcement"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -5061,7 +5069,7 @@ export default function AdminDashboardPage() {
                   ))}
                 </div>
               ) : (
-                <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <div className="p-8 text-center text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
                   No announcements published yet. Create one above to broadcast to all student dashboards.
                 </div>
               )}
@@ -5074,13 +5082,13 @@ export default function AdminDashboardPage() {
         {/* ============================================================ */}
         {activeTab === 'feedback' && (
           <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <MessageSquare className="w-6 h-6 text-blue-600" />
+                <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   Student Requests &amp; Feedback
                 </h1>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   Manage student requests for missing subject codes, examination materials, and reported platform bugs.
                 </p>
               </div>
@@ -5088,7 +5096,7 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={loadFeedback}
-                className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+                className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Refresh Requests</span>
@@ -5097,39 +5105,39 @@ export default function AdminDashboardPage() {
 
             {/* Quick Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Submissions</span>
-                <div className="text-2xl font-black text-slate-900 mt-1">{feedbackList.length}</div>
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Submissions</span>
+                <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{feedbackList.length}</div>
               </div>
-              <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 shadow-xs">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">Missing Subject Requests</span>
-                <div className="text-2xl font-black text-amber-900 mt-1">
+              <div className="bg-amber-50/60 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-200 dark:border-amber-800 shadow-xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Missing Subject Requests</span>
+                <div className="text-2xl font-black text-amber-900 dark:text-amber-200 mt-1">
                   {feedbackList.filter(f => f.type === 'missing_subject').length}
                 </div>
               </div>
-              <div className="bg-rose-50/60 p-4 rounded-2xl border border-rose-200 shadow-xs">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800">Bug Reports</span>
-                <div className="text-2xl font-black text-rose-900 mt-1">
+              <div className="bg-rose-50/60 dark:bg-rose-950/30 p-4 rounded-2xl border border-rose-200 dark:border-rose-800 shadow-xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300">Bug Reports</span>
+                <div className="text-2xl font-black text-rose-900 dark:text-rose-200 mt-1">
                   {feedbackList.filter(f => f.type === 'bug_report').length}
                 </div>
               </div>
-              <div className="bg-blue-50/60 p-4 rounded-2xl border border-blue-200 shadow-xs">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800">Pending Action</span>
-                <div className="text-2xl font-black text-blue-900 mt-1">
+              <div className="bg-blue-50/60 dark:bg-blue-950/30 p-4 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300">Pending Action</span>
+                <div className="text-2xl font-black text-blue-900 dark:text-blue-200 mt-1">
                   {feedbackList.filter(f => f.status === 'pending').length}
                 </div>
               </div>
             </div>
 
             {/* Filter and Table Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-5">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-xs space-y-5">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Type:</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type:</span>
                   <select
                     value={feedbackTypeFilter}
                     onChange={(e) => setFeedbackTypeFilter(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 focus:outline-none"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
                   >
                     <option value="all">All Types</option>
                     <option value="community_verification">📱 WhatsApp Verification Requests</option>
@@ -5137,11 +5145,11 @@ export default function AdminDashboardPage() {
                     <option value="bug_report">Bug Reports</option>
                   </select>
 
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-2">Status:</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-2">Status:</span>
                   <select
                     value={feedbackStatusFilter}
                     onChange={(e) => setFeedbackStatusFilter(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 focus:outline-none"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
                   >
                     <option value="all">All Statuses</option>
                     <option value="pending">Pending</option>
@@ -5150,7 +5158,7 @@ export default function AdminDashboardPage() {
                   </select>
                 </div>
 
-                <span className="text-xs text-slate-500 font-medium">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   Showing {
                     feedbackList.filter(f => 
                       (feedbackTypeFilter === 'all' || f.type === feedbackTypeFilter) &&
@@ -5161,7 +5169,7 @@ export default function AdminDashboardPage() {
               </div>
 
               {loadingFeedback ? (
-                <div className="p-12 text-center text-xs text-slate-500">
+                <div className="p-12 text-center text-xs text-slate-500 dark:text-slate-400">
                   <div className="w-6 h-6 border-2 border-lpu-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                   Loading student requests...
                 </div>
@@ -5174,7 +5182,7 @@ export default function AdminDashboardPage() {
 
                   if (filtered.length === 0) {
                     return (
-                      <div className="p-12 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      <div className="p-12 text-center text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
                         No feedback or requests matching the selected filters.
                       </div>
                     );
@@ -5185,16 +5193,16 @@ export default function AdminDashboardPage() {
                       {filtered.map((item) => (
                         <div
                           key={item.id}
-                          className="p-5 rounded-2xl border border-slate-200 bg-white shadow-2xs space-y-3"
+                          className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3"
                         >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                             <div className="flex items-center gap-2.5 flex-wrap">
                               <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                                 item.type === 'community_verification'
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
                                   : item.type === 'missing_subject'
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                  : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                  : 'bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                               }`}>
                                 {item.type === 'community_verification'
                                   ? '📱 WhatsApp Verification'
@@ -5204,19 +5212,19 @@ export default function AdminDashboardPage() {
                               </span>
 
                               {item.subject_code && (
-                                <span className="px-2.5 py-0.5 rounded-md font-mono text-xs font-black bg-slate-900 text-white">
+                                <span className="px-2.5 py-0.5 rounded-md font-mono text-xs font-black bg-slate-900 dark:bg-slate-800 text-white border border-transparent dark:border-slate-700">
                                   {item.subject_code}
                                 </span>
                               )}
 
                               {item.material_type && (
-                                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                                   {item.material_type}
                                 </span>
                               )}
 
                               {item.year && (
-                                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                                   {formatYearName(item.year)}
                                 </span>
                               )}
@@ -5240,12 +5248,12 @@ export default function AdminDashboardPage() {
                                 onChange={(e) => handleUpdateFeedbackStatus(item.id, e.target.value, item.admin_note || undefined)}
                                 className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none cursor-pointer ${
                                   item.status === 'resolved'
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                                     : item.status === 'unavailable'
-                                    ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                    ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800'
                                     : item.status === 'in_progress'
-                                    ? 'bg-sky-50 text-sky-800 border-sky-300'
-                                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                                    ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-800'
+                                    : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
                                 }`}
                               >
                                 <option value="pending">Pending</option>
@@ -5257,7 +5265,7 @@ export default function AdminDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteFeedback(item.id)}
-                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                className="p-1 rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
                                 title="Delete submission"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -5266,22 +5274,22 @@ export default function AdminDashboardPage() {
                           </div>
 
                           <div>
-                            <h4 className="font-bold text-slate-900 text-sm">{item.title}</h4>
-                            <p className="text-xs text-slate-600 mt-1 whitespace-pre-wrap leading-relaxed">
+                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">{item.title}</h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap leading-relaxed">
                               {item.description}
                             </p>
                           </div>
 
                           {/* WhatsApp Number badge & wa.me link */}
                           {item.whatsapp_number && (
-                            <div className="flex items-center gap-2 p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl">
-                              <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                              <span className="text-xs font-bold text-slate-800">Student WhatsApp:</span>
+                            <div className="flex items-center gap-2 p-2.5 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                              <MessageCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Student WhatsApp:</span>
                               <a
                                 href={`https://wa.me/${item.whatsapp_number.replace(/[^0-9]/g, '')}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="font-mono text-xs font-bold text-emerald-700 hover:text-emerald-900 underline flex items-center gap-1"
+                                className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-300 underline flex items-center gap-1"
                                 title="Open WhatsApp chat with student"
                               >
                                 {item.whatsapp_number}
@@ -5291,8 +5299,8 @@ export default function AdminDashboardPage() {
                           )}
 
                           {/* Admin Response Note Box */}
-                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                               Response Note to Student (Shown on Student Dashboard)
                             </label>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -5310,7 +5318,7 @@ export default function AdminDashboardPage() {
                                     handleUpdateFeedbackStatus(item.id, item.status, (e.target as HTMLInputElement).value);
                                   }
                                 }}
-                                className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:border-lpu-500"
+                                className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-lpu-500"
                               />
                               <button
                                 type="button"
@@ -5318,23 +5326,23 @@ export default function AdminDashboardPage() {
                                   const el = document.getElementById(`note_input_${item.id}`) as HTMLInputElement;
                                   handleUpdateFeedbackStatus(item.id, item.status, el?.value || '');
                                 }}
-                                className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shrink-0 cursor-pointer shadow-2xs"
+                                className="px-3.5 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-2xs border border-transparent dark:border-slate-700"
                               >
                                 Save Note
                               </button>
                             </div>
                             {item.admin_note && (
-                              <p className="text-[11px] text-emerald-700 font-medium">
+                              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
                                 Active note to student: &ldquo;{item.admin_note}&rdquo;
                               </p>
                             )}
                           </div>
 
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-2">
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 flex-wrap gap-2">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-700">{item.user_name || 'Anonymous Student'}</span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">{item.user_name || 'Anonymous Student'}</span>
                               {item.user_email && (
-                                <span className="font-mono text-slate-500">({item.user_email})</span>
+                                <span className="font-mono text-slate-500 dark:text-slate-400">({item.user_email})</span>
                               )}
                             </div>
                             <span>Submitted: {new Date(item.created_at).toLocaleString()}</span>
@@ -5358,29 +5366,29 @@ export default function AdminDashboardPage() {
       {/* 1. Add WhatsApp Link Modal */}
       {showAddLinkModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
-                <LinkIcon className="w-5 h-5 text-emerald-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-black text-slate-900 dark:text-white text-lg flex items-center gap-2">
+                <LinkIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 Add Approved WhatsApp Invite Link
               </h3>
               <button
                 onClick={() => setShowAddLinkModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold"
               >
                 ✕
               </button>
             </div>
 
             {linkError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-semibold">
                 {linkError}
               </div>
             )}
 
             <form onSubmit={handleCreateLink} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Link Name / Label *
                 </label>
                 <input
@@ -5388,13 +5396,13 @@ export default function AdminDashboardPage() {
                   value={newLinkName}
                   onChange={(e) => setNewLinkName(e.target.value)}
                   placeholder="e.g. Official Campus Connect Main Community"
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   WhatsApp Invite URL *
                 </label>
                 <input
@@ -5402,23 +5410,23 @@ export default function AdminDashboardPage() {
                   value={newLinkUrl}
                   onChange={(e) => setNewLinkUrl(e.target.value)}
                   placeholder="https://chat.whatsapp.com/..."
-                  className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   required
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
                   The alphanumeric invite code will be automatically extracted and validated.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Group Type
                   </label>
                   <select
                     value={newLinkType}
                     onChange={(e) => setNewLinkType(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   >
                     <option value="community">Main Community</option>
                     <option value="freshers_group">Freshers Group</option>
@@ -5427,13 +5435,13 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Status
                   </label>
                   <select
                     value={newLinkIsActive ? 'active' : 'disabled'}
                     onChange={(e) => setNewLinkIsActive(e.target.value === 'active')}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   >
                     <option value="active">Active (Students Can Use)</option>
                     <option value="disabled">Disabled</option>
@@ -5441,11 +5449,11 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowAddLinkModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
                 >
                   Cancel
                 </button>
@@ -5465,15 +5473,15 @@ export default function AdminDashboardPage() {
       {/* 2. Edit Material Modal with File Replacement */}
       {editingMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
-                <Edit3 className="w-5 h-5 text-blue-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-black text-slate-900 dark:text-white text-lg flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Edit Study Material
               </h3>
               <button
                 onClick={() => setEditingMaterial(null)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold"
               >
                 ✕
               </button>
@@ -5481,34 +5489,34 @@ export default function AdminDashboardPage() {
             
             <form onSubmit={handleUpdateMaterial} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Title *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Title *</label>
                 <input
                   type="text"
                   value={editingMaterial.title}
                   onChange={(e) => setEditingMaterial({ ...editingMaterial, title: e.target.value })}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-lpu-500"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Subject Name *</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Subject Name *</label>
                   <input
                     type="text"
                     value={editingMaterial.subject}
                     onChange={(e) => setEditingMaterial({ ...editingMaterial, subject: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-lpu-500"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Subject Code *</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Subject Code *</label>
                   <input
                     type="text"
                     value={editingMaterial.subject_code}
                     onChange={(e) => setEditingMaterial({ ...editingMaterial, subject_code: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 text-xs font-mono uppercase rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
+                    className="w-full px-3 py-2 text-xs font-mono uppercase rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-lpu-500"
                     required
                   />
                 </div>
@@ -5516,11 +5524,11 @@ export default function AdminDashboardPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Academic Year</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Academic Year</label>
                   <select
                     value={editingMaterial.year}
                     onChange={(e) => setEditingMaterial({ ...editingMaterial, year: parseInt(e.target.value, 10) })}
-                    className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
+                    className="w-full px-3 py-2 text-xs font-bold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-lpu-500"
                   >
                     <option value={1}>1st Year</option>
                     <option value={2}>2nd Year</option>
@@ -5530,11 +5538,11 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Material Type</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Material Type</label>
                   <select
                     value={editingMaterial.material_type}
                     onChange={(e) => setEditingMaterial({ ...editingMaterial, material_type: e.target.value as any })}
-                    className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
+                    className="w-full px-3 py-2 text-xs font-bold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-lpu-500"
                   >
                     <option value="Notes">Notes</option>
                     <option value="Mid-Term">Mid-Term</option>
@@ -5546,12 +5554,12 @@ export default function AdminDashboardPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Description</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Description</label>
                 <textarea
                   value={editingMaterial.description || ''}
                   onChange={(e) => setEditingMaterial({ ...editingMaterial, description: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-lpu-500"
                 />
               </div>
 
@@ -5567,30 +5575,30 @@ export default function AdminDashboardPage() {
                   }
 
                   return (
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                    <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-black text-slate-800">
-                          <FolderOpen className="w-4 h-4 text-indigo-600" />
+                        <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 dark:text-white">
+                          <FolderOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                           <span>Bundled Multi-File Document ({multiParts.length} Files)</span>
                         </div>
-                        <span className="text-[10px] font-mono text-slate-500 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
+                        <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 font-bold bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                           {editingMaterial.file_size}
                         </span>
                       </div>
                       <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                         {multiParts.map((part, pIdx) => (
-                          <div key={pIdx} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs">
+                          <div key={pIdx} className="flex items-center justify-between bg-white dark:bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
                             <div className="flex items-center gap-2 truncate">
                               <FileText className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              <span className="font-bold text-slate-800 truncate">{part.title || part.name || `Part ${pIdx + 1}`}</span>
-                              {part.size && <span className="text-[10px] text-slate-400 font-mono">({part.size})</span>}
+                              <span className="font-bold text-slate-800 dark:text-white truncate">{part.title || part.name || `Part ${pIdx + 1}`}</span>
+                              {part.size && <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">({part.size})</span>}
                             </div>
                             {part.url && (
                               <a
                                 href={part.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-slate-400 hover:text-lpu-600 p-1"
+                                className="text-slate-400 hover:text-lpu-600 dark:hover:text-orange-400 p-1"
                                 title="Open file in new tab"
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -5599,7 +5607,7 @@ export default function AdminDashboardPage() {
                           </div>
                         ))}
                       </div>
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
                         This study card contains {multiParts.length} files bundled together. You can update titles, academic year, and subject details above, or upload a new file below to replace it.
                       </p>
                     </div>
@@ -5607,7 +5615,7 @@ export default function AdminDashboardPage() {
                 })()
               ) : (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Resource URL / Link
                   </label>
                   <div className="flex items-center gap-2">
@@ -5616,21 +5624,21 @@ export default function AdminDashboardPage() {
                       value={editingMaterial.file_url}
                       onChange={(e) => setEditingMaterial({ ...editingMaterial, file_url: e.target.value })}
                       placeholder="https://drive.google.com/file/d/... or any link"
-                      className="flex-1 px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:border-lpu-500"
+                      className="flex-1 px-3 py-2 text-xs font-mono rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-lpu-500"
                     />
                     {editingMaterial.file_url?.startsWith('http') && (
                       <a
                         href={editingMaterial.file_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-lpu-600 hover:bg-slate-50 transition-colors"
+                        className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-lpu-600 dark:hover:text-orange-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                         title="Open link in new tab"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     )}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
                     You can update the direct link here, or drag/select a new file below to upload and replace it.
                   </p>
                 </div>
@@ -5638,7 +5646,7 @@ export default function AdminDashboardPage() {
 
               {/* Replace Document File with Drag & Drop */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Replace File Document (Optional)
                 </label>
                 <div 
@@ -5667,10 +5675,10 @@ export default function AdminDashboardPage() {
                   }}
                   className={`border border-dashed rounded-xl p-3.5 text-center transition-all ${
                     isDraggingEditFile
-                      ? 'border-lpu-500 bg-orange-50'
+                      ? 'border-lpu-500 bg-orange-50 dark:bg-orange-950/30'
                       : editFile
-                      ? 'border-emerald-400 bg-emerald-50/50'
-                      : 'border-slate-300 bg-slate-50 hover:border-lpu-500'
+                      ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30'
+                      : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 hover:border-lpu-500 dark:hover:border-orange-500'
                   }`}
                 >
                   <input
@@ -5680,30 +5688,30 @@ export default function AdminDashboardPage() {
                     onChange={(e) => setEditFile(e.target.files ? e.target.files[0] : null)}
                     className="hidden"
                   />
-                  <label htmlFor="replaceFileInput" className="cursor-pointer block text-xs font-bold text-slate-700">
+                  <label htmlFor="replaceFileInput" className="cursor-pointer block text-xs font-bold text-slate-700 dark:text-slate-300">
                     {isDraggingEditFile ? (
-                      <span className="text-lpu-600 font-bold">Drop replacement file here</span>
+                      <span className="text-lpu-600 dark:text-orange-400 font-bold">Drop replacement file here</span>
                     ) : editFile ? (
-                      <span className="text-emerald-700">{editFile.name} (Ready to replace)</span>
+                      <span className="text-emerald-700 dark:text-emerald-400">{editFile.name} (Ready to replace)</span>
                     ) : (
-                      <span className="text-slate-500">Click or drag &amp; drop to replace file (Current: {editingMaterial.file_size})</span>
+                      <span className="text-slate-500 dark:text-slate-400">Click or drag &amp; drop to replace file (Current: {editingMaterial.file_size})</span>
                     )}
                   </label>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setEditingMaterial(null)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={updatingMaterial}
-                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl disabled:opacity-60"
+                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-xl disabled:opacity-60 border border-transparent dark:border-slate-700"
                 >
                   {updatingMaterial ? 'Saving...' : 'Save & Update'}
                 </button>
@@ -5716,27 +5724,27 @@ export default function AdminDashboardPage() {
       {/* 3. Reusable Confirmation Modal */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center gap-3 text-rose-600">
-              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-rose-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+              <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
               </div>
               <div>
-                <h3 className="font-black text-slate-900 text-base">{confirmModal.title}</h3>
-                <span className="text-[11px] text-slate-400">Confirmation Required</span>
+                <h3 className="font-black text-slate-900 dark:text-white text-base">{confirmModal.title}</h3>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">Confirmation Required</span>
               </div>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               {confirmModal.message}
             </p>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 disabled={confirmModalSubmitting}
                 onClick={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
-                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>

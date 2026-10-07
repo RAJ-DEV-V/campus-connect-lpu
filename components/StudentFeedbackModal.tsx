@@ -103,6 +103,7 @@ export default function StudentFeedbackModal({
         body: JSON.stringify({
           type: 'bug_report',
           title: `[${bugCategory}] ${bugTitle.trim()}`,
+          category: bugCategory,
           description: bugDescription.trim(),
         }),
       });
@@ -134,7 +135,7 @@ export default function StudentFeedbackModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -163,20 +164,20 @@ export default function StudentFeedbackModal({
         {/* Success View */}
         {submitted ? (
           <div className="p-8 text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-8 h-8" />
             </div>
-            <h4 className="text-xl font-black text-slate-900">
+            <h4 className="text-xl font-black text-slate-900 dark:text-white">
               {activeTab === 'material_request' ? 'Request Submitted!' : 'Bug Report Sent!'}
             </h4>
-            <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
               {activeTab === 'material_request'
                 ? "Thanks! The team has received your subject request and will prioritize uploading verified materials for your batch."
                 : "Thank you for helping us improve CampusConnect! The admins have been notified of your report."}
             </p>
             <button
               onClick={handleResetAndClose}
-              className="mt-4 px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors"
+              className="mt-4 px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold shadow-xs transition-colors"
             >
               Back to Campus
             </button>
@@ -184,14 +185,14 @@ export default function StudentFeedbackModal({
         ) : (
           <div>
             {/* Tabs */}
-            <div className="flex border-b border-slate-200 bg-slate-50/80 p-1.5 gap-1.5">
+            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/80 p-1.5 gap-1.5">
               <button
                 type="button"
                 onClick={() => { setActiveTab('material_request'); setErrorMsg(''); }}
                 className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                   activeTab === 'material_request'
-                    ? 'bg-white text-orange-600 shadow-xs border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-xs border border-slate-200/60 dark:border-slate-700'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5" />
@@ -202,8 +203,8 @@ export default function StudentFeedbackModal({
                 onClick={() => { setActiveTab('bug_report'); setErrorMsg(''); }}
                 className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                   activeTab === 'bug_report'
-                    ? 'bg-white text-rose-600 shadow-xs border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs border border-slate-200/60 dark:border-slate-700'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Bug className="w-3.5 h-3.5" />
@@ -212,7 +213,7 @@ export default function StudentFeedbackModal({
             </div>
 
             {errorMsg && (
-              <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
                 <span>{errorMsg}</span>
               </div>
@@ -222,7 +223,7 @@ export default function StudentFeedbackModal({
             {activeTab === 'material_request' && (
               <form onSubmit={handleSubmitMaterialRequest} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Academic Year *
                   </label>
                   <div className="grid grid-cols-4 gap-2">
@@ -233,8 +234,8 @@ export default function StudentFeedbackModal({
                         onClick={() => setReqYear(y)}
                         className={`py-2 rounded-xl text-xs font-bold border transition-all ${
                           reqYear === y
-                            ? 'bg-orange-50 border-orange-500 text-orange-700 shadow-2xs'
-                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? 'bg-orange-50 dark:bg-orange-950/60 border-orange-500 text-orange-700 dark:text-orange-300 shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
                       >
                         {formatYearName(y)}
@@ -245,7 +246,7 @@ export default function StudentFeedbackModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Subject Code *
                     </label>
                     <input
@@ -254,17 +255,17 @@ export default function StudentFeedbackModal({
                       value={reqSubjectCode}
                       onChange={(e) => setReqSubjectCode(e.target.value.toUpperCase())}
                       placeholder="e.g. CSE205, INT213"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold uppercase text-slate-900 focus:outline-none focus:border-orange-500"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold uppercase text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-orange-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Material Needed *
                     </label>
                     <select
                       value={reqMaterialType}
                       onChange={(e) => setReqMaterialType(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:border-orange-500"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-orange-500"
                     >
                       <option value="Notes">Lecture Notes</option>
                       <option value="Mid-Term">Mid-Term Papers</option>
@@ -276,7 +277,7 @@ export default function StudentFeedbackModal({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Subject Name (Optional)
                   </label>
                   <input
@@ -284,12 +285,12 @@ export default function StudentFeedbackModal({
                     value={reqSubjectName}
                     onChange={(e) => setReqSubjectName(e.target.value)}
                     placeholder="e.g. Data Structures and Algorithms"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-orange-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Notes / Syllabus Details (Optional)
                   </label>
                   <textarea
@@ -297,7 +298,7 @@ export default function StudentFeedbackModal({
                     value={reqNote}
                     onChange={(e) => setReqNote(e.target.value)}
                     placeholder="Any specific units or topics needed? e.g. Unit 3 and Unit 4 mid-term questions..."
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-orange-500 resize-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-orange-500 resize-none"
                   />
                 </div>
 
@@ -305,7 +306,7 @@ export default function StudentFeedbackModal({
                   <button
                     type="button"
                     onClick={handleResetAndClose}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     Cancel
                   </button>
@@ -325,7 +326,7 @@ export default function StudentFeedbackModal({
             {activeTab === 'bug_report' && (
               <form onSubmit={handleSubmitBugReport} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Where did you encounter the issue? *
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -336,8 +337,8 @@ export default function StudentFeedbackModal({
                         onClick={() => setBugCategory(cat)}
                         className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
                           bugCategory === cat
-                            ? 'bg-rose-50 border-rose-500 text-rose-700 shadow-2xs'
-                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-700 dark:text-rose-300 shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
                       >
                         {cat}
@@ -347,7 +348,7 @@ export default function StudentFeedbackModal({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Bug Summary *
                   </label>
                   <input
@@ -356,12 +357,12 @@ export default function StudentFeedbackModal({
                     value={bugTitle}
                     onChange={(e) => setBugTitle(e.target.value)}
                     placeholder="e.g. Document preview button doesn't open on iOS Safari..."
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-rose-500"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-rose-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Description & Steps to Reproduce *
                   </label>
                   <textarea
@@ -370,7 +371,7 @@ export default function StudentFeedbackModal({
                     value={bugDescription}
                     onChange={(e) => setBugDescription(e.target.value)}
                     placeholder="Describe what happened, what device or browser you were using, and any error message you saw..."
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-rose-500 resize-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-rose-500 resize-none"
                   />
                 </div>
 
@@ -378,7 +379,7 @@ export default function StudentFeedbackModal({
                   <button
                     type="button"
                     onClick={handleResetAndClose}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     Cancel
                   </button>

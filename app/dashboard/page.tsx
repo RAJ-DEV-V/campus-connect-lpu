@@ -373,7 +373,7 @@ export default function DashboardPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center justify-center min-h-[60vh]">
         <div className="w-10 h-10 border-4 border-lpu-600 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm font-semibold text-slate-600">Personalizing your Campus Connect workspace...</p>
+        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Personalizing your Campus Connect workspace...</p>
       </div>
     );
   }
@@ -396,8 +396,8 @@ export default function DashboardPage() {
                 key={`pop_${req.id}`}
                 className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300 ${
                   isResolved
-                    ? 'bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/5 border-emerald-500/30 text-slate-900'
-                    : 'bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-rose-500/5 border-rose-500/30 text-slate-900'
+                    ? 'bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/5 border-emerald-500/30 text-slate-900 dark:text-white'
+                    : 'bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-rose-500/5 border-rose-500/30 text-slate-900 dark:text-white'
                 }`}
               >
                 <div className="flex items-start gap-3.5">
@@ -414,8 +414,8 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${
                         isResolved
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : 'bg-rose-100 text-rose-800 border-rose-300'
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                          : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800'
                       }`}>
                         {isResolved ? '🎉 Query Resolved & Available in Library' : '⚠️ Request Update: Cannot Be Arranged'}
                       </span>
@@ -429,7 +429,7 @@ export default function DashboardPage() {
                       </span>
                     </div>
 
-                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
                       {isResolved ? 'Study material is now available:' : 'Update regarding:'} {req.title}
                     </h3>
 
@@ -437,16 +437,16 @@ export default function DashboardPage() {
                     {req.admin_note ? (
                       <div className={`mt-2 p-3 rounded-xl border text-xs leading-relaxed ${
                         isResolved
-                          ? 'bg-white/80 border-emerald-200 text-emerald-950 font-medium'
-                          : 'bg-white/80 border-rose-200 text-rose-950 font-medium'
+                          ? 'bg-white/80 dark:bg-slate-900/80 border-emerald-200 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200 font-medium'
+                          : 'bg-white/80 dark:bg-slate-900/80 border-rose-200 dark:border-rose-800 text-rose-950 dark:text-rose-200 font-medium'
                       }`}>
-                        <span className="font-bold uppercase tracking-wider text-[10px] block text-slate-500 mb-0.5">
+                        <span className="font-bold uppercase tracking-wider text-[10px] block text-slate-500 dark:text-slate-400 mb-0.5">
                           Admin Response / Reason:
                         </span>
                         &ldquo;{req.admin_note}&rdquo;
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-600 mt-1">
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
                         {isResolved
                           ? 'Your requested study material has been uploaded to the Study Library.'
                           : 'This material could not be arranged at this time.'}
@@ -493,7 +493,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={announcement.id}
-                  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 p-4 sm:p-5 text-slate-900 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 p-4 sm:p-5 text-slate-900 dark:text-white shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
                   <div className="flex items-start gap-3.5">
                     <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -509,10 +509,10 @@ export default function DashboardPage() {
                           {formatTimeAgo(announcement.created_at)}
                         </span>
                       </div>
-                      <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
                         {announcement.title}
                       </h3>
-                      <p className="text-xs sm:text-sm text-slate-600 mt-0.5 leading-relaxed">
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
                         {announcement.description}
                       </p>
                     </div>
@@ -664,16 +664,16 @@ export default function DashboardPage() {
 
                   {/* Notification Dropdown Panel */}
                   {showNotificationsDropdown && (
-                    <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 space-y-3 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-1.5">
                           <BellRing className="w-4 h-4 text-amber-500" />
-                          <h4 className="font-extrabold text-xs text-slate-900">Notifications & Updates</h4>
+                          <h4 className="font-extrabold text-xs text-slate-900 dark:text-white">Notifications & Updates</h4>
                         </div>
                         <button
                           type="button"
                           onClick={() => setShowNotificationsDropdown(false)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -688,27 +688,27 @@ export default function DashboardPage() {
                               key={`drop_${req.id}`}
                               className={`p-2.5 rounded-xl border text-xs space-y-1 ${
                                 req.status === 'resolved'
-                                  ? 'bg-emerald-50/60 border-emerald-200'
+                                  ? 'bg-emerald-50/60 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800'
                                   : req.status === 'unavailable'
-                                  ? 'bg-rose-50/60 border-rose-200'
-                                  : 'bg-slate-50 border-slate-200'
+                                  ? 'bg-rose-50/60 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800'
+                                  : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
                               }`}
                             >
                               <div className="flex items-center justify-between gap-1">
                                 <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
                                   req.status === 'resolved'
-                                    ? 'bg-emerald-100 text-emerald-800'
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300'
                                     : req.status === 'unavailable'
-                                    ? 'bg-rose-100 text-rose-800'
-                                    : 'bg-amber-100 text-amber-800'
+                                    ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300'
+                                    : 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300'
                                 }`}>
                                   {req.status === 'resolved' ? 'Available' : req.status === 'unavailable' ? 'Unavailable' : 'Pending'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">{formatTimeAgo(req.created_at)}</span>
                               </div>
-                              <p className="font-bold text-slate-800 truncate">{req.title}</p>
+                              <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{req.title}</p>
                               {req.admin_note && (
-                                <p className="text-[11px] text-slate-600 italic leading-snug">
+                                <p className="text-[11px] text-slate-600 dark:text-slate-400 italic leading-snug">
                                   Note: &ldquo;{req.admin_note}&rdquo;
                                 </p>
                               )}
@@ -757,24 +757,24 @@ export default function DashboardPage() {
       {/* ======================================================== */}
       {/* 1.5 📋 MY REQUESTS & MATERIAL AVAILABILITY WINDOW        */}
       {/* ======================================================== */}
-      <section className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5">
+      <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shadow-xs">
-              <MessageSquare className="w-5 h-5 text-blue-600" />
+            <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center shadow-xs">
+              <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                   My Requests &amp; Query Status
                 </h2>
                 {myRequests.length > 0 && (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                     {myRequests.length} submitted
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Track status of requested subjects, missing notes, and check if materials are available or cannot be arranged
               </p>
             </div>
@@ -797,14 +797,14 @@ export default function DashboardPage() {
 
         {/* Filter Pills */}
         {myRequests.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2 flex-wrap border-b border-slate-100 dark:border-slate-800 pb-3">
             <button
               type="button"
               onClick={() => setRequestFilter('all')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 requestFilter === 'all'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-slate-900 dark:bg-orange-600 text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
               All Requests ({myRequests.length})
@@ -815,7 +815,7 @@ export default function DashboardPage() {
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 requestFilter === 'resolved'
                   ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60'
+                  : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/60 dark:border-emerald-800/80'
               }`}
             >
               <span>✅ Available in Library</span>
@@ -827,7 +827,7 @@ export default function DashboardPage() {
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 requestFilter === 'pending'
                   ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60'
+                  : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/60 dark:border-amber-800/80'
               }`}
             >
               <span>⏳ In Progress / Review</span>
@@ -839,7 +839,7 @@ export default function DashboardPage() {
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 requestFilter === 'unavailable'
                   ? 'bg-rose-600 text-white shadow-xs'
-                  : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200/60'
+                  : 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200/60 dark:border-rose-800/80'
               }`}
             >
               <span>⚠️ Cannot Be Arranged</span>
@@ -850,13 +850,13 @@ export default function DashboardPage() {
 
         {/* Requests List */}
         {myRequests.length === 0 ? (
-          <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-300 p-8 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-white shadow-2xs text-blue-600 flex items-center justify-center mx-auto">
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 shadow-2xs text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="font-bold text-slate-800 text-sm">No Material Requests Yet</h4>
-              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
+              <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm">No Material Requests Yet</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
                 Looking for a subject code, syllabus notes, or past questions not currently in the library? Submit a request and our admin team will notify you here once it is uploaded or if there are any updates.
               </p>
             </div>
@@ -883,7 +883,7 @@ export default function DashboardPage() {
 
             if (filteredRequests.length === 0) {
               return (
-                <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <div className="p-8 text-center text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
                   No requests matching this filter tab.
                 </div>
               );
@@ -901,10 +901,10 @@ export default function DashboardPage() {
                       key={req.id}
                       className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-3 ${
                         isResolved
-                          ? 'bg-emerald-50/40 border-emerald-200 hover:border-emerald-300'
+                          ? 'bg-emerald-50/40 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 hover:border-emerald-300'
                           : isUnavailable
-                          ? 'bg-rose-50/40 border-rose-200 hover:border-rose-300'
-                          : 'bg-slate-50/70 border-slate-200 hover:border-slate-300'
+                          ? 'bg-rose-50/40 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 hover:border-rose-300'
+                          : 'bg-slate-50/70 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
                       }`}
                     >
                       <div className="space-y-2">
@@ -913,12 +913,12 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${
                               isResolved
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
                                 : isUnavailable
-                                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700'
                                 : isInProgress
-                                ? 'bg-sky-100 text-sky-800 border-sky-300'
-                                : 'bg-amber-100 text-amber-800 border-amber-300'
+                                ? 'bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-700'
+                                : 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
                             }`}>
                               {isResolved
                                 ? '● Available in Library'
@@ -936,7 +936,7 @@ export default function DashboardPage() {
                             )}
 
                             {req.user_year && (
-                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
                                 {formatYearName(req.user_year)}
                               </span>
                             )}
@@ -949,11 +949,11 @@ export default function DashboardPage() {
 
                         {/* Title & Description */}
                         <div>
-                          <h4 className="font-extrabold text-sm text-slate-900 leading-snug">
+                          <h4 className="font-extrabold text-sm text-slate-900 dark:text-white leading-snug">
                             {req.title}
                           </h4>
                           {req.description && (
-                            <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+                            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-2 leading-relaxed">
                               {req.description}
                             </p>
                           )}
@@ -963,10 +963,10 @@ export default function DashboardPage() {
                         {req.admin_note && (
                           <div className={`p-3 rounded-xl border text-xs leading-relaxed space-y-1 ${
                             isResolved
-                              ? 'bg-white border-emerald-200 text-emerald-950'
+                              ? 'bg-white dark:bg-slate-900 border-emerald-200 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200'
                               : isUnavailable
-                              ? 'bg-white border-rose-200 text-rose-950'
-                              : 'bg-white border-sky-200 text-sky-950'
+                              ? 'bg-white dark:bg-slate-900 border-rose-200 dark:border-rose-800 text-rose-950 dark:text-rose-200'
+                              : 'bg-white dark:bg-slate-900 border-sky-200 dark:border-sky-800 text-sky-950 dark:text-sky-200'
                           }`}>
                             <div className="flex items-center gap-1.5 font-bold text-[11px] uppercase tracking-wider">
                               {isResolved ? (
@@ -986,7 +986,7 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Footer Actions */}
-                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
+                      <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs">
                         <span className="text-[11px] text-slate-400">
                           {req.type === 'missing_subject' ? 'Missing Subject Request' : 'Bug Report'}
                         </span>
@@ -994,7 +994,7 @@ export default function DashboardPage() {
                         {isResolved && (
                           <Link
                             href={`/library?search=${encodeURIComponent(req.subject_code || req.title)}&year=${req.user_year || studentYear}`}
-                            className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline"
                           >
                             <span>Open in Library</span>
                             <ArrowRight className="w-3.5 h-3.5" />
@@ -1013,22 +1013,25 @@ export default function DashboardPage() {
       {/* ======================================================== */}
       {/* 2. 🔥 CONTINUE STUDYING (Priority #2: Most Important)    */}
       {/* ======================================================== */}
-      <section className="bg-white/80 rounded-3xl p-6 sm:p-7 border border-orange-200/80 shadow-xs">
+      {/* ======================================================== */}
+      {/* 2. 🔥 CONTINUE STUDYING (Priority #2: Most Important)    */}
+      {/* ======================================================== */}
+      <section className="bg-white/80 dark:bg-slate-900/80 rounded-3xl p-6 sm:p-7 border border-orange-200/80 dark:border-orange-900/40 shadow-xs">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center shadow-xs">
               <Flame className="w-5 h-5 fill-orange-500 text-orange-500" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                 <span>🔥 Continue Studying</span>
                 {historyList.length > 0 && (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/80 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
                     {historyList.length} recent
                   </span>
                 )}
               </h2>
-              <p className="text-xs text-slate-500">Pick up right where you left off — 1-click continuation without searching</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Pick up right where you left off — 1-click continuation without searching</p>
             </div>
           </div>
         </div>
@@ -1038,19 +1041,19 @@ export default function DashboardPage() {
             {historyList.map((item) => (
               <div
                 key={item.id}
-                className="bg-white rounded-2xl border-2 border-slate-200/90 hover:border-orange-400 p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
+                className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200/90 dark:border-slate-800 hover:border-orange-400 dark:hover:border-orange-500 p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
               >
                 <div>
                   <div className="flex items-start gap-2.5 mb-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 mt-0.5 border border-orange-200/60">
-                      <FileText className="w-4 h-4 text-orange-600" />
+                    <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 mt-0.5 border border-orange-200/60 dark:border-orange-800/60">
+                      <FileText className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-sm text-slate-900 leading-snug group-hover:text-orange-600 transition-colors line-clamp-2">
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-snug group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors line-clamp-2">
                         {item.material.title}
                       </h3>
-                      <p className="text-xs font-semibold text-slate-500 mt-0.5 flex items-center gap-1.5">
-                        <span className="font-mono text-slate-700">{item.material.subject_code}</span>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
+                        <span className="font-mono text-slate-700 dark:text-slate-300">{item.material.subject_code}</span>
                         <span>•</span>
                         <span>{item.material.material_type}</span>
                       </p>
@@ -1058,14 +1061,14 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400 font-medium">
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
                     Opened {formatTimeAgo(item.opened_at)}
                   </span>
                   <button
                     type="button"
                     onClick={() => handleOpenMaterial(item.material)}
-                    className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-orange-600 text-white font-bold text-xs transition-colors shadow-xs active:scale-95"
+                    className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-orange-600 dark:bg-slate-800 dark:hover:bg-orange-600 text-white font-bold text-xs transition-colors shadow-xs active:scale-95"
                   >
                     Continue →
                   </button>
@@ -1074,10 +1077,10 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="bg-orange-50/30 rounded-2xl border border-dashed border-orange-200 p-8 text-center">
+          <div className="bg-orange-50/30 dark:bg-orange-950/20 rounded-2xl border border-dashed border-orange-200 dark:border-orange-900/60 p-8 text-center">
             <BookOpen className="w-8 h-8 text-orange-400 mx-auto mb-2 opacity-70" />
-            <p className="text-xs font-bold text-slate-700">Nothing here yet.</p>
-            <p className="text-[11px] text-slate-500 mt-0.5 max-w-sm mx-auto">
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Nothing here yet.</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 max-w-sm mx-auto">
               Open a study material from the Study Library and it will appear here for instant 1-click continuation.
             </p>
             <Link
@@ -1096,24 +1099,24 @@ export default function DashboardPage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shadow-xs">
-              <Sparkles className="w-5 h-5 text-amber-600" />
+            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shadow-xs">
+              <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                 <span>🎯 Recommended For You</span>
-                <span className="text-xs font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300">
+                <span className="text-xs font-extrabold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                   {formatYearName(studentYear)} ONLY
                 </span>
               </h2>
-              <p className="text-xs text-slate-500">
-                Materials specifically curated for <span className="font-bold text-slate-700">{formatYearName(studentYear)}</span> — no other years mixed in
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Materials specifically curated for <span className="font-bold text-slate-700 dark:text-slate-300">{formatYearName(studentYear)}</span> — no other years mixed in
               </p>
             </div>
           </div>
           <Link
             href={`/library?year=${studentYear}`}
-            className="text-xs font-bold text-lpu-600 hover:text-lpu-700 flex items-center gap-1"
+            className="text-xs font-bold text-lpu-600 dark:text-orange-400 hover:text-lpu-700 dark:hover:text-orange-300 flex items-center gap-1"
           >
             Explore All {formatYearName(studentYear)} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
@@ -1126,8 +1129,8 @@ export default function DashboardPage() {
               onClick={() => setSelectedDashboardSubject('All')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                 selectedDashboardSubject === 'All'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  ? 'bg-slate-900 dark:bg-orange-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               All Subjects ({recommendedMaterials.length})
@@ -1138,8 +1141,8 @@ export default function DashboardPage() {
                 onClick={() => setSelectedDashboardSubject(sub.code)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition-all shrink-0 ${
                   selectedDashboardSubject === sub.code
-                    ? 'bg-lpu-600 text-white shadow-xs'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:border-lpu-300 hover:bg-slate-50'
+                    ? 'bg-lpu-600 dark:bg-orange-600 text-white shadow-xs'
+                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-lpu-300 dark:hover:border-orange-500/50 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
                 title={sub.name}
               >
@@ -1164,8 +1167,8 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
-            <p className="text-xs font-semibold text-slate-500">
+          <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               No recommended materials found for {formatYearName(studentYear)} {selectedDashboardSubject !== 'All' ? `in ${selectedDashboardSubject}` : ''} yet.
             </p>
           </div>
@@ -1176,20 +1179,20 @@ export default function DashboardPage() {
       {/* 4. 🆕 WHAT'S NEW (Announcements & Updates)                */}
       {/* ======================================================== */}
       {whatsNewList.length > 0 && (
-        <section className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs">
+        <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-xs">
-                <Bell className="w-4 h-4 text-purple-700" />
+              <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 flex items-center justify-center shadow-xs">
+                <Bell className="w-4 h-4 text-purple-700 dark:text-purple-400" />
               </div>
               <div>
-                <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                   <span>🆕 What&apos;s New</span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                     {whatsNewList.length} updates
                   </span>
                 </h2>
-                <p className="text-xs text-slate-500">Official Campus Connect announcements and curriculum updates</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Official Campus Connect announcements and curriculum updates</p>
               </div>
             </div>
           </div>
@@ -1201,7 +1204,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={item.id}
-                  className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 hover:border-purple-200 transition-all flex flex-col justify-between"
+                  className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-purple-200 dark:hover:border-purple-800/60 transition-all flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-2">
@@ -1209,24 +1212,24 @@ export default function DashboardPage() {
                         <BadgeIcon className="w-3 h-3" />
                         {badgeInfo.label}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-medium">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                         {formatTimeAgo(item.created_at)}
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-sm text-slate-900 leading-snug">
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-snug">
                       {item.title}
                     </h3>
-                    <p className="text-xs text-slate-600 mt-1.5 leading-relaxed line-clamp-3">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed line-clamp-3">
                       {item.description}
                     </p>
                   </div>
 
                   {item.link_target && (
-                    <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-end">
+                    <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-end">
                       <Link
                         href={item.link_target}
-                        className="text-xs font-bold text-lpu-600 hover:text-lpu-700 inline-flex items-center gap-1 group"
+                        className="text-xs font-bold text-lpu-600 dark:text-orange-400 hover:text-lpu-700 dark:hover:text-orange-300 inline-flex items-center gap-1 group"
                       >
                         View Details <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                       </Link>
@@ -1245,26 +1248,26 @@ export default function DashboardPage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
                   🆕 Recently Added
                 </h2>
                 {totalNewCount > 0 && (
-                  <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                     {totalNewCount} new in {formatYearName(studentYear)}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500">Fresh notes and examination uploads</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Fresh notes and examination uploads</p>
             </div>
           </div>
           <Link
             href={`/library?year=${studentYear}&sortBy=newest`}
-            className="text-xs font-bold text-lpu-600 hover:text-lpu-700 flex items-center gap-1"
+            className="text-xs font-bold text-lpu-600 dark:text-orange-400 hover:text-lpu-700 dark:hover:text-orange-300 flex items-center gap-1"
           >
             View All ({totalNewCount}) <ArrowRight className="w-3.5 h-3.5" />
           </Link>
@@ -1285,8 +1288,8 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
-            <p className="text-xs font-semibold text-slate-500">No recent uploads for this academic year yet.</p>
+          <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No recent uploads for this academic year yet.</p>
           </div>
         )}
       </section>
@@ -1297,14 +1300,14 @@ export default function DashboardPage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-              <Bookmark className="w-4 h-4 fill-blue-600 text-blue-600" />
+            <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 flex items-center justify-center">
+              <Bookmark className="w-4 h-4 fill-blue-600 text-blue-600 dark:fill-blue-400 dark:text-blue-400" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
                 📌 Saved Materials
               </h2>
-              <p className="text-xs text-slate-500">Your bookmarked study materials for quick revision</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Your bookmarked study materials for quick revision</p>
             </div>
           </div>
         </div>
@@ -1324,10 +1327,10 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center">
-            <Bookmark className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-60" />
-            <p className="text-xs font-semibold text-slate-600">No saved materials yet.</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 p-8 text-center">
+            <Bookmark className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto mb-2 opacity-60" />
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">No saved materials yet.</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
               Click the bookmark icon on any material card to save it for easy access anytime.
             </p>
           </div>
@@ -1337,36 +1340,36 @@ export default function DashboardPage() {
       {/* ======================================================== */}
       {/* 7. 📊 FACTUAL ACTIVITY SUMMARY                           */}
       {/* ======================================================== */}
-      <section className="bg-slate-50 rounded-3xl p-6 sm:p-7 border border-slate-200/90">
+      <section className="bg-slate-50 dark:bg-slate-900/60 rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-slate-800">
         <div className="flex items-center gap-2.5 mb-5">
-          <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center">
             <BarChart3 className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-base font-black text-slate-900 tracking-tight">
+            <h2 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
               Activity Summary
             </h2>
-            <p className="text-xs text-slate-500">Your factual Campus Connect usage records</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Your factual Campus Connect usage records</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
-            <span className="text-xs font-semibold text-slate-500">Materials Opened</span>
-            <div className="text-2xl font-black text-slate-900 mt-1">{historyList.length}</div>
-            <p className="text-[11px] text-slate-400 mt-0.5">Distinct documents viewed</p>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Materials Opened</span>
+            <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{historyList.length}</div>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Distinct documents viewed</p>
           </div>
 
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
-            <span className="text-xs font-semibold text-slate-500">Saved Bookmarks</span>
-            <div className="text-2xl font-black text-slate-900 mt-1">{savedMaterialsList.length}</div>
-            <p className="text-[11px] text-slate-400 mt-0.5">Materials pinned to your library</p>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Saved Bookmarks</span>
+            <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{savedMaterialsList.length}</div>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Materials pinned to your library</p>
           </div>
 
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
-            <span className="text-xs font-semibold text-slate-500">Available in Your Year</span>
-            <div className="text-2xl font-black text-slate-900 mt-1">{totalNewCount}</div>
-            <p className="text-[11px] text-slate-400 mt-0.5">Resources for {formatYearName(studentYear)}</p>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Available in Your Year</span>
+            <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totalNewCount}</div>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Resources for {formatYearName(studentYear)}</p>
           </div>
         </div>
       </section>
@@ -1374,15 +1377,15 @@ export default function DashboardPage() {
       {/* ======================================================== */}
       {/* 8. 📚 STUDY LIBRARY SHORTCUT                             */}
       {/* ======================================================== */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-5">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-5">
         <div>
-          <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">
+          <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">
             Explore Full Campus Library
           </span>
-          <h3 className="text-xl font-black text-slate-900 tracking-tight mt-1">
+          <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
             Looking for something else?
           </h3>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
             Browse the complete Study Library across all academic years, subjects, mid-term sets, and PYQ blueprints.
           </p>
         </div>
@@ -1399,21 +1402,21 @@ export default function DashboardPage() {
       {/* ======================================================== */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 border border-slate-200 shadow-2xl relative">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl relative">
             <div className="text-center mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 mx-auto flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 mx-auto flex items-center justify-center mb-3">
                 <GraduationCap className="w-6 h-6" />
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 Let&apos;s personalize your Campus Connect experience 🎓
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1.5">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5">
                 Tell us your academic year so we can deliver tailored study materials, recommendations, and past question papers.
               </p>
             </div>
 
             {profileError && (
-              <div className="p-3 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+              <div className="p-3 mb-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{profileError}</span>
               </div>
@@ -1421,7 +1424,7 @@ export default function DashboardPage() {
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                   Your Full Name
                 </label>
                 <input
@@ -1430,18 +1433,18 @@ export default function DashboardPage() {
                   value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20 font-medium"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20 font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                   Academic Year
                 </label>
                 <select
                   value={profileYear}
                   onChange={(e) => setProfileYear(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20 font-medium bg-white"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lpu-500 focus:ring-2 focus:ring-lpu-500/20 font-medium"
                 >
                   <option value={1}>1st Year (Freshmen)</option>
                   <option value={2}>2nd Year (Core)</option>
@@ -1456,7 +1459,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={() => setShowProfileModal(false)}
-                    className="w-1/3 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-colors"
+                    className="w-1/3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                   >
                     Cancel
                   </button>
