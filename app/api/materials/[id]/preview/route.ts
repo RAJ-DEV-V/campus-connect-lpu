@@ -86,16 +86,28 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       if (isStream) {
         try {
           const directUrl = getDriveDirectDownloadUrl(driveId);
-          const driveRes = await fetch(directUrl);
+          let driveRes = await fetch(directUrl);
+          if (!driveRes.ok || driveRes.headers.get('content-type')?.includes('text/html')) {
+            driveRes = await fetch(getDriveDownloadUrl(driveId));
+          }
           if (driveRes.ok) {
             const contentType = driveRes.headers.get('content-type') || '';
-            // Only return if it's the actual binary stream (not Google's HTML virus confirmation page for >25MB files)
-            if (!contentType.includes('text/html')) {
+            // If Google returns confirm page for >25MB files, extract confirm token
+            if (contentType.includes('text/html')) {
+              const html = await driveRes.text();
+              const confirmMatch = html.match(/confirm=([a-zA-Z0-9_-]+)/);
+              if (confirmMatch) {
+                const confirmUrl = `https://drive.google.com/uc?export=download&id=${driveId}&confirm=${confirmMatch[1]}`;
+                driveRes = await fetch(confirmUrl);
+              }
+            }
+            if (driveRes.ok && !driveRes.headers.get('content-type')?.includes('text/html')) {
+              const finalContentType = driveRes.headers.get('content-type') || 'application/pdf';
               const arrayBuffer = await driveRes.arrayBuffer();
               return new NextResponse(arrayBuffer, {
                 status: 200,
                 headers: {
-                  'Content-Type': contentType.includes('pdf') ? 'application/pdf' : contentType,
+                  'Content-Type': finalContentType.includes('pdf') ? 'application/pdf' : finalContentType,
                   'Content-Length': arrayBuffer.byteLength.toString(),
                   'Cache-Control': 'private, max-age=3600',
                 },
