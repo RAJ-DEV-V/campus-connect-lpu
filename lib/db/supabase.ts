@@ -49,6 +49,8 @@ export class SupabaseDatabaseStore {
   private whatsNewCacheTime: number = 0;
   private rolesCache: Record<string, 'owner' | 'admin' | 'user'> = {};
   private rolesCacheTime: number = 0;
+  private usersCache: User[] | null = null;
+  private usersCacheTime: number = 0;
 
   async getAllAcademicYearsMap(): Promise<Record<string, number>> {
     const now = Date.now();
@@ -300,17 +302,11 @@ export class SupabaseDatabaseStore {
 
   async updateCommunityJoined(userId: string, joined: boolean, linkId?: string | null): Promise<User | null> {
     const now = new Date().toISOString();
+    // Only update columns that actually exist in Supabase 'users' table
     const updatePayload: any = {
       community_joined: joined,
       last_active_at: now,
     };
-    if (joined) {
-      updatePayload.community_verified_at = now;
-      if (linkId) updatePayload.community_verification_link_id = linkId;
-    } else {
-      updatePayload.community_verified_at = null;
-      updatePayload.community_verification_link_id = null;
-    }
 
     try {
       // 1. Try updating by id
@@ -324,7 +320,12 @@ export class SupabaseDatabaseStore {
       if (!error && data) {
         this.localFallback.updateCommunityJoined(userId, joined, linkId);
         this.adminStatsCache = null;
-        return data as User;
+        this.usersCache = null;
+        return {
+          ...data,
+          community_verified_at: joined ? now : null,
+          community_verification_link_id: linkId || null,
+        } as User;
       }
 
       // 2. Try updating by email if userId didn't match UUID
@@ -338,37 +339,12 @@ export class SupabaseDatabaseStore {
       if (!emailRes.error && emailRes.data) {
         this.localFallback.updateCommunityJoined(emailRes.data.id, joined, linkId);
         this.adminStatsCache = null;
-        return emailRes.data as User;
-      }
-
-      // 3. Fallback without linkId in case linkId had a foreign-key constraint error
-      if (linkId) {
-        delete updatePayload.community_verification_link_id;
-        const retryRes = await this.client
-          .from('users')
-          .update(updatePayload)
-          .eq('id', userId)
-          .select('*')
-          .single();
-
-        if (!retryRes.error && retryRes.data) {
-          this.localFallback.updateCommunityJoined(userId, joined, null);
-          this.adminStatsCache = null;
-          return retryRes.data as User;
-        }
-
-        const retryEmailRes = await this.client
-          .from('users')
-          .update(updatePayload)
-          .ilike('email', userId)
-          .select('*')
-          .single();
-
-        if (!retryEmailRes.error && retryEmailRes.data) {
-          this.localFallback.updateCommunityJoined(retryEmailRes.data.id, joined, null);
-          this.adminStatsCache = null;
-          return retryEmailRes.data as User;
-        }
+        this.usersCache = null;
+        return {
+          ...emailRes.data,
+          community_verified_at: joined ? now : null,
+          community_verification_link_id: linkId || null,
+        } as User;
       }
     } catch (e) {
       console.error('Supabase updateCommunityJoined error:', e);
@@ -589,7 +565,12 @@ export class SupabaseDatabaseStore {
     return this.localFallback.revokeUsersVerifiedViaLink(linkId);
   }
 
-  async getAllUsers(): Promise<User[]> {
+  async getAllUsers(forceFresh: boolean = false): Promise<User[]> {
+    const now = Date.now();
+    if (!forceFresh && this.usersCache && (now - this.usersCacheTime < 30000)) {
+      return this.usersCache;
+    }
+
     try {
       const { data, error } = await this.client
         .from('users')
@@ -602,7 +583,7 @@ export class SupabaseDatabaseStore {
 
       const yearsMap = await this.getAllAcademicYearsMap();
 
-      return (data as any[]).map((u) => {
+      const userList = (data as any[]).map((u) => {
         const local = this.localFallback.getUserById(u.id) || (u.email ? this.localFallback.getUserByEmail(u.email) : null);
         const term = u.email ? u.email.toLowerCase() : '';
         const savedYear = yearsMap[u.id] ?? (term ? yearsMap[term] : undefined);
@@ -614,6 +595,10 @@ export class SupabaseDatabaseStore {
           profile_completed: Boolean(u.name && resolvedYear),
         } as User;
       });
+
+      this.usersCache = userList;
+      this.usersCacheTime = now;
+      return userList;
     } catch {
       return this.localFallback.getAllUsers();
     }
@@ -746,14 +731,14 @@ export class SupabaseDatabaseStore {
         .from('users')
         .update({
           community_joined: false,
-          community_verified_at: null,
-          community_verification_link_id: null,
           last_active_at: now,
         })
         .eq('id', userId)
         .select('id');
 
       if (!error && data && data.length > 0) {
+        this.adminStatsCache = null;
+        this.usersCache = null;
         return true;
       }
 
@@ -762,14 +747,14 @@ export class SupabaseDatabaseStore {
         .from('users')
         .update({
           community_joined: false,
-          community_verified_at: null,
-          community_verification_link_id: null,
           last_active_at: now,
         })
         .eq('email', userId)
         .select('id');
 
       if (!emailRes.error && emailRes.data && emailRes.data.length > 0) {
+        this.adminStatsCache = null;
+        this.usersCache = null;
         return true;
       }
     } catch (e) {
@@ -1120,7 +1105,7 @@ export class SupabaseDatabaseStore {
         this.client.from('users').select('*', { count: 'exact', head: true }).gte('last_active_at', thirtyDaysAgo),
         this.client.from('materials').select('year, material_type, download_count', { count: 'exact' }),
         this.client.from('downloads').select('*', { count: 'exact', head: true }),
-        this.client.from('users').select('id, email, year'),
+        this.client.from('users').select('id, email'),
       ]);
 
       const totalUsers = totalUsersRes.count;
@@ -1162,7 +1147,7 @@ export class SupabaseDatabaseStore {
         const local = this.localFallback.getUserById(u.id) || (u.email ? this.localFallback.getUserByEmail(u.email) : null);
         const term = u.email ? u.email.toLowerCase() : '';
         const savedYear = yearsMap[u.id] ?? (term ? yearsMap[term] : undefined);
-        const y = Number(u.year ?? savedYear ?? local?.year);
+        const y = Number(savedYear ?? local?.year ?? (u as any).year);
         if ([1, 2, 3, 4].includes(y)) {
           studentYearBreakdown[y] = (studentYearBreakdown[y] || 0) + 1;
         }

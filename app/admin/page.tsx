@@ -497,9 +497,9 @@ export default function AdminDashboardPage() {
     });
   };
 
-  const loadStats = async () => {
+  const loadStats = async (fresh = false) => {
     try {
-      const res = await fetch('/api/admin/stats');
+      const res = await fetch(`/api/admin/stats${fresh ? '?fresh=true' : ''}`);
       if (res.ok) {
         const d = await res.json();
         setStats(d.stats);
@@ -509,9 +509,9 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const loadUsers = async () => {
+  const loadUsers = async (fresh = false) => {
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await fetch(`/api/admin/users${fresh ? '?fresh=true' : ''}`);
       if (res.ok) {
         const d = await res.json();
         setUsers(d.users || []);
@@ -719,7 +719,7 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        await Promise.all([loadFeedback(), loadUsers(), loadStats()]);
+        await Promise.all([loadFeedback(), loadUsers(true), loadStats(true)]);
         alert(`Access approved! Student "${userName || 'Student'}" is now verified and has full library access. Record cleared.`);
       } else {
         await loadFeedback();
@@ -1676,7 +1676,7 @@ export default function AdminDashboardPage() {
                   : user
               )
             );
-            await Promise.all([loadUsers(), loadStats()]);
+            await Promise.all([loadUsers(true), loadStats(true)]);
           } else {
             alert(data.error || 'Failed to approve user verification');
           }
@@ -1719,7 +1719,7 @@ export default function AdminDashboardPage() {
                   : user
               )
             );
-            await Promise.all([loadUsers(), loadStats()]);
+            await Promise.all([loadUsers(true), loadStats(true)]);
           } else {
             alert(data.error || 'Failed to revoke user verification');
           }

@@ -105,8 +105,8 @@ export async function revokeUsersVerifiedViaLink(linkId: string): Promise<number
   return localDb.revokeUsersVerifiedViaLink(linkId);
 }
 
-export async function getAllUsers(): Promise<User[]> {
-  if (supabaseDb) return await supabaseDb.getAllUsers();
+export async function getAllUsers(forceFresh: boolean = false): Promise<User[]> {
+  if (supabaseDb) return await supabaseDb.getAllUsers(forceFresh);
   return localDb.getAllUsers();
 }
 

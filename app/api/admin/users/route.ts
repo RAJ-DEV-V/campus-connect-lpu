@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
 import { getAllUsers, getCommunityVerificationLinks, revokeUserCommunityAccess } from '@/lib/db';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await getCurrentSession();
     if (!session || !session.isAdmin) {
       return NextResponse.json({ error: 'Unauthorized: Admin privileges required.' }, { status: 403 });
     }
 
-    const users = await getAllUsers();
+    const { searchParams } = new URL(req.url);
+    const forceFresh = searchParams.get('fresh') === 'true';
+
+    const users = await getAllUsers(forceFresh);
 
     const links = await getCommunityVerificationLinks();
     const linkMap = new Map<string, string>();
