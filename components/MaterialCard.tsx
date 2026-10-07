@@ -153,20 +153,20 @@ export default function MaterialCard({
   const FormatIcon = fileFormat.icon;
 
   return (
-    <div className="group bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200/90 dark:border-slate-800 hover:border-lpu-300/90 dark:hover:border-orange-500/50 p-5 shadow-xs hover:shadow-lg dark:hover:shadow-slate-950/60 hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between">
-      <div>
+    <div className="group bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200/90 dark:border-slate-800 hover:border-lpu-300/90 dark:hover:border-orange-500/50 p-5 shadow-xs hover:shadow-lg dark:hover:shadow-slate-950/60 hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between overflow-hidden min-w-0">
+      <div className="min-w-0">
         {/* Top Badges: Material Type + File Format + Year Badge + Subject Code + Bookmark */}
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.8 rounded-full border shadow-2xs ${badge.classes}`}>
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.8 rounded-full border shadow-2xs shrink-0 ${badge.classes}`}>
               <BadgeIcon className="w-3.5 h-3.5" />
               {material.material_type}
             </span>
-            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.8 rounded-md border shadow-2xs ${fileFormat.badgeClass}`}>
+            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.8 rounded-md border shadow-2xs shrink-0 ${fileFormat.badgeClass}`}>
               <FormatIcon className="w-3.5 h-3.5" />
               {fileFormat.label}
             </span>
-            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.8 rounded-md shadow-2xs">
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.8 rounded-md shadow-2xs shrink-0">
               {formatYearName(material.year)}
             </span>
             {material.file_url?.startsWith('[') && (() => {
@@ -174,7 +174,7 @@ export default function MaterialCard({
                 const arr = JSON.parse(material.file_url);
                 if (Array.isArray(arr) && arr.length > 1) {
                   return (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200/90 dark:border-amber-800/80 px-2 py-0.8 rounded-md">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200/90 dark:border-amber-800/80 px-2 py-0.8 rounded-md shrink-0">
                       <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                       {arr.length} PDFs
                     </span>
@@ -185,8 +185,11 @@ export default function MaterialCard({
             })()}
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-mono font-bold text-slate-800 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/50 border border-orange-200/70 dark:border-orange-900/60 px-2 py-0.5 rounded">
+          <div className="flex items-center gap-1.5 shrink-0 max-w-[45%]">
+            <span 
+              className="text-[11px] font-mono font-bold text-slate-800 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/50 border border-orange-200/70 dark:border-orange-900/60 px-2 py-0.5 rounded truncate max-w-[140px]"
+              title={material.subject_code}
+            >
               {material.subject_code}
             </span>
             {onToggleSave && (
@@ -196,7 +199,7 @@ export default function MaterialCard({
                   e.stopPropagation();
                   onToggleSave(material);
                 }}
-                className={`p-1 rounded-lg transition-colors ${
+                className={`p-1 rounded-lg transition-colors shrink-0 ${
                   isSaved
                     ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/50'
                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -211,18 +214,24 @@ export default function MaterialCard({
         </div>
 
         {/* Title */}
-        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base leading-snug group-hover:text-lpu-600 dark:group-hover:text-orange-400 transition-colors line-clamp-2">
+        <h3 
+          className="font-bold text-slate-900 dark:text-slate-100 text-base leading-snug group-hover:text-lpu-600 dark:group-hover:text-orange-400 transition-colors line-clamp-2 break-words"
+          title={material.title}
+        >
           {material.title}
         </h3>
 
         {/* Subject */}
-        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1">
+        <p 
+          className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1 line-clamp-1 break-words"
+          title={material.subject}
+        >
           {material.subject}
         </p>
 
         {/* Description */}
         {material.description && (
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2 leading-relaxed">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2 leading-relaxed break-words">
             {material.description}
           </p>
         )}

@@ -1097,26 +1097,28 @@ export default function DashboardPage() {
       {/* 3. 🎯 YEAR-SPECIFIC RECOMMENDATIONS (Priority #3)         */}
       {/* ======================================================== */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shadow-xs shrink-0 mt-0.5 sm:mt-0">
               <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                <span>🎯 Recommended For You</span>
-                <span className="text-xs font-extrabold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                  🎯 Recommended For You
+                </h2>
+                <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shrink-0">
                   {formatYearName(studentYear)} ONLY
                 </span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Materials specifically curated for <span className="font-bold text-slate-700 dark:text-slate-300">{formatYearName(studentYear)}</span> — no other years mixed in
               </p>
             </div>
           </div>
           <Link
             href={`/library?year=${studentYear}`}
-            className="text-xs font-bold text-lpu-600 dark:text-orange-400 hover:text-lpu-700 dark:hover:text-orange-300 flex items-center gap-1"
+            className="text-xs font-bold text-lpu-600 dark:text-orange-400 hover:text-lpu-700 dark:hover:text-orange-300 flex items-center gap-1 self-start sm:self-auto shrink-0"
           >
             Explore All {formatYearName(studentYear)} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
