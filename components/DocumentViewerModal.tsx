@@ -50,6 +50,7 @@ export default function DocumentViewerModal({
   const [rotation, setRotation] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+  const [isPinching, setIsPinching] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [pageInputValue, setPageInputValue] = useState<string>('1');
@@ -399,9 +400,9 @@ export default function DocumentViewerModal({
   useEffect(() => {
     if (!material) return;
     const container = viewerContainerRef.current;
+    if (!container) return;
     const viewport = viewportRef.current;
     const targets = Array.from(new Set([container, viewport])).filter(Boolean) as HTMLElement[];
-    if (targets.length === 0) return;
 
     const handleWheel = (e: WheelEvent) => {
       // Use Alt + mouse wheel for document zoom so it never conflicts with Chrome's native Ctrl + Scroll browser zoom
@@ -415,27 +416,29 @@ export default function DocumentViewerModal({
       }
     };
 
-    // Safari on Mac trackpad gesture events
+    // Safari on Mac / iOS trackpad gesture events
+    let gestureStartZoom = 100;
     const handleGestureStart = (e: any) => {
       e.preventDefault();
+      gestureStartZoom = zoomLevelRef.current;
     };
     const handleGestureChange = (e: any) => {
       e.preventDefault();
       if (e.scale) {
-        setZoomLevel((prev) => {
-          const next = Math.round(prev * e.scale);
-          return Math.min(Math.max(next, 40), 300);
-        });
+        const next = Math.round(gestureStartZoom * e.scale);
+        setZoomLevel(Math.min(Math.max(next, 40), 300));
       }
     };
 
-    // Touchscreen: 2-finger pinch-to-zoom & 1-finger swipe page navigation
+    // Touchscreen: 2-finger pinch-to-zoom, 1-finger swipe page navigation, and double-tap zoom
     let initialTouchDist = 0;
     let initialTouchZoom = 100;
     let singleTouchStart: { x: number; y: number; time: number } | null = null;
+    let lastTapTime = 0;
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
+      if (e.touches.length >= 2) {
+        setIsPinching(true);
         singleTouchStart = null;
         initialTouchDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
@@ -443,6 +446,8 @@ export default function DocumentViewerModal({
         );
         initialTouchZoom = zoomLevelRef.current;
       } else if (e.touches.length === 1) {
+        setIsPinching(false);
+        initialTouchDist = 0;
         singleTouchStart = {
           x: e.touches[0].clientX,
           y: e.touches[0].clientY,
@@ -452,21 +457,28 @@ export default function DocumentViewerModal({
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && initialTouchDist > 0) {
+      if (e.touches.length >= 2) {
         if (e.cancelable) e.preventDefault();
-        const currentDist = Math.hypot(
+        const dist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        const scaleFactor = currentDist / initialTouchDist;
-        const nextZoom = Math.min(Math.max(Math.round(initialTouchZoom * scaleFactor), 40), 300);
-        setZoomLevel(nextZoom);
+        if (initialTouchDist <= 0) {
+          initialTouchDist = dist;
+          initialTouchZoom = zoomLevelRef.current;
+          setIsPinching(true);
+        } else if (dist > 0) {
+          const scaleFactor = dist / initialTouchDist;
+          const nextZoom = Math.min(Math.max(Math.round(initialTouchZoom * scaleFactor), 40), 300);
+          setZoomLevel(nextZoom);
+        }
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) {
         initialTouchDist = 0;
+        setIsPinching(false);
       }
       if (singleTouchStart && e.changedTouches.length > 0 && e.touches.length === 0) {
         const touch = e.changedTouches[0];
@@ -474,6 +486,18 @@ export default function DocumentViewerModal({
         const dy = touch.clientY - singleTouchStart.y;
         const duration = Date.now() - singleTouchStart.time;
         singleTouchStart = null;
+
+        // Double-tap quick zoom detection (toggles between 100% and 175%)
+        const now = Date.now();
+        if (Math.abs(dx) < 15 && Math.abs(dy) < 15 && duration < 300) {
+          if (now - lastTapTime < 350) {
+            setZoomLevel((prev) => (prev > 100 ? 100 : 175));
+            lastTapTime = 0;
+            return;
+          } else {
+            lastTapTime = now;
+          }
+        }
 
         // Mobile touch swipe page turning:
         // When not deeply zoomed in (zoom <= 115%), horizontal swipe > 45px, predominantly horizontal, within 600ms
@@ -498,9 +522,9 @@ export default function DocumentViewerModal({
       target.addEventListener('gesturestart', handleGestureStart as any, { passive: false } as any);
       target.addEventListener('gesturechange', handleGestureChange as any, { passive: false } as any);
       target.addEventListener('touchstart', handleTouchStart, { passive: true });
-      target.addEventListener('touchmove', handleTouchMove, { passive: false });
-      target.addEventListener('touchend', handleTouchEnd, { passive: true });
     });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
       targets.forEach((target) => {
@@ -508,9 +532,9 @@ export default function DocumentViewerModal({
         target.removeEventListener('gesturestart', handleGestureStart as any);
         target.removeEventListener('gesturechange', handleGestureChange as any);
         target.removeEventListener('touchstart', handleTouchStart);
-        target.removeEventListener('touchmove', handleTouchMove);
-        target.removeEventListener('touchend', handleTouchEnd);
       });
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [material]);
 
@@ -637,16 +661,10 @@ export default function DocumentViewerModal({
           return;
         }
 
-        // Direct Google Drive Embed (Zero Vercel Function egress!)
-        if (driveId) {
-          setIsImageType(false);
-          setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
-          setLoading(false);
-          return;
-        }
-
-        // Try streaming the document binary via /api/materials/[id]/preview
-        const previewQuery = multiFiles.length > 0 ? `?fileIndex=${activeFileIndex}` : '';
+        // Try streaming the document binary via /api/materials/[id]/preview?stream=true for interactive Canvas rendering
+        const previewQuery = multiFiles.length > 0 
+          ? `?fileIndex=${activeFileIndex}&stream=true` 
+          : '?stream=true';
         const response = await fetch(`/api/materials/${material.id}/preview${previewQuery}`, {
           credentials: 'include',
         });
@@ -1194,6 +1212,7 @@ export default function DocumentViewerModal({
                 className="max-w-full max-h-full rounded-none sm:rounded-lg shadow-2xl object-contain bg-white transition-all duration-150"
                 style={{
                   filter: readingFilterStyle,
+                  touchAction: 'none',
                 }}
               />
             </div>
@@ -1214,6 +1233,7 @@ export default function DocumentViewerModal({
                   className="w-full h-full rounded-none sm:rounded-xl border-0 bg-black transition-all duration-150"
                   style={{
                     filter: readingFilterStyle,
+                    pointerEvents: isPinching ? 'none' : 'auto',
                   }}
                   sandbox="allow-scripts allow-same-origin allow-forms"
                 />
@@ -1243,6 +1263,7 @@ export default function DocumentViewerModal({
                 style={{
                   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
                   filter: readingFilterStyle,
+                  touchAction: 'none',
                 }}
               />
             </div>

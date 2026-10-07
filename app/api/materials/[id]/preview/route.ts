@@ -81,6 +81,32 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         });
       }
 
+      // If client requests direct binary stream for high-performance in-browser PDF.js canvas rendering
+      const isStream = searchParams.get('stream') === 'true';
+      if (isStream) {
+        try {
+          const directUrl = getDriveDirectDownloadUrl(driveId);
+          const driveRes = await fetch(directUrl);
+          if (driveRes.ok) {
+            const contentType = driveRes.headers.get('content-type') || '';
+            // Only return if it's the actual binary stream (not Google's HTML virus confirmation page for >25MB files)
+            if (!contentType.includes('text/html')) {
+              const arrayBuffer = await driveRes.arrayBuffer();
+              return new NextResponse(arrayBuffer, {
+                status: 200,
+                headers: {
+                  'Content-Type': contentType.includes('pdf') ? 'application/pdf' : contentType,
+                  'Content-Length': arrayBuffer.byteLength.toString(),
+                  'Cache-Control': 'private, max-age=3600',
+                },
+              });
+            }
+          }
+        } catch (streamErr) {
+          console.warn('Google Drive direct stream notice:', streamErr);
+        }
+      }
+
       // Direct 307 temporary redirect to Google Drive native preview
       // Zero serverless function egress / Fast Origin transfer!
       return NextResponse.redirect(drivePreviewUrl, 307);
