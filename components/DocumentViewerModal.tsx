@@ -113,6 +113,28 @@ export default function DocumentViewerModal({
     }
   }, [material?.id]);
 
+  // Prevent background scroll and mobile viewport shifting when modal is open
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    const originalOverflow = document.body.style.overflow;
+    const originalPosition = document.body.style.position;
+    const originalTop = document.body.style.top;
+    const originalWidth = document.body.style.width;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.position = originalPosition;
+      document.body.style.top = originalTop;
+      document.body.style.width = originalWidth;
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
   // Panning state for zoomed views
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number; scrollLeft: number; scrollTop: number }>({
@@ -736,12 +758,14 @@ export default function DocumentViewerModal({
 
         const container = viewportRef.current || viewerContainerRef.current;
         const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-        const containerWidth = container ? container.clientWidth : (typeof window !== 'undefined' ? window.innerWidth : 800);
+        const windowW = typeof window !== 'undefined' ? window.innerWidth : 800;
+        const containerWidth = container ? container.clientWidth : windowW;
+        const effectiveContainerWidth = Math.min(containerWidth, windowW);
         const unscaledViewport = page.getViewport({ scale: 1 });
 
         // Calculate responsive scale based on viewport width & debounced zoom percentage
-        const horizontalPadding = isMobile ? 16 : 48;
-        const targetWidth = Math.max(260, Math.min(containerWidth - horizontalPadding, isMobile ? window.innerWidth - 16 : 850));
+        const horizontalPadding = isMobile ? 8 : 48;
+        const targetWidth = Math.max(240, Math.min(effectiveContainerWidth - horizontalPadding, isMobile ? windowW - 16 : 850));
         const baseScale = targetWidth / unscaledViewport.width;
         const finalScale = baseScale * (debouncedZoom / 100);
 
@@ -753,6 +777,7 @@ export default function DocumentViewerModal({
         canvas.height = Math.floor(viewport.height * pixelRatio);
         canvas.style.width = `${Math.floor(viewport.width)}px`;
         canvas.style.height = `${Math.floor(viewport.height)}px`;
+        canvas.style.maxWidth = '100%';
 
         context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
@@ -782,15 +807,18 @@ export default function DocumentViewerModal({
   if (!material) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/90 backdrop-blur-xs animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/90 backdrop-blur-xs overscroll-contain animate-in fade-in duration-200"
+      style={{ touchAction: 'pan-x pan-y' }}
+    >
       
       {/* Document Viewer Container (Mobile edge-to-edge full screen, Desktop centered card) */}
       <div 
         ref={viewerContainerRef}
-        className={`bg-slate-900 w-full flex flex-col shadow-2xl overflow-hidden transition-all ${
+        className={`bg-slate-900 w-full max-w-full flex flex-col shadow-2xl overflow-hidden transition-all ${
           isFullscreen 
-            ? 'h-screen w-screen rounded-none border-0' 
-            : 'h-[100dvh] sm:h-[92vh] sm:max-w-5xl rounded-none sm:rounded-2xl border-0 sm:border border-slate-800'
+            ? 'h-full w-full rounded-none border-0' 
+            : 'h-full sm:h-[92vh] sm:max-w-5xl rounded-none sm:rounded-2xl border-0 sm:border border-slate-800'
         }`}
       >
         
@@ -964,7 +992,7 @@ export default function DocumentViewerModal({
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-0.5 sm:ml-1"
+              className="p-2 sm:p-1.5 rounded-xl text-slate-300 sm:text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-0.5 sm:ml-1 touch-manipulation"
               aria-label="Close Preview"
             >
               <X className="w-5 h-5" />
@@ -1144,13 +1172,12 @@ export default function DocumentViewerModal({
               />
             </div>
           ) : driveEmbedUrl ? (
-            <div className="w-full h-full overflow-auto flex items-start justify-center p-0 sm:p-4 select-none">
+            <div className="w-full h-full overflow-hidden sm:overflow-auto flex items-start justify-center p-0 sm:p-4 select-none">
               <div 
-                className="relative rounded-none sm:rounded-xl overflow-hidden bg-black shadow-2xl transition-all duration-150 ease-out origin-top shrink-0"
+                className="relative rounded-none sm:rounded-xl overflow-hidden bg-black shadow-2xl transition-all duration-150 ease-out origin-top shrink-0 w-full h-full"
                 style={{
                   width: zoomLevel <= 100 ? '100%' : `${zoomLevel}%`,
                   height: zoomLevel <= 100 ? '100%' : `${zoomLevel}%`,
-                  minHeight: '600px',
                   transform: zoomLevel < 100 ? `scale(${zoomLevel / 100}) rotate(${rotation}deg)` : (rotation ? `rotate(${rotation}deg)` : undefined),
                   transformOrigin: 'top center',
                 }}
@@ -1158,7 +1185,7 @@ export default function DocumentViewerModal({
                 <iframe
                   src={driveEmbedUrl}
                   title={material.title}
-                  className="w-full h-full rounded-none sm:rounded-xl border-0 bg-black min-h-[600px] transition-all duration-150"
+                  className="w-full h-full rounded-none sm:rounded-xl border-0 bg-black transition-all duration-150"
                   style={{
                     filter: readingFilterStyle,
                   }}
