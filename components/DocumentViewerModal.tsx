@@ -49,6 +49,7 @@ export default function DocumentViewerModal({
   const [debouncedZoom, setDebouncedZoom] = useState<number>(100);
   const [rotation, setRotation] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [pageInputValue, setPageInputValue] = useState<string>('1');
@@ -293,7 +294,11 @@ export default function DocumentViewerModal({
   // Listen for fullscreen change events
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const isFull = Boolean(document.fullscreenElement);
+      setIsFullscreen(isFull);
+      if (!isFull) {
+        setIsFocusMode(false);
+      }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -303,11 +308,12 @@ export default function DocumentViewerModal({
   }, []);
 
   const toggleViewerFullscreen = () => {
+    setIsFocusMode((prev) => !prev);
     if (!viewerContainerRef.current) return;
 
     if (!document.fullscreenElement) {
-      viewerContainerRef.current.requestFullscreen().catch((err) => {
-        console.error('Error attempting to enable fullscreen:', err);
+      viewerContainerRef.current.requestFullscreen().catch(() => {
+        // Fallback: isFocusMode handles in-app CSS full screen stretch
       });
     } else {
       document.exitFullscreen().catch(() => {});
@@ -389,9 +395,13 @@ export default function DocumentViewerModal({
   }, [onClose]);
 
   // Handle two-finger trackpad/touch pinch-to-zoom and 1-finger horizontal swipe page turns on mobile
+  // Handle two-finger trackpad/touch pinch-to-zoom and 1-finger horizontal swipe page turns on mobile
   useEffect(() => {
+    if (!material) return;
     const container = viewerContainerRef.current;
-    if (!container) return;
+    const viewport = viewportRef.current;
+    const targets = Array.from(new Set([container, viewport])).filter(Boolean) as HTMLElement[];
+    if (targets.length === 0) return;
 
     const handleWheel = (e: WheelEvent) => {
       // Use Alt + mouse wheel for document zoom so it never conflicts with Chrome's native Ctrl + Scroll browser zoom
@@ -443,7 +453,7 @@ export default function DocumentViewerModal({
 
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2 && initialTouchDist > 0) {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         const currentDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
@@ -455,8 +465,10 @@ export default function DocumentViewerModal({
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      initialTouchDist = 0;
-      if (singleTouchStart && e.changedTouches.length > 0) {
+      if (e.touches.length < 2) {
+        initialTouchDist = 0;
+      }
+      if (singleTouchStart && e.changedTouches.length > 0 && e.touches.length === 0) {
         const touch = e.changedTouches[0];
         const dx = touch.clientX - singleTouchStart.x;
         const dy = touch.clientY - singleTouchStart.y;
@@ -481,22 +493,26 @@ export default function DocumentViewerModal({
       }
     };
 
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    container.addEventListener('gesturestart', handleGestureStart as any, { passive: false } as any);
-    container.addEventListener('gesturechange', handleGestureChange as any, { passive: false } as any);
-    container.addEventListener('touchstart', handleTouchStart, { passive: true });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    targets.forEach((target) => {
+      target.addEventListener('wheel', handleWheel, { passive: false });
+      target.addEventListener('gesturestart', handleGestureStart as any, { passive: false } as any);
+      target.addEventListener('gesturechange', handleGestureChange as any, { passive: false } as any);
+      target.addEventListener('touchstart', handleTouchStart, { passive: true });
+      target.addEventListener('touchmove', handleTouchMove, { passive: false });
+      target.addEventListener('touchend', handleTouchEnd, { passive: true });
+    });
 
     return () => {
-      container.removeEventListener('wheel', handleWheel);
-      container.removeEventListener('gesturestart', handleGestureStart as any);
-      container.removeEventListener('gesturechange', handleGestureChange as any);
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
+      targets.forEach((target) => {
+        target.removeEventListener('wheel', handleWheel);
+        target.removeEventListener('gesturestart', handleGestureStart as any);
+        target.removeEventListener('gesturechange', handleGestureChange as any);
+        target.removeEventListener('touchstart', handleTouchStart);
+        target.removeEventListener('touchmove', handleTouchMove);
+        target.removeEventListener('touchend', handleTouchEnd);
+      });
     };
-  }, []);
+  }, [material]);
 
   // Restore saved page position for this material from localStorage
   useEffect(() => {
@@ -810,22 +826,21 @@ export default function DocumentViewerModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/90 backdrop-blur-xs overscroll-contain animate-in fade-in duration-200"
-      style={{ touchAction: 'pan-x pan-y' }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/95 backdrop-blur-xs overscroll-contain animate-in fade-in duration-200"
     >
       
       {/* Document Viewer Container (Mobile edge-to-edge full screen, Desktop centered card) */}
       <div 
         ref={viewerContainerRef}
         className={`bg-slate-900 w-full max-w-full flex flex-col shadow-2xl overflow-hidden transition-all ${
-          isFullscreen 
+          isFullscreen || isFocusMode
             ? 'h-full w-full rounded-none border-0' 
             : 'h-full sm:h-[92vh] sm:max-w-5xl rounded-none sm:rounded-2xl border-0 sm:border border-slate-800'
         }`}
       >
         
         {/* Top Control Header */}
-        <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 bg-slate-950 text-white flex items-center justify-between gap-2 border-b border-slate-800 shrink-0">
+        <div className={`px-2.5 sm:px-6 ${isFocusMode ? 'py-1.5 sm:py-2.5' : 'py-2 sm:py-3.5'} bg-slate-950 text-white flex items-center justify-between gap-1.5 sm:gap-2 border-b border-slate-800 shrink-0 transition-all`}>
           
           {/* Material Identity */}
           <div className="flex items-center gap-2 sm:gap-3 truncate min-w-0 max-w-[150px] xs:max-w-[200px] sm:max-w-md">
@@ -961,13 +976,21 @@ export default function DocumentViewerModal({
                   <RotateCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
 
-                {/* Document Viewer Fullscreen (Desktop/Tablet only since mobile is already 100dvh full screen) */}
+                {/* Document Viewer Fullscreen / Stretch Focus Mode */}
                 <button
                   onClick={toggleViewerFullscreen}
-                  className="hidden sm:inline-flex p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors"
-                  title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Document Viewer'}
+                  className="p-1.5 sm:p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700/60 transition-colors inline-flex items-center gap-1 select-none"
+                  title={isFullscreen || isFocusMode ? 'Exit Full Screen' : 'Full Screen / Stretch Document'}
+                  aria-label={isFullscreen || isFocusMode ? 'Exit Full Screen' : 'Full Screen'}
                 >
-                  {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+                  {isFullscreen || isFocusMode ? (
+                    <Minimize className="w-3.5 h-3.5 text-amber-400" />
+                  ) : (
+                    <Maximize className="w-3.5 h-3.5" />
+                  )}
+                  <span className="text-[10px] font-bold text-amber-400 hidden xs:inline sm:hidden">
+                    {isFullscreen || isFocusMode ? 'Exit' : 'Stretch'}
+                  </span>
                 </button>
               </>
             )}
@@ -1052,6 +1075,7 @@ export default function DocumentViewerModal({
           className={`flex-1 bg-slate-900/90 relative overflow-auto flex items-center justify-center p-2 sm:p-4 select-none ${
             zoomLevel > 100 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
           }`}
+          style={{ touchAction: 'pan-x pan-y' }}
         >
           {loading ? (
             <div className="flex flex-col items-center justify-center text-slate-400">
@@ -1247,42 +1271,44 @@ export default function DocumentViewerModal({
         </div>
 
         {/* Bottom Information & Security Bar */}
-        <div className="px-4 sm:px-6 py-2.5 bg-slate-950 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2 shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 text-[11px]">
-              <HardDrive className="w-3 h-3 text-slate-500" />
-              {material.file_size}
-            </span>
-            <span>•</span>
-            <span className="text-[11px]">
-              {material.download_count} total downloads
-            </span>
-            <span>•</span>
-            <span className="text-[11px]">
-              Uploaded {new Date(material.created_at).toLocaleDateString()}
-            </span>
-            <span className="text-slate-600 hidden sm:inline">•</span>
-            <span className="text-[11px] text-slate-400 hidden sm:inline">
-              Flip: Arrow Keys • Zoom: +/- or Alt+Scroll • Fullscreen: F • Eye Care: D • Rotate: R
-            </span>
-            <span className="text-[11px] text-amber-400/90 sm:hidden">
-              👆 Swipe left/right to flip pages
-            </span>
-          </div>
+        {(!isFocusMode && !isFullscreen) && (
+          <div className="px-4 sm:px-6 py-2.5 bg-slate-950 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2 shrink-0 animate-in fade-in duration-150">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 text-[11px]">
+                <HardDrive className="w-3 h-3 text-slate-500" />
+                {material.file_size}
+              </span>
+              <span>•</span>
+              <span className="text-[11px]">
+                {material.download_count} total downloads
+              </span>
+              <span>•</span>
+              <span className="text-[11px]">
+                Uploaded {new Date(material.created_at).toLocaleDateString()}
+              </span>
+              <span className="text-slate-600 hidden sm:inline">•</span>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                Flip: Arrow Keys • Zoom: +/- or Alt+Scroll • Fullscreen: F • Eye Care: D • Rotate: R
+              </span>
+              <span className="text-[11px] text-amber-400/90 sm:hidden">
+                👆 Swipe left/right to flip pages
+              </span>
+            </div>
 
-          <div className="flex items-center gap-2 text-[11px]">
-            {canDownload ? (
-              <span className="text-emerald-400 font-medium">
-                ✓ Full Access: Reading & Downloads Enabled
-              </span>
-            ) : (
-              <span className="text-amber-400 font-medium flex items-center gap-1">
-                <ShieldAlert className="w-3 h-3 text-amber-400" />
-                Global Policy: Reading & Zoom Enabled (Download Prohibited)
-              </span>
-            )}
+            <div className="flex items-center gap-2 text-[11px]">
+              {canDownload ? (
+                <span className="text-emerald-400 font-medium">
+                  ✓ Full Access: Reading & Downloads Enabled
+                </span>
+              ) : (
+                <span className="text-amber-400 font-medium flex items-center gap-1">
+                  <ShieldAlert className="w-3 h-3 text-amber-400" />
+                  Global Policy: Reading & Zoom Enabled (Download Prohibited)
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>
