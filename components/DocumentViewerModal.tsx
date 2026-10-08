@@ -330,6 +330,7 @@ export default function DocumentViewerModal({
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [driveEmbedUrl, setDriveEmbedUrl] = useState<string | null>(null);
   const [isImageType, setIsImageType] = useState<boolean>(false);
+  const [isArchiveType, setIsArchiveType] = useState<boolean>(false);
   const [externalLinkUrl, setExternalLinkUrl] = useState<string | null>(null);
   const [isDriveResource, setIsDriveResource] = useState<boolean>(false);
   const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
@@ -482,7 +483,7 @@ export default function DocumentViewerModal({
     ? (serverAllowDownloads && allowDownloads)
     : allowDownloads;
 
-  const canDownload = Boolean(isDownloadPermitted || !isPreviewable || error);
+  const canDownload = Boolean(isDownloadPermitted || !isPreviewable || isArchiveType || error);
 
   // Helper to extract Google Drive file or folder IDs
   const extractDriveId = useCallback((url: string | null | undefined): string | null => {
@@ -770,6 +771,8 @@ export default function DocumentViewerModal({
     setDriveEmbedUrl(null);
     setExternalLinkUrl(null);
     setIsDriveResource(false);
+    setIsArchiveType(false);
+    setIsImageType(false);
     setCurrentPage(1);
     setTotalPages(1);
 
@@ -894,6 +897,31 @@ export default function DocumentViewerModal({
 
         setIsImageType(false);
 
+        // Inspect header magic bytes to detect non-PDF archives (ZIP, RAR, 7z) or non-PDF formats
+        const uint8 = new Uint8Array(arrayBuffer.slice(0, 8));
+        const isPdfMagic = uint8[0] === 0x25 && uint8[1] === 0x50 && uint8[2] === 0x44 && uint8[3] === 0x46; // %PDF
+        const isZipMagic = uint8[0] === 0x50 && uint8[1] === 0x4B; // PK (ZIP / Office files)
+        const isRarMagic = uint8[0] === 0x52 && uint8[1] === 0x61 && uint8[2] === 0x72; // Rar!
+        const is7zMagic = uint8[0] === 0x37 && uint8[1] === 0x7A && uint8[2] === 0xBC; // 7z
+
+        // If binary is definitely an archive or non-PDF container, switch to archive mode and embed in Drive viewer
+        if (isZipMagic || isRarMagic || is7zMagic || (!isPdfMagic && !contentType.includes('pdf'))) {
+          setIsArchiveType(true);
+          const fallbackDriveId = driveId || extractDriveId(targetUrl);
+          if (fallbackDriveId && !targetUrl.includes('/folders/')) {
+            setDriveEmbedUrl(`https://drive.google.com/file/d/${fallbackDriveId}/preview`);
+            lastLoadedKeyRef.current = currentDocKey;
+            setLoading(false);
+            return;
+          }
+          if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
+            setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
+            lastLoadedKeyRef.current = currentDocKey;
+            setLoading(false);
+            return;
+          }
+        }
+
         // Load PDF document with PDF.js
         try {
           const pdfjsLib = await pdfInitPromise;
@@ -931,6 +959,7 @@ export default function DocumentViewerModal({
           return;
         } catch (pdfErr) {
           console.warn('PDF.js binary decode notice:', pdfErr);
+          setIsArchiveType(true);
           const fallbackDriveId = driveId || extractDriveId(targetUrl);
           if (fallbackDriveId && !targetUrl.includes('/folders/')) {
             setDriveEmbedUrl(`https://drive.google.com/file/d/${fallbackDriveId}/preview`);
@@ -956,6 +985,9 @@ export default function DocumentViewerModal({
         const fallbackDriveId = activeFile?.drive_file_id || extractDriveId(targetUrl);
         if (fallbackDriveId && !targetUrl.includes('/folders/')) {
           setIsImageType(false);
+          if (/\b(zip|rar|7z|tar|ppts?|docx?)\b/i.test(material.title || '') || targetUrl.toLowerCase().includes('.zip')) {
+            setIsArchiveType(true);
+          }
           setDriveEmbedUrl(`https://drive.google.com/file/d/${fallbackDriveId}/preview`);
           lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
@@ -1682,7 +1714,7 @@ export default function DocumentViewerModal({
                   transformOrigin: 'top center',
                 }}
               >
-                {canDownload && (
+                {(canDownload || isArchiveType) && (
                   <div className="absolute top-2 right-2 z-20">
                     <a
                       href={activeFileUrl || material.file_url}
@@ -1703,10 +1735,10 @@ export default function DocumentViewerModal({
                     filter: readingFilterStyle,
                     pointerEvents: isPinching ? 'none' : 'auto',
                   }}
-                  sandbox={canDownload ? "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" : "allow-scripts allow-same-origin allow-forms"}
+                  sandbox={(canDownload || isArchiveType) ? "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" : "allow-scripts allow-same-origin allow-forms"}
                 />
-                {!canDownload && (
-                  /* Security Shield: Prevents bypassing download prohibition via Drive pop-out */
+                {(!canDownload && !isArchiveType) && (
+                  /* Security Shield: Prevents bypassing download prohibition via Drive pop-out on protected PDFs */
                   <div 
                     className="absolute top-0 right-0 w-16 h-14 bg-black z-30 pointer-events-auto cursor-default rounded-tr-xl"
                     onClick={(e) => {
