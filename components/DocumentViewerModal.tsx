@@ -165,6 +165,141 @@ const PdfPageItem = React.memo(function PdfPageItem({
   );
 });
 
+// ==========================================
+// High-Performance PDF.js Module Singleton
+// Loads local /pdf.min.js and /pdf.worker.min.js immediately with zero CDN latency
+// ==========================================
+let pdfjsPromise: Promise<any> | null = null;
+
+function getOrLoadPdfJs(): Promise<any> {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('Window undefined'));
+  }
+
+  // Already loaded and attached to window?
+  if ((window as any).pdfjsLib) {
+    const lib = (window as any).pdfjsLib;
+    if (lib.GlobalWorkerOptions && !lib.GlobalWorkerOptions.workerSrc) {
+      lib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+    }
+    return Promise.resolve(lib);
+  }
+
+  if (pdfjsPromise) {
+    return pdfjsPromise;
+  }
+
+  pdfjsPromise = new Promise((resolve, reject) => {
+    const setupWorkerAndResolve = (lib: any) => {
+      try {
+        if (lib && lib.GlobalWorkerOptions) {
+          lib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+        }
+      } catch (e) {
+        console.warn('Worker configuration notice:', e);
+      }
+      resolve(lib);
+    };
+
+    if ((window as any).pdfjsLib) {
+      return setupWorkerAndResolve((window as any).pdfjsLib);
+    }
+
+    const existing = document.getElementById('pdfjs-dist-script') as HTMLScriptElement;
+    if (existing) {
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
+        if ((window as any).pdfjsLib) {
+          clearInterval(interval);
+          setupWorkerAndResolve((window as any).pdfjsLib);
+        } else if (attempts > 50) {
+          clearInterval(interval);
+          reject(new Error('Timeout waiting for pdfjsLib'));
+        }
+      }, 50);
+      return;
+    }
+
+    // Try same-origin local script first: fastest load, zero DNS/TLS roundtrip
+    const script = document.createElement('script');
+    script.id = 'pdfjs-dist-script';
+    script.src = '/pdf.min.js';
+    script.async = true;
+
+    script.onload = () => {
+      const lib = (window as any).pdfjsLib;
+      if (lib) {
+        setupWorkerAndResolve(lib);
+      } else {
+        reject(new Error('pdfjsLib not defined after local script load'));
+      }
+    };
+
+    script.onerror = () => {
+      console.warn('Local pdf.min.js failed to load, falling back to CDN');
+      const cdnScript = document.createElement('script');
+      cdnScript.id = 'pdfjs-cdn-script';
+      cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      cdnScript.async = true;
+      cdnScript.onload = () => {
+        const lib = (window as any).pdfjsLib;
+        if (lib) {
+          if (lib.GlobalWorkerOptions) {
+            lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          }
+          resolve(lib);
+        } else {
+          reject(new Error('pdfjsLib not defined after CDN fallback'));
+        }
+      };
+      cdnScript.onerror = reject;
+      document.head.appendChild(cdnScript);
+    };
+
+    document.head.appendChild(script);
+  });
+
+  return pdfjsPromise;
+}
+
+// Warm up PDF.js in the background on browser idle so it is already parsed before user opens a document
+if (typeof window !== 'undefined') {
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(() => {
+      getOrLoadPdfJs().catch(() => {});
+    });
+  } else {
+    setTimeout(() => {
+      getOrLoadPdfJs().catch(() => {});
+    }, 200);
+  }
+}
+
+// ==========================================
+// In-Memory Document Buffer Cache
+// Stores recently downloaded ArrayBuffers to eliminate duplicate fetches
+// ==========================================
+interface CachedDoc {
+  buffer: ArrayBuffer;
+  contentType: string;
+}
+
+const documentCache = new Map<string, CachedDoc>();
+const MAX_CACHED_DOCS = 6;
+
+function getCachedDoc(key: string): CachedDoc | null {
+  return documentCache.get(key) || null;
+}
+
+function setCachedDoc(key: string, data: CachedDoc): void {
+  if (documentCache.size >= MAX_CACHED_DOCS) {
+    const firstKey = documentCache.keys().next().value;
+    if (firstKey) documentCache.delete(firstKey);
+  }
+  documentCache.set(key, data);
+}
+
 export default function DocumentViewerModal({
   material,
   allowDownloads,
@@ -209,6 +344,7 @@ export default function DocumentViewerModal({
   const initialTouchDistRef = useRef<number>(0);
   const initialTouchZoomRef = useRef<number>(100);
   const isPinchingRef = useRef<boolean>(false);
+  const lastLoadedKeyRef = useRef<string>('');
 
   useEffect(() => {
     currentPageRef.current = currentPage;
@@ -449,72 +585,6 @@ export default function DocumentViewerModal({
     }
   }, [activeFileUrl, material?.file_url, activeFile?.drive_file_id, extractDriveId, driveEmbedUrl, externalLinkUrl]);
 
-  // Helper to dynamically load Mozilla PDF.js
-  const loadPdfJs = (): Promise<any> => {
-    return new Promise((resolve, reject) => {
-      if (typeof window === 'undefined') return reject(new Error('Window undefined'));
-
-      const setupWorkerAndResolve = (lib: any) => {
-        try {
-          if (lib && lib.GlobalWorkerOptions) {
-            lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-          }
-        } catch (e) {
-          console.warn('Worker configuration notice:', e);
-        }
-        resolve(lib);
-      };
-
-      if ((window as any).pdfjsLib) {
-        return setupWorkerAndResolve((window as any).pdfjsLib);
-      }
-
-      const existingScript = document.getElementById('pdfjs-dist-script') as HTMLScriptElement;
-      if (existingScript) {
-        let attempts = 0;
-        const interval = setInterval(() => {
-          attempts++;
-          if ((window as any).pdfjsLib) {
-            clearInterval(interval);
-            setupWorkerAndResolve((window as any).pdfjsLib);
-          } else if (attempts > 40) {
-            clearInterval(interval);
-            reject(new Error('Timeout waiting for pdfjsLib'));
-          }
-        }, 100);
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.id = 'pdfjs-dist-script';
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.async = true;
-      script.onload = () => {
-        const lib = (window as any).pdfjsLib;
-        if (lib) {
-          setupWorkerAndResolve(lib);
-        } else {
-          reject(new Error('pdfjsLib not defined after CDN load'));
-        }
-      };
-      script.onerror = () => {
-        const localScript = document.createElement('script');
-        localScript.src = '/pdf.min.js';
-        localScript.onload = () => {
-          const lib = (window as any).pdfjsLib;
-          if (lib) {
-            setupWorkerAndResolve(lib);
-          } else {
-            reject(new Error('Local pdfjsLib not defined'));
-          }
-        };
-        localScript.onerror = reject;
-        document.head.appendChild(localScript);
-      };
-      document.head.appendChild(script);
-    });
-  };
-
   // Fullscreen support
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -677,8 +747,22 @@ export default function DocumentViewerModal({
   useEffect(() => {
     if (!material) return;
 
+    const currentDocKey = `${material.id}_${activeFileIndex}_${activeFileUrl}`;
+
+    // Prevent redundant reload if this exact document part is already active and loaded
+    if (lastLoadedKeyRef.current === currentDocKey && (pdfDoc || driveEmbedUrl || externalLinkUrl || previewBlobUrl)) {
+      return;
+    }
+
     let isCancelled = false;
     let localBlobUrl: string | null = null;
+    const abortController = new AbortController();
+
+    // 15-second safety timeout to prevent getting stuck indefinitely on an infinite spinner
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+    }, 15000);
+
     setLoading(true);
     setError(null);
     setPdfDoc(null);
@@ -708,7 +792,9 @@ export default function DocumentViewerModal({
            targetUrl.startsWith('http'));
 
         if (isExternalLink) {
+          clearTimeout(timeoutId);
           setExternalLinkUrl(targetUrl);
+          lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
           return;
         }
@@ -723,142 +809,173 @@ export default function DocumentViewerModal({
         );
 
         if (isDriveResourceLink) {
+          clearTimeout(timeoutId);
           setIsDriveResource(true);
+          lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
           return;
         }
 
         const isImage = material.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(targetUrl);
         if (driveId && isImage) {
+          clearTimeout(timeoutId);
           setIsImageType(true);
           setPreviewBlobUrl(`https://lh3.googleusercontent.com/d/${driveId}`);
+          lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
           return;
         }
 
-        // Stream the document binary via /api/materials/[id]/preview?stream=true for continuous PDF.js canvas rendering
-        const previewQuery = multiFiles.length > 0 
-          ? `?fileIndex=${activeFileIndex}&stream=true` 
-          : '?stream=true';
-        const response = await fetch(`/api/materials/${material.id}/preview${previewQuery}`, {
-          credentials: 'include',
-        });
+        // Check in-memory cache first (instant 0ms load!)
+        const cached = getCachedDoc(currentDocKey);
+        let arrayBuffer: ArrayBuffer;
+        let contentType = '';
 
-        if (response.ok) {
-          const contentType = response.headers.get('content-type') || '';
+        // Proactively begin initializing PDF.js concurrently with network transfer
+        const pdfInitPromise = getOrLoadPdfJs();
+
+        if (cached) {
+          clearTimeout(timeoutId);
+          arrayBuffer = cached.buffer;
+          contentType = cached.contentType;
+        } else {
+          // Stream the document binary via /api/materials/[id]/preview?stream=true
+          const previewQuery = multiFiles.length > 0 
+            ? `?fileIndex=${activeFileIndex}&stream=true` 
+            : '?stream=true';
+
+          const response = await fetch(`/api/materials/${material.id}/preview${previewQuery}`, {
+            credentials: 'include',
+            signal: abortController.signal,
+          });
+
+          clearTimeout(timeoutId);
+          if (isCancelled) return;
+
+          if (!response.ok) {
+            throw new Error(`Failed to load document: HTTP ${response.status}`);
+          }
+
+          contentType = response.headers.get('content-type') || '';
 
           // If response followed a redirect to Google Drive's HTML preview or login page
           if (contentType.includes('text/html')) {
             if (driveId && !targetUrl.includes('/folders/')) {
               setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
+              lastLoadedKeyRef.current = currentDocKey;
               setLoading(false);
               return;
             }
             if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
               setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
+              lastLoadedKeyRef.current = currentDocKey;
               setLoading(false);
               return;
             }
           }
 
-          const blob = await response.blob();
+          arrayBuffer = await response.arrayBuffer();
           if (isCancelled) return;
 
+          // Cache downloaded buffer for instant reuse across session
+          setCachedDoc(currentDocKey, { buffer: arrayBuffer, contentType });
+        }
+
+        // Check if image
+        if (contentType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(targetUrl)) {
+          const blob = new Blob([arrayBuffer], { type: contentType || 'image/jpeg' });
           localBlobUrl = URL.createObjectURL(blob);
           setPreviewBlobUrl(localBlobUrl);
-
-          // Check if image
-          if (contentType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(targetUrl)) {
-            setIsImageType(true);
-            setLoading(false);
-            return;
-          }
-
-          setIsImageType(false);
-
-          // Load PDF document with PDF.js
-          try {
-            const arrayBuffer = await blob.arrayBuffer();
-            if (isCancelled) return;
-
-            const pdfjsLib = await loadPdfJs();
-            if (isCancelled) return;
-
-            const loadingTask = pdfjsLib.getDocument({
-              data: new Uint8Array(arrayBuffer),
-              cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-              cMapPacked: true,
-              standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',
-            });
-            const doc = await loadingTask.promise;
-            if (isCancelled) return;
-
-            // Extract base dimensions from Page 1
-            const firstPage = await doc.getPage(1);
-            const initialViewport = firstPage.getViewport({ scale: 1, rotation: 0 });
-            setBasePageDims({
-              width: initialViewport.width || 595.28,
-              height: initialViewport.height || 841.89,
-            });
-
-            setPdfDoc(doc);
-            setTotalPages(doc.numPages || 1);
-            setLoading(false);
-            return;
-          } catch (pdfErr) {
-            console.warn('PDF.js binary decode notice:', pdfErr);
-            const fallbackDriveId = driveId || extractDriveId(targetUrl);
-            if (fallbackDriveId && !targetUrl.includes('/folders/')) {
-              setDriveEmbedUrl(`https://drive.google.com/file/d/${fallbackDriveId}/preview`);
-              setLoading(false);
-              return;
-            }
-            if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
-              setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
-              setLoading(false);
-              return;
-            }
-            setError('Could not decode document preview.');
-            setLoading(false);
-            return;
-          }
-        }
-
-        // Fallback for Google Drive files if binary stream is blocked or unavailable
-        if (driveId && !targetUrl.includes('/folders/')) {
-          setIsImageType(false);
-          setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
+          setIsImageType(true);
+          lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
           return;
         }
 
-        // Fallback for public HTTP files
-        if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
-          setIsImageType(false);
-          setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
+        setIsImageType(false);
+
+        // Load PDF document with PDF.js
+        try {
+          const pdfjsLib = await pdfInitPromise;
+          if (isCancelled) return;
+
+          const loadingTask = pdfjsLib.getDocument({
+            data: new Uint8Array(arrayBuffer),
+            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+            cMapPacked: true,
+            standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',
+          });
+
+          const doc = await loadingTask.promise;
+          if (isCancelled) return;
+
+          // UNBLOCK THE VIEWER IMMEDIATELY! First page begins rendering right away!
+          lastLoadedKeyRef.current = currentDocKey;
+          setPdfDoc(doc);
+          setTotalPages(doc.numPages || 1);
+          setLoading(false);
+
+          // Asynchronously resolve and refine Page 1 dimensions in background without delaying loading state
+          doc.getPage(1).then((firstPage: any) => {
+            if (!isCancelled) {
+              const initialViewport = firstPage.getViewport({ scale: 1, rotation: 0 });
+              setBasePageDims({
+                width: initialViewport.width || 595.28,
+                height: initialViewport.height || 841.89,
+              });
+            }
+          }).catch((dimErr: any) => {
+            console.warn('Page 1 dimension extraction notice:', dimErr);
+          });
+
+          return;
+        } catch (pdfErr) {
+          console.warn('PDF.js binary decode notice:', pdfErr);
+          const fallbackDriveId = driveId || extractDriveId(targetUrl);
+          if (fallbackDriveId && !targetUrl.includes('/folders/')) {
+            setDriveEmbedUrl(`https://drive.google.com/file/d/${fallbackDriveId}/preview`);
+            lastLoadedKeyRef.current = currentDocKey;
+            setLoading(false);
+            return;
+          }
+          if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
+            setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
+            lastLoadedKeyRef.current = currentDocKey;
+            setLoading(false);
+            return;
+          }
+          setError('Could not decode document preview.');
           setLoading(false);
           return;
         }
-
-        throw new Error(`Failed to load document: HTTP ${response.status}`);
       } catch (err: any) {
+        clearTimeout(timeoutId);
         if (isCancelled) return;
+
         const targetUrl = activeFileUrl || material.file_url || '';
         const fallbackDriveId = activeFile?.drive_file_id || extractDriveId(targetUrl);
         if (fallbackDriveId && !targetUrl.includes('/folders/')) {
           setIsImageType(false);
           setDriveEmbedUrl(`https://drive.google.com/file/d/${fallbackDriveId}/preview`);
+          lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
           return;
         }
         if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
           setIsImageType(false);
           setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
+          lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
           return;
         }
+
         console.error('Error loading document preview:', err);
-        setError('Failed to load document preview. Please try again or download if allowed.');
+        const isTimeout = err?.name === 'AbortError';
+        setError(
+          isTimeout
+            ? 'Document loading timed out. Please try again or download below.'
+            : 'Failed to load document preview. Please try again or download if allowed.'
+        );
         setLoading(false);
       }
     };
@@ -867,11 +984,13 @@ export default function DocumentViewerModal({
 
     return () => {
       isCancelled = true;
+      clearTimeout(timeoutId);
+      abortController.abort();
       if (localBlobUrl) {
         URL.revokeObjectURL(localBlobUrl);
       }
     };
-  }, [material, activeFileIndex, multiFiles, activeFileUrl]);
+  }, [material?.id, activeFileIndex, activeFileUrl]);
 
   // Automatic Current Page Detection on Scroll
   const handleViewportScroll = useCallback(() => {
@@ -1070,12 +1189,13 @@ export default function DocumentViewerModal({
 
   // Responsive scale calculations for continuous PDF pages
   const effectiveScale = useMemo(() => {
-    if (!basePageDims) return 1;
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
     const windowW = typeof window !== 'undefined' ? window.innerWidth : 800;
     const containerW = viewportRef.current?.clientWidth || windowW;
     const isRot = rotation === 90 || rotation === 270;
-    const rawPageWidth = isRot ? basePageDims.height : basePageDims.width;
+    const rawPageWidth = isRot 
+      ? (basePageDims?.height || 841.89) 
+      : (basePageDims?.width || 595.28);
 
     // Calculate base width that comfortably fills the container at 100% zoom
     const horizontalPadding = isMobile ? 16 : 48;
