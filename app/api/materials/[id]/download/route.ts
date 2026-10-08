@@ -65,7 +65,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       file_size: targetFileSize,
     });
 
-    if (!settings.allow_user_downloads && !isAdminOrOwner && canBePreviewed) {
+    const isFallback = searchParams.get('fallback') === 'true';
+
+    if (!settings.allow_user_downloads && !isAdminOrOwner && canBePreviewed && !isFallback) {
       return NextResponse.json(
         {
           error: 'Document downloads are currently disabled by administration for previewable files. You can view this document in Preview mode.',

@@ -617,6 +617,17 @@ function LibraryContent() {
         material={previewMaterial}
         allowDownloads={allowDownloads}
         isAdminOrOwner={isAdmin}
+        onDownload={(mat) => {
+          const dlEndpoint = `/api/materials/${mat.id}/download`;
+          const link = document.createElement('a');
+          link.href = dlEndpoint;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            if (document.body.contains(link)) document.body.removeChild(link);
+          }, 200);
+        }}
         onClose={() => setPreviewMaterial(null)}
       />
 
