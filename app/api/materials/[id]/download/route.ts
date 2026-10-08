@@ -54,23 +54,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // SERVER-SIDE ACCESS CONTROL:
-    // When allow_user_downloads = false, PDF/previewable documents cannot be downloaded by normal students.
-    // HOWEVER: Files that cannot be previewed in the document viewer (e.g. .zip, .rar, .7z, archives, or oversize files > 30MB)
-    // are EXEMPT and permitted for normal students to download so they can access the material.
-    const canBePreviewed = isMaterialPreviewable({
-      file_url: targetFileUrl,
-      file_name: targetTitle,
-      mime_type: material.mime_type,
-      material_type: material.material_type,
-      file_size: targetFileSize,
-    });
-
-    const isFallback = searchParams.get('fallback') === 'true';
-
-    if (!settings.allow_user_downloads && !isAdminOrOwner && canBePreviewed && !isFallback) {
+    // When allow_user_downloads = false and user is not admin/owner, downloads are strictly forbidden.
+    if (!settings.allow_user_downloads && !isAdminOrOwner) {
       return NextResponse.json(
         {
-          error: 'Document downloads are currently disabled by administration for previewable files. You can view this document in Preview mode.',
+          error: 'Document downloads are currently disabled by administration. You can view previewable documents in Preview mode.',
           code: 'DOWNLOADS_DISABLED_PREVIEW_ONLY',
         },
         { status: 403 }

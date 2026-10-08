@@ -169,10 +169,137 @@ export function parseMaterialFileMetadata(
   };
 }
 
+export type MaterialCategory = 'PDF' | 'PPT' | 'EXTERNAL_LINK' | 'ARCHIVE' | 'IMAGE' | 'OTHER';
+
 /**
- * Checks whether a material can be opened in the in-browser DocumentViewer (PDFs, Images, Docs).
- * Files such as .zip, .rar, .7z, .tar, .gz, executable binaries, or un-previewable archive formats
- * return FALSE, which permits normal students to download them even when general PDF download is disabled.
+ * Accurately categorizes any study material into one of 6 exact types:
+ * - PDF: Standard study documents, books, notes, PYQs (previewable in Canvas viewer)
+ * - PPT: PowerPoint presentation files (.ppt, .pptx, etc.)
+ * - EXTERNAL_LINK: External resource URLs, Google Drive folder links, Resource Links
+ * - ARCHIVE: Compressed containers (.zip, .rar, .7z, etc.)
+ * - IMAGE: Visual images (.png, .jpg, .jpeg, .webp, .svg, etc.)
+ * - OTHER: Word docs, spreadsheets, or unsupported binaries
+ */
+export function getMaterialCategory(material: {
+  file_url?: string;
+  file_name?: string | null;
+  title?: string;
+  mime_type?: string | null;
+  material_type?: string;
+  file_size?: string | null;
+}): MaterialCategory {
+  if (!material) return 'OTHER';
+
+  const url = (material.file_url || '').toLowerCase().trim();
+  const name = (material.file_name || '').toLowerCase().trim();
+  const title = (material.title || '').toLowerCase().trim();
+  const mime = (material.mime_type || '').toLowerCase().trim();
+  const size = (material.file_size || '').trim();
+  const matType = (material.material_type || '').toLowerCase().trim();
+
+  // 1. Check for multi-file bundle JSON
+  if (url.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(material.file_url || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const first = parsed[0];
+        return getMaterialCategory({
+          file_url: first?.url || '',
+          file_name: first?.title || first?.name || '',
+          title: first?.title || first?.name || title,
+          file_size: first?.size || size,
+          mime_type: mime,
+          material_type: matType,
+        });
+      }
+    } catch {}
+  }
+
+  // 2. EXTERNAL_LINK: Link Uploads, Google Drive Folders, external links
+  const isDriveFolder = url.includes('drive.google.com') && url.includes('/folders/');
+  const isExternalResource =
+    size === 'Google Drive' ||
+    size === 'Resource Link' ||
+    mime === 'text/uri-list' ||
+    mime === 'text/html' ||
+    matType === 'link' ||
+    isDriveFolder ||
+    name.includes('resource link') ||
+    title.includes('resource link') ||
+    (url.startsWith('http') &&
+      !url.includes('drive.google.com') &&
+      !url.includes('docs.google.com') &&
+      !url.includes('/study-materials/') &&
+      !url.includes('/uploads/') &&
+      !url.endsWith('.pdf') &&
+      !url.includes('.pdf?'));
+
+  if (isExternalResource) {
+    return 'EXTERNAL_LINK';
+  }
+
+  // 3. ARCHIVE: ZIP, RAR, 7Z, TAR, GZ, ISO
+  const archiveExts = ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.tgz', '.iso'];
+  const isArchive =
+    archiveExts.some((ext) => name.endsWith(ext) || url.includes(ext)) ||
+    mime.includes('zip') ||
+    mime.includes('compressed') ||
+    mime.includes('archive') ||
+    mime.includes('x-rar') ||
+    mime.includes('x-7z') ||
+    title.endsWith('.zip') ||
+    title.endsWith('.rar') ||
+    title.endsWith('.7z') ||
+    /\b(zip|rar|7z|archive)\b/i.test(title);
+
+  if (isArchive) {
+    return 'ARCHIVE';
+  }
+
+  // 4. PPT / PPTX: Presentation slides
+  const pptExts = ['.ppt', '.pptx', '.pps', '.ppsx', '.odp'];
+  const isPpt =
+    pptExts.some((ext) => name.endsWith(ext) || url.includes(ext)) ||
+    mime.includes('powerpoint') ||
+    mime.includes('presentation') ||
+    mime.includes('presentationml') ||
+    title.endsWith('.ppt') ||
+    title.endsWith('.pptx') ||
+    /\b(ppts?|slides|powerpoint)\b/i.test(title);
+
+  if (isPpt) {
+    return 'PPT';
+  }
+
+  // 5. IMAGE: PNG, JPG, JPEG, WEBP, SVG, GIF
+  const imgExts = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif'];
+  const isImg =
+    imgExts.some((ext) => name.endsWith(ext) || url.endsWith(ext)) ||
+    mime.startsWith('image/');
+
+  if (isImg) {
+    return 'IMAGE';
+  }
+
+  // 6. OTHER non-previewable docs: Word, Excel, Executables
+  const otherDocExts = ['.doc', '.docx', '.xls', '.xlsx', '.csv', '.apk', '.exe', '.msi', '.bin'];
+  const isOtherDoc =
+    otherDocExts.some((ext) => name.endsWith(ext) || url.includes(ext)) ||
+    mime.includes('word') ||
+    mime.includes('spreadsheet') ||
+    mime.includes('excel');
+
+  if (isOtherDoc) {
+    return 'OTHER';
+  }
+
+  // 7. Default to PDF for standard study materials
+  return 'PDF';
+}
+
+/**
+ * Checks whether a material can be rendered in the in-browser DocumentViewer (Canvas PDF, Images).
+ * Files such as .zip, .rar, .7z, .ppt, .pptx, or external links return FALSE.
  */
 export function isMaterialPreviewable(material: {
   file_url?: string;
@@ -183,69 +310,8 @@ export function isMaterialPreviewable(material: {
   file_size?: string | null;
 }): boolean {
   if (!material) return false;
-
-  const url = (material.file_url || '').toLowerCase().trim();
-  const name = (material.file_name || material.title || '').toLowerCase().trim();
-  const mime = (material.mime_type || '').toLowerCase().trim();
-
-  // Explicit non-previewable archive, presentation, and document extensions
-  const nonPreviewableExtensions = [
-    '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.tgz',
-    '.ppt', '.pptx', '.doc', '.docx', '.xls', '.xlsx',
-    '.iso', '.dmg', '.pkg', '.apk', '.exe', '.msi', '.bin',
-    '.csv', '.sqlite', '.db'
-  ];
-
-  for (const ext of nonPreviewableExtensions) {
-    if (name.endsWith(ext) || url.includes(ext)) {
-      return false;
-    }
-  }
-
-  // Non-previewable MIME types
-  if (
-    mime.includes('zip') ||
-    mime.includes('compressed') ||
-    mime.includes('archive') ||
-    mime.includes('powerpoint') ||
-    mime.includes('presentation') ||
-    mime.includes('msword') ||
-    mime.includes('wordprocessingml') ||
-    mime.includes('octet-stream')
-  ) {
-    // If it's a PDF or image, it is previewable despite generic octet-stream
-    if (!name.endsWith('.pdf') && !name.endsWith('.png') && !name.endsWith('.jpg') && !name.endsWith('.jpeg')) {
-      return false;
-    }
-  }
-
-  // Multi-file bundle: check items
-  if (url.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(material.file_url || '[]');
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // If all files in the bundle are non-previewable, return false
-        const anyPreviewable = parsed.some((item) => {
-          const itemUrl = (item.url || '').toLowerCase();
-          const itemName = (item.title || item.name || '').toLowerCase();
-          const itemSize = parseFileSizeToMb(item.size);
-          if (itemSize !== null && itemSize > 30) return false;
-          return !nonPreviewableExtensions.some((ext) => itemName.endsWith(ext) || itemUrl.includes(ext));
-        });
-        return anyPreviewable;
-      }
-    } catch {}
-  }
-
-  // Google Drive preview limit protection:
-  // Google Drive preview API fails with "This file is too large to preview" for files > ~25-30MB.
-  // When a file is oversize, return false so the application displays the clean Download Hub and permits downloading!
-  const mbSize = parseFileSizeToMb((material as any).file_size);
-  if (mbSize !== null && mbSize > 30) {
-    return false;
-  }
-
-  return true;
+  const category = getMaterialCategory(material);
+  return category === 'PDF' || category === 'IMAGE';
 }
 
 /**

@@ -28,7 +28,7 @@ import {
   Minimize2
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
-import { isMaterialPreviewable, parseFileSizeToMb } from '@/lib/drive-service';
+import { isMaterialPreviewable, parseFileSizeToMb, getMaterialCategory, MaterialCategory } from '@/lib/drive-service';
 import { getMaterialFileFormat } from '@/components/MaterialCard';
 
 interface DocumentViewerModalProps {
@@ -461,15 +461,16 @@ export default function DocumentViewerModal({
 
   const isPreviewable = useMemo(() => {
     if (!material) return true;
-    const mb = parseFileSizeToMb(activeFileSizeStr);
-    if (mb !== null && mb > 30) return false;
+    if (isArchiveType) return false;
     return isMaterialPreviewable({
       file_name: activeFileName,
       file_url: activeFileUrl,
+      title: material.title,
       mime_type: material.mime_type,
       material_type: material.material_type,
+      file_size: activeFileSizeStr,
     });
-  }, [material, activeFileName, activeFileUrl, activeFileSizeStr]);
+  }, [material, isArchiveType, activeFileName, activeFileUrl, activeFileSizeStr]);
 
   const fileFormat = useMemo(() => {
     return material ? getMaterialFileFormat({
@@ -483,7 +484,8 @@ export default function DocumentViewerModal({
     ? (serverAllowDownloads && allowDownloads)
     : allowDownloads;
 
-  const canDownload = Boolean(isDownloadPermitted || !isPreviewable || isArchiveType || error);
+  // STRICT ACCESS CONTROL: Only admins/owners or users with permitted download settings can download
+  const canDownload = Boolean(isAdminOrOwner || isDownloadPermitted);
 
   // Helper to extract Google Drive file or folder IDs
   const extractDriveId = useCallback((url: string | null | undefined): string | null => {
@@ -502,13 +504,13 @@ export default function DocumentViewerModal({
     return null;
   }, [activeFile?.drive_file_id]);
 
-  // Robust, foolproof download handler for active part, document, or resource link
+  // Robust, authorized download handler strictly routed through server-side access control
   const handleDownloadActiveFile = useCallback((e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
       e.preventDefault();
     }
-    if (!material) return;
+    if (!material || !canDownload) return;
 
     if (onDownload) {
       try {
@@ -519,31 +521,25 @@ export default function DocumentViewerModal({
     }
 
     const currentUrl = activeFileUrl || material.file_url || '';
-    const driveId = activeFile?.drive_file_id || extractDriveId(currentUrl);
 
-    // 1. Direct Google Drive file download (bypass proxy)
-    if (driveId && !currentUrl.includes('/folders/')) {
-      const gdriveDirectDl = `https://drive.google.com/uc?export=download&id=${driveId}`;
-      const win = window.open(gdriveDirectDl, '_blank');
-      if (!win) {
-        window.location.href = gdriveDirectDl;
-      }
+    // If external link resource, open in new tab
+    const category = getMaterialCategory({
+      file_url: currentUrl,
+      file_name: activeFileName,
+      title: material.title,
+      mime_type: material.mime_type,
+      material_type: material.material_type,
+      file_size: activeFileSizeStr,
+    });
+
+    if (category === 'EXTERNAL_LINK') {
+      window.open(currentUrl, '_blank', 'noopener,noreferrer');
       fetch(`/api/materials/${material.id}/download?fileIndex=${activeFileIndex}&json=true`).catch(() => {});
       return;
     }
 
-    // 2. Direct external resource link
-    if (currentUrl.startsWith('http') && !currentUrl.includes('/study-materials/') && !currentUrl.includes('/uploads/')) {
-      const win = window.open(currentUrl, '_blank', 'noopener,noreferrer');
-      if (!win) {
-        window.location.href = currentUrl;
-      }
-      fetch(`/api/materials/${material.id}/download?fileIndex=${activeFileIndex}&json=true`).catch(() => {});
-      return;
-    }
-
-    // 3. API Route download stream (Supabase or local files)
-    const dlQuery = multiFiles.length > 0 ? `?fileIndex=${activeFileIndex}&fallback=true` : '?fallback=true';
+    // All uploaded materials MUST go through server-side authorized download endpoint
+    const dlQuery = multiFiles.length > 0 ? `?fileIndex=${activeFileIndex}` : '';
     const downloadEndpoint = `/api/materials/${material.id}/download${dlQuery}`;
 
     const link = document.createElement('a');
@@ -559,32 +555,17 @@ export default function DocumentViewerModal({
         document.body.removeChild(link);
       }
     }, 250);
-  }, [material, onDownload, activeFileUrl, activeFile, extractDriveId, multiFiles.length, activeFileIndex, activeFileName]);
+  }, [material, canDownload, onDownload, activeFileUrl, activeFileName, activeFileSizeStr, multiFiles.length, activeFileIndex]);
 
   const handleOpenSourceLink = useCallback((e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
       e.preventDefault();
     }
-    const currentUrl = activeFileUrl || material?.file_url || '';
-    const driveId = activeFile?.drive_file_id || extractDriveId(currentUrl);
-
-    let target = currentUrl;
-    if (driveId && !currentUrl.includes('/folders/')) {
-      target = `https://drive.google.com/file/d/${driveId}/view`;
-    } else if (driveEmbedUrl) {
-      target = driveEmbedUrl;
-    } else if (externalLinkUrl) {
-      target = externalLinkUrl;
+    if (externalLinkUrl && externalLinkUrl.startsWith('http')) {
+      window.open(externalLinkUrl, '_blank', 'noopener,noreferrer');
     }
-
-    if (target && target.startsWith('http')) {
-      const win = window.open(target, '_blank', 'noopener,noreferrer');
-      if (!win) {
-        window.location.href = target;
-      }
-    }
-  }, [activeFileUrl, material?.file_url, activeFile?.drive_file_id, extractDriveId, driveEmbedUrl, externalLinkUrl]);
+  }, [externalLinkUrl]);
 
   // Fullscreen support
   useEffect(() => {
@@ -781,20 +762,17 @@ export default function DocumentViewerModal({
         const targetUrl = activeFileUrl || material.file_url || '';
         const driveId = activeFile?.drive_file_id || extractDriveId(targetUrl);
 
-        const isExternalLink = (material.material_type as string) === 'link' || 
-          material.mime_type === 'text/html' ||
-          activeFile?.size === 'Resource Link' ||
-          activeFile?.title?.toLowerCase().includes('resource link') ||
-          activeFile?.name?.toLowerCase().includes('resource link') ||
-          (!targetUrl.includes('drive.google.com') && 
-           !targetUrl.includes('docs.google.com') && 
-           !targetUrl.includes('/study-materials/') && 
-           !targetUrl.includes('/uploads/') && 
-           !targetUrl.toLowerCase().endsWith('.pdf') && 
-           !targetUrl.toLowerCase().includes('.pdf?') && 
-           targetUrl.startsWith('http'));
+        const category = getMaterialCategory({
+          file_url: targetUrl,
+          file_name: activeFileName,
+          title: material.title,
+          mime_type: material.mime_type,
+          material_type: material.material_type,
+          file_size: activeFileSizeStr,
+        });
 
-        if (isExternalLink) {
+        // 1. External Links: YouTube, GfG, Google Drive folders, Resource Links
+        if (category === 'EXTERNAL_LINK') {
           clearTimeout(timeoutId);
           setExternalLinkUrl(targetUrl);
           lastLoadedKeyRef.current = currentDocKey;
@@ -802,39 +780,32 @@ export default function DocumentViewerModal({
           return;
         }
 
-        const isDriveFolder = targetUrl.includes('drive.google.com') && targetUrl.includes('/folders/');
-        const isDriveResourceLink = targetUrl.includes('drive.google.com') && (
-          activeFile?.size === 'Google Drive' ||
-          material.file_size === 'Google Drive' ||
-          material.mime_type === 'text/uri-list' ||
-          (material.material_type as string) === 'link' ||
-          isDriveFolder
-        );
-
-        if (isDriveResourceLink) {
+        // 2. Non-Previewables: PPT, ZIP, RAR, 7Z, and unsupported documents
+        // Instantly unblock viewer with native clean card (0ms, zero network delay)
+        if (category === 'PPT' || category === 'ARCHIVE' || category === 'OTHER') {
           clearTimeout(timeoutId);
-          setIsDriveResource(true);
+          if (category === 'ARCHIVE') setIsArchiveType(true);
           lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
           return;
         }
 
-        const isImage = material.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(targetUrl);
-        if (driveId && isImage) {
+        // 3. Images: Render in image viewer
+        if (category === 'IMAGE') {
           clearTimeout(timeoutId);
           setIsImageType(true);
-          setPreviewBlobUrl(`https://lh3.googleusercontent.com/d/${driveId}`);
+          setPreviewBlobUrl(driveId ? `https://lh3.googleusercontent.com/d/${driveId}` : targetUrl);
           lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
           return;
         }
 
-        // Check in-memory cache first (instant 0ms load!)
+        // 4. PDFs: Stream and render via PDF.js Canvas
         const cached = getCachedDoc(currentDocKey);
         let arrayBuffer: ArrayBuffer;
         let contentType = '';
 
-        // Proactively begin initializing PDF.js concurrently with network transfer
+        // Concurrent initialization of PDF.js
         const pdfInitPromise = getOrLoadPdfJs();
 
         if (cached) {
@@ -842,7 +813,6 @@ export default function DocumentViewerModal({
           arrayBuffer = cached.buffer;
           contentType = cached.contentType;
         } else {
-          // Stream the document binary via /api/materials/[id]/preview?stream=true
           const previewQuery = multiFiles.length > 0 
             ? `?fileIndex=${activeFileIndex}&stream=true` 
             : '?stream=true';
@@ -860,69 +830,27 @@ export default function DocumentViewerModal({
           }
 
           contentType = response.headers.get('content-type') || '';
-
-          // If response followed a redirect to Google Drive's HTML preview or login page
-          if (contentType.includes('text/html')) {
-            if (driveId && !targetUrl.includes('/folders/')) {
-              setDriveEmbedUrl(`https://drive.google.com/file/d/${driveId}/preview`);
-              lastLoadedKeyRef.current = currentDocKey;
-              setLoading(false);
-              return;
-            }
-            if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
-              setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
-              lastLoadedKeyRef.current = currentDocKey;
-              setLoading(false);
-              return;
-            }
-          }
-
           arrayBuffer = await response.arrayBuffer();
           if (isCancelled) return;
 
-          // Cache downloaded buffer for instant reuse across session
           setCachedDoc(currentDocKey, { buffer: arrayBuffer, contentType });
         }
 
-        // Check if image
-        if (contentType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(targetUrl)) {
-          const blob = new Blob([arrayBuffer], { type: contentType || 'image/jpeg' });
-          localBlobUrl = URL.createObjectURL(blob);
-          setPreviewBlobUrl(localBlobUrl);
-          setIsImageType(true);
+        // Inspect magic bytes: detect if file is actually an archive or container
+        const uint8 = new Uint8Array(arrayBuffer.slice(0, 8));
+        const isPdfMagic = uint8[0] === 0x25 && uint8[1] === 0x50 && uint8[2] === 0x44 && uint8[3] === 0x46; // %PDF
+        const isZipMagic = uint8[0] === 0x50 && uint8[1] === 0x4B; // PK (ZIP / Office)
+        const isRarMagic = uint8[0] === 0x52 && uint8[1] === 0x61 && uint8[2] === 0x72; // Rar!
+        const is7zMagic = uint8[0] === 0x37 && uint8[1] === 0x7A && uint8[2] === 0xBC; // 7z
+
+        if (isZipMagic || isRarMagic || is7zMagic || (!isPdfMagic && !contentType.includes('pdf'))) {
+          setIsArchiveType(true);
           lastLoadedKeyRef.current = currentDocKey;
           setLoading(false);
           return;
         }
 
-        setIsImageType(false);
-
-        // Inspect header magic bytes to detect non-PDF archives (ZIP, RAR, 7z) or non-PDF formats
-        const uint8 = new Uint8Array(arrayBuffer.slice(0, 8));
-        const isPdfMagic = uint8[0] === 0x25 && uint8[1] === 0x50 && uint8[2] === 0x44 && uint8[3] === 0x46; // %PDF
-        const isZipMagic = uint8[0] === 0x50 && uint8[1] === 0x4B; // PK (ZIP / Office files)
-        const isRarMagic = uint8[0] === 0x52 && uint8[1] === 0x61 && uint8[2] === 0x72; // Rar!
-        const is7zMagic = uint8[0] === 0x37 && uint8[1] === 0x7A && uint8[2] === 0xBC; // 7z
-
-        // If binary is definitely an archive or non-PDF container, switch to archive mode and embed in Drive viewer
-        if (isZipMagic || isRarMagic || is7zMagic || (!isPdfMagic && !contentType.includes('pdf'))) {
-          setIsArchiveType(true);
-          const fallbackDriveId = driveId || extractDriveId(targetUrl);
-          if (fallbackDriveId && !targetUrl.includes('/folders/')) {
-            setDriveEmbedUrl(`https://drive.google.com/file/d/${fallbackDriveId}/preview`);
-            lastLoadedKeyRef.current = currentDocKey;
-            setLoading(false);
-            return;
-          }
-          if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
-            setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
-            lastLoadedKeyRef.current = currentDocKey;
-            setLoading(false);
-            return;
-          }
-        }
-
-        // Load PDF document with PDF.js
+        // Decode PDF with PDF.js
         try {
           const pdfjsLib = await pdfInitPromise;
           if (isCancelled) return;
@@ -937,13 +865,12 @@ export default function DocumentViewerModal({
           const doc = await loadingTask.promise;
           if (isCancelled) return;
 
-          // UNBLOCK THE VIEWER IMMEDIATELY! First page begins rendering right away!
+          // Unblock viewer immediately! First page renders ASAP!
           lastLoadedKeyRef.current = currentDocKey;
           setPdfDoc(doc);
           setTotalPages(doc.numPages || 1);
           setLoading(false);
 
-          // Asynchronously resolve and refine Page 1 dimensions in background without delaying loading state
           doc.getPage(1).then((firstPage: any) => {
             if (!isCancelled) {
               const initialViewport = firstPage.getViewport({ scale: 1, rotation: 0 });
@@ -959,20 +886,6 @@ export default function DocumentViewerModal({
           return;
         } catch (pdfErr) {
           console.warn('PDF.js binary decode notice:', pdfErr);
-          setIsArchiveType(true);
-          const fallbackDriveId = driveId || extractDriveId(targetUrl);
-          if (fallbackDriveId && !targetUrl.includes('/folders/')) {
-            setDriveEmbedUrl(`https://drive.google.com/file/d/${fallbackDriveId}/preview`);
-            lastLoadedKeyRef.current = currentDocKey;
-            setLoading(false);
-            return;
-          }
-          if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
-            setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
-            lastLoadedKeyRef.current = currentDocKey;
-            setLoading(false);
-            return;
-          }
           setError('Could not decode document preview.');
           setLoading(false);
           return;
@@ -981,32 +894,12 @@ export default function DocumentViewerModal({
         clearTimeout(timeoutId);
         if (isCancelled) return;
 
-        const targetUrl = activeFileUrl || material.file_url || '';
-        const fallbackDriveId = activeFile?.drive_file_id || extractDriveId(targetUrl);
-        if (fallbackDriveId && !targetUrl.includes('/folders/')) {
-          setIsImageType(false);
-          if (/\b(zip|rar|7z|tar|ppts?|docx?)\b/i.test(material.title || '') || targetUrl.toLowerCase().includes('.zip')) {
-            setIsArchiveType(true);
-          }
-          setDriveEmbedUrl(`https://drive.google.com/file/d/${fallbackDriveId}/preview`);
-          lastLoadedKeyRef.current = currentDocKey;
-          setLoading(false);
-          return;
-        }
-        if (targetUrl.startsWith('http') && !targetUrl.startsWith('[')) {
-          setIsImageType(false);
-          setDriveEmbedUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(targetUrl)}&embedded=true`);
-          lastLoadedKeyRef.current = currentDocKey;
-          setLoading(false);
-          return;
-        }
-
         console.error('Error loading document preview:', err);
         const isTimeout = err?.name === 'AbortError';
         setError(
           isTimeout
-            ? 'Document loading timed out. Please try again or download below.'
-            : 'Failed to load document preview. Please try again or download if allowed.'
+            ? 'Document loading timed out. Please try again.'
+            : 'Failed to load document preview. Please try again.'
         );
         setLoading(false);
       }
@@ -1563,7 +1456,13 @@ export default function DocumentViewerModal({
                   <Download className="w-4 h-4" />
                   <span>Download File ({activeFileSizeStr || fileFormat.label})</span>
                 </button>
-              ) : null}
+              ) : (
+                <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 text-center">
+                  <p className="text-xs text-amber-400 font-medium">
+                    Downloads are currently disabled by administration for this file type.
+                  </p>
+                </div>
+              )}
             </div>
           ) : externalLinkUrl ? (
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 max-w-lg text-center mx-auto my-auto shadow-2xl animate-in zoom-in-95 duration-200">
@@ -1606,7 +1505,7 @@ export default function DocumentViewerModal({
                 {activeFileName || material.title}
               </h3>
               <p className="text-xs text-slate-400 mb-6 max-w-md mx-auto leading-relaxed">
-                This study material is hosted on Google Drive. Open in a new tab for 100% full access to all subjects, folders, PYQs, and notes.
+                This study resource is hosted on Google Drive. Open in a new tab for 100% full access to all subjects, folders, PYQs, and notes.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -1643,7 +1542,7 @@ export default function DocumentViewerModal({
               <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto mb-3" />
               <p className="text-sm font-semibold text-slate-200 mb-1">{error}</p>
               <p className="text-xs text-slate-400 mb-4">
-                You can download the document directly to your device or open the source link.
+                {canDownload ? 'You can download the document directly to your device.' : 'Please try reloading or contact administration if the problem persists.'}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 mt-2">
                 {canDownload && (
@@ -1655,13 +1554,13 @@ export default function DocumentViewerModal({
                     <span>Download Document</span>
                   </button>
                 )}
-                {canDownload && (activeFileUrl || externalLinkUrl || driveEmbedUrl) && (
+                {canDownload && externalLinkUrl && (
                   <button
                     onClick={handleOpenSourceLink}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white font-bold text-xs border border-slate-600 transition-all cursor-pointer"
                   >
                     <ExternalLink className="w-4 h-4" />
-                    <span>Open in {activeFileUrl.includes('drive.google.com') ? 'Google Drive' : 'New Tab'}</span>
+                    <span>Open Resource Link</span>
                   </button>
                 )}
               </div>
@@ -1714,19 +1613,6 @@ export default function DocumentViewerModal({
                   transformOrigin: 'top center',
                 }}
               >
-                {(canDownload || isArchiveType) && (
-                  <div className="absolute top-2 right-2 z-20">
-                    <a
-                      href={activeFileUrl || material.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-amber-400 font-bold text-xs rounded-xl border border-slate-700 shadow-lg backdrop-blur-md transition-all"
-                    >
-                      <span>Open in Google Drive</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                )}
                 <iframe
                   src={driveEmbedUrl}
                   title={material.title}
@@ -1735,20 +1621,8 @@ export default function DocumentViewerModal({
                     filter: readingFilterStyle,
                     pointerEvents: isPinching ? 'none' : 'auto',
                   }}
-                  sandbox={(canDownload || isArchiveType) ? "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" : "allow-scripts allow-same-origin allow-forms"}
+                  sandbox="allow-scripts allow-same-origin allow-forms"
                 />
-                {(!canDownload && !isArchiveType) && (
-                  /* Security Shield: Prevents bypassing download prohibition via Drive pop-out on protected PDFs */
-                  <div 
-                    className="absolute top-0 right-0 w-16 h-14 bg-black z-30 pointer-events-auto cursor-default rounded-tr-xl"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }}
-                    onContextMenu={(e) => e.preventDefault()}
-                    title=""
-                  />
-                )}
               </div>
             </div>
           ) : (
