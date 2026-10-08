@@ -436,7 +436,7 @@ export default function DocumentViewerModal({
     let isMounted = true;
     async function syncGlobalSettings() {
       try {
-        const res = await fetch('/api/admin/settings');
+        const res = await fetch('/api/admin/settings', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (isMounted && data.settings && typeof data.settings.allow_user_downloads === 'boolean') {
@@ -451,7 +451,7 @@ export default function DocumentViewerModal({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [material?.id]);
 
   // Active file details
   const activeFile = multiFiles[activeFileIndex] || null;
@@ -480,12 +480,12 @@ export default function DocumentViewerModal({
     }) : { type: 'pdf' as const, label: 'PDF', ext: '.pdf', icon: FileText, badgeClass: '' };
   }, [material, activeFileName, activeFileUrl]);
 
-  const isDownloadPermitted = serverAllowDownloads !== null 
-    ? (serverAllowDownloads && allowDownloads)
-    : allowDownloads;
+  const isGlobalDownloadsEnabled = serverAllowDownloads !== null 
+    ? serverAllowDownloads 
+    : Boolean(allowDownloads);
 
   // STRICT ACCESS CONTROL: Only admins/owners or users with permitted download settings can download
-  const canDownload = Boolean(isAdminOrOwner || isDownloadPermitted);
+  const canDownload = Boolean(isAdminOrOwner || isGlobalDownloadsEnabled);
 
   // Helper to extract Google Drive file or folder IDs
   const extractDriveId = useCallback((url: string | null | undefined): string | null => {
@@ -1656,14 +1656,14 @@ export default function DocumentViewerModal({
             </div>
 
             <div className="flex items-center gap-2 text-[11px]">
-              {canDownload ? (
+              {isGlobalDownloadsEnabled ? (
                 <span className="text-emerald-400 font-medium">
                   ✓ Full Access: Reading & Downloads Enabled
                 </span>
               ) : (
                 <span className="text-amber-400 font-medium flex items-center gap-1">
                   <ShieldAlert className="w-3 h-3 text-amber-400" />
-                  Global Policy: Reading & Zoom Enabled (Download Prohibited)
+                  Preview Only: Downloads Disabled
                 </span>
               )}
             </div>

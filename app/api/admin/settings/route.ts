@@ -5,16 +5,12 @@ import { getAppSettings, updateAppSettings } from '@/lib/db';
 export async function GET() {
   try {
     const session = await getCurrentSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
     const settings = await getAppSettings();
     const res = NextResponse.json(
       {
         success: true,
         settings,
-        isAdmin: Boolean(session.isAdmin || session.isOwner),
+        isAdmin: Boolean(session && (session.isAdmin || session.isOwner)),
       },
       {
         headers: {
