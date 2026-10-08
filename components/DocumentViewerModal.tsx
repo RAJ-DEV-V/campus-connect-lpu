@@ -196,6 +196,7 @@ export default function DocumentViewerModal({
   const [driveEmbedUrl, setDriveEmbedUrl] = useState<string | null>(null);
   const [isImageType, setIsImageType] = useState<boolean>(false);
   const [externalLinkUrl, setExternalLinkUrl] = useState<string | null>(null);
+  const [isDriveResource, setIsDriveResource] = useState<boolean>(false);
   const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
 
   // References
@@ -684,6 +685,7 @@ export default function DocumentViewerModal({
     setBasePageDims(null);
     setDriveEmbedUrl(null);
     setExternalLinkUrl(null);
+    setIsDriveResource(false);
     setCurrentPage(1);
     setTotalPages(1);
 
@@ -712,13 +714,18 @@ export default function DocumentViewerModal({
         }
 
         const isDriveFolder = targetUrl.includes('drive.google.com') && targetUrl.includes('/folders/');
-        if (isDriveFolder) {
-          const folderId = extractDriveId(targetUrl);
-          if (folderId) {
-            setDriveEmbedUrl(`https://drive.google.com/embeddedfolderview?id=${folderId}#list`);
-            setLoading(false);
-            return;
-          }
+        const isDriveResourceLink = targetUrl.includes('drive.google.com') && (
+          activeFile?.size === 'Google Drive' ||
+          material.file_size === 'Google Drive' ||
+          material.mime_type === 'text/uri-list' ||
+          (material.material_type as string) === 'link' ||
+          isDriveFolder
+        );
+
+        if (isDriveResourceLink) {
+          setIsDriveResource(true);
+          setLoading(false);
+          return;
         }
 
         const isImage = material.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(targetUrl);
@@ -1314,6 +1321,9 @@ export default function DocumentViewerModal({
                     setLoading(true);
                     setError(null);
                   }
+                  if (file.url && (file.url.includes('drive.google.com') || file.url.includes('docs.google.com') || file.size === 'Google Drive' || file.size === 'Resource Link')) {
+                    window.open(file.url, '_blank', 'noopener,noreferrer');
+                  }
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 select-none ${
                   activeFileIndex === idx
@@ -1427,6 +1437,50 @@ export default function DocumentViewerModal({
                 <ExternalLink className="w-4 h-4" />
               </a>
             </div>
+          ) : isDriveResource ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 max-w-xl text-center mx-auto my-auto shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-amber-500/10">
+                <ExternalLink className="w-8 h-8 text-amber-400" />
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 text-[11px] font-bold text-amber-300 border border-amber-800 mb-3">
+                Google Drive Resource
+              </span>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2 leading-snug">
+                {activeFileName || material.title}
+              </h3>
+              <p className="text-xs text-slate-400 mb-6 max-w-md mx-auto leading-relaxed">
+                This study material is hosted on Google Drive. Open in a new tab for 100% full access to all subjects, folders, PYQs, and notes.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a
+                  href={activeFileUrl || material.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    fetch('/api/materials/history', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ materialId: material.id }),
+                    }).catch(() => {});
+                  }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-lpu-600 to-amber-500 hover:from-lpu-700 hover:to-amber-600 text-white font-bold text-sm shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <span>Open in Google Drive (New Tab)</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+
+                {canDownload && (
+                  <button
+                    onClick={handleDownloadActiveFile}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-sm border border-slate-700 transition-all cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Files</span>
+                  </button>
+                )}
+              </div>
+            </div>
           ) : error ? (
             <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 sm:p-8 max-w-md text-center mx-auto my-auto shadow-2xl animate-in zoom-in-95 duration-200">
               <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto mb-3" />
@@ -1503,6 +1557,17 @@ export default function DocumentViewerModal({
                   transformOrigin: 'top center',
                 }}
               >
+                <div className="absolute top-2 right-2 z-20">
+                  <a
+                    href={activeFileUrl || material.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-amber-400 font-bold text-xs rounded-xl border border-slate-700 shadow-lg backdrop-blur-md transition-all"
+                  >
+                    <span>Open in Google Drive</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
                 <iframe
                   src={driveEmbedUrl}
                   title={material.title}
@@ -1511,17 +1576,7 @@ export default function DocumentViewerModal({
                     filter: readingFilterStyle,
                     pointerEvents: isPinching ? 'none' : 'auto',
                   }}
-                  sandbox="allow-scripts allow-same-origin allow-forms"
-                />
-                {/* Security Shield */}
-                <div 
-                  className="absolute top-0 right-0 w-16 h-14 bg-black z-30 pointer-events-auto cursor-default rounded-tr-xl"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                  onContextMenu={(e) => e.preventDefault()}
-                  title=""
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
                 />
               </div>
             </div>

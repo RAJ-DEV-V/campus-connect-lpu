@@ -15,7 +15,8 @@ import {
   Layers, 
   Bookmark, 
   FileArchive, 
-  Presentation 
+  Presentation,
+  ExternalLink 
 } from 'lucide-react';
 import { Material } from '@/lib/db/types';
 import { isMaterialPreviewable } from '@/lib/drive-service';
@@ -148,6 +149,32 @@ export default function MaterialCard({
     }
   };
 
+  const isDirectDriveLink = Boolean(
+    material.file_url &&
+    !material.file_url.startsWith('[') &&
+    (material.file_size === 'Google Drive' ||
+     material.file_url.includes('drive.google.com') ||
+     material.file_url.includes('docs.google.com'))
+  );
+
+  const isDirectResourceLink = Boolean(
+    material.file_url &&
+    !material.file_url.startsWith('[') &&
+    (material.file_size === 'Resource Link' ||
+     material.mime_type === 'text/uri-list' ||
+     (material.material_type as string) === 'link' ||
+     (material.file_url.startsWith('http') && !material.file_url.includes('/study-materials/') && !material.file_url.includes('/uploads/')))
+  );
+
+  const handleOpenDirectLink = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    fetch('/api/materials/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ materialId: material.id }),
+    }).catch(() => {});
+  };
+
   const badge = getTypeBadge();
   const BadgeIcon = badge.icon;
   const FormatIcon = fileFormat.icon;
@@ -255,7 +282,33 @@ export default function MaterialCard({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          {onPreview && canPreview && (
+          {isDirectDriveLink ? (
+            <button
+              onClick={() => handleOpenDirectLink(material.file_url)}
+              type="button"
+              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                canDownload 
+                  ? 'text-slate-800 dark:text-slate-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 border border-amber-200/80 dark:border-amber-800/80 shadow-2xs' 
+                  : 'col-span-2 text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 shadow-xs'
+              }`}
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-amber-500" />
+              <span>Open in Google Drive</span>
+            </button>
+          ) : isDirectResourceLink ? (
+            <button
+              onClick={() => handleOpenDirectLink(material.file_url)}
+              type="button"
+              className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                canDownload 
+                  ? 'text-slate-800 dark:text-slate-200 bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200/90 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 shadow-2xs' 
+                  : 'col-span-2 text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 shadow-xs'
+              }`}
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-amber-500" />
+              <span>Open Resource</span>
+            </button>
+          ) : onPreview && canPreview ? (
             <button
               onClick={() => onPreview(material)}
               type="button"
@@ -266,9 +319,9 @@ export default function MaterialCard({
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
-              {canDownload ? 'Preview' : 'Preview Document'}
+              {material.file_url?.startsWith('[') ? 'View Parts' : canDownload ? 'Preview' : 'Preview Document'}
             </button>
-          )}
+          ) : null}
 
           {canDownload && (
             <button
