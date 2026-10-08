@@ -1321,7 +1321,12 @@ export default function DocumentViewerModal({
                     setLoading(true);
                     setError(null);
                   }
-                  if (file.url && (file.url.includes('drive.google.com') || file.url.includes('docs.google.com') || file.size === 'Google Drive' || file.size === 'Resource Link')) {
+                  const isPartLink = file.url && (
+                    file.size === 'Google Drive' || 
+                    file.size === 'Resource Link' || 
+                    file.url.includes('/folders/')
+                  );
+                  if (isPartLink && canDownload) {
                     window.open(file.url, '_blank', 'noopener,noreferrer');
                   }
                 }}
@@ -1498,7 +1503,7 @@ export default function DocumentViewerModal({
                     <span>Download Document</span>
                   </button>
                 )}
-                {(activeFileUrl || externalLinkUrl || driveEmbedUrl) && (
+                {canDownload && (activeFileUrl || externalLinkUrl || driveEmbedUrl) && (
                   <button
                     onClick={handleOpenSourceLink}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white font-bold text-xs border border-slate-600 transition-all cursor-pointer"
@@ -1557,17 +1562,19 @@ export default function DocumentViewerModal({
                   transformOrigin: 'top center',
                 }}
               >
-                <div className="absolute top-2 right-2 z-20">
-                  <a
-                    href={activeFileUrl || material.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-amber-400 font-bold text-xs rounded-xl border border-slate-700 shadow-lg backdrop-blur-md transition-all"
-                  >
-                    <span>Open in Google Drive</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
+                {canDownload && (
+                  <div className="absolute top-2 right-2 z-20">
+                    <a
+                      href={activeFileUrl || material.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-amber-400 font-bold text-xs rounded-xl border border-slate-700 shadow-lg backdrop-blur-md transition-all"
+                    >
+                      <span>Open in Google Drive</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
                 <iframe
                   src={driveEmbedUrl}
                   title={material.title}
@@ -1576,8 +1583,20 @@ export default function DocumentViewerModal({
                     filter: readingFilterStyle,
                     pointerEvents: isPinching ? 'none' : 'auto',
                   }}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                  sandbox={canDownload ? "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" : "allow-scripts allow-same-origin allow-forms"}
                 />
+                {!canDownload && (
+                  /* Security Shield: Prevents bypassing download prohibition via Drive pop-out */
+                  <div 
+                    className="absolute top-0 right-0 w-16 h-14 bg-black z-30 pointer-events-auto cursor-default rounded-tr-xl"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                    }}
+                    onContextMenu={(e) => e.preventDefault()}
+                    title=""
+                  />
+                )}
               </div>
             </div>
           ) : (

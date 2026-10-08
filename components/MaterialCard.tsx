@@ -152,9 +152,7 @@ export default function MaterialCard({
   const isDirectDriveLink = Boolean(
     material.file_url &&
     !material.file_url.startsWith('[') &&
-    (material.file_size === 'Google Drive' ||
-     material.file_url.includes('drive.google.com') ||
-     material.file_url.includes('docs.google.com'))
+    material.file_size === 'Google Drive'
   );
 
   const isDirectResourceLink = Boolean(
@@ -163,7 +161,11 @@ export default function MaterialCard({
     (material.file_size === 'Resource Link' ||
      material.mime_type === 'text/uri-list' ||
      (material.material_type as string) === 'link' ||
-     (material.file_url.startsWith('http') && !material.file_url.includes('/study-materials/') && !material.file_url.includes('/uploads/')))
+     (material.file_url.startsWith('http') && 
+      !material.file_url.includes('drive.google.com') && 
+      !material.file_url.includes('docs.google.com') && 
+      !material.file_url.includes('/study-materials/') && 
+      !material.file_url.includes('/uploads/')))
   );
 
   const handleOpenDirectLink = (url: string) => {
