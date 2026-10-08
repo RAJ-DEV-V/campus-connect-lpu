@@ -430,7 +430,13 @@ export default function DocumentViewerModal({
   }, [material]);
 
   // Global access control settings
-  const [serverAllowDownloads, setServerAllowDownloads] = useState<boolean | null>(null);
+  const [serverAllowDownloads, setServerAllowDownloads] = useState<boolean | null>(() => {
+    if (typeof window !== 'undefined' && document.cookie) {
+      if (document.cookie.includes('cc_allow_dl=false')) return false;
+      if (document.cookie.includes('cc_allow_dl=true')) return true;
+    }
+    return null;
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -482,10 +488,10 @@ export default function DocumentViewerModal({
 
   const isGlobalDownloadsEnabled = serverAllowDownloads !== null 
     ? serverAllowDownloads 
-    : Boolean(allowDownloads);
+    : (allowDownloads === false ? false : Boolean(allowDownloads));
 
-  // STRICT ACCESS CONTROL: Only admins/owners or users with permitted download settings can download
-  const canDownload = Boolean(isAdminOrOwner || isGlobalDownloadsEnabled);
+  // STRICT ACCESS CONTROL: When downloads are globally off, NO download is allowed and NO download button is rendered.
+  const canDownload = Boolean(isGlobalDownloadsEnabled);
 
   // Helper to extract Google Drive file or folder IDs
   const extractDriveId = useCallback((url: string | null | undefined): string | null => {
@@ -688,6 +694,11 @@ export default function DocumentViewerModal({
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 's' || e.key.toLowerCase() === 'p') && !canDownload) {
+        e.preventDefault();
+        return;
+      }
 
       if (e.key === 'Escape') {
         if (document.fullscreenElement) {

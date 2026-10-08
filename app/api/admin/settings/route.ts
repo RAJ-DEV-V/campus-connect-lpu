@@ -30,6 +30,15 @@ export async function GET() {
       maxAge: 31536000,
     });
 
+    res.cookies.set({
+      name: 'cc_allow_dl',
+      value: settings.allow_user_downloads ? 'true' : 'false',
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 31536000,
+    });
+
     return res;
   } catch (error: any) {
     console.error('Settings GET error:', error);
@@ -87,6 +96,15 @@ export async function PATCH(req: NextRequest) {
     res.cookies.set({
       name: 'cc_comm_req',
       value: updated.require_community_verification ? 'true' : 'false',
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 31536000,
+    });
+
+    res.cookies.set({
+      name: 'cc_allow_dl',
+      value: updated.allow_user_downloads ? 'true' : 'false',
       path: '/',
       httpOnly: false,
       sameSite: 'lax',
