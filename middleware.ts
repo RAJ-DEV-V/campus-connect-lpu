@@ -128,12 +128,13 @@ export async function middleware(request: NextRequest) {
 
   const isOwnerEmail = session.email.toLowerCase().trim() === 'mishra.rajvansh11@gmail.com';
   const effectiveIsAdmin = isOwnerEmail || session.isAdmin;
+  const isCommunityVerificationRequired = request.cookies.get('cc_comm_req')?.value !== 'false';
 
   // 2. User is logged in
   if (pathname === '/login') {
     if (effectiveIsAdmin) {
       return NextResponse.redirect(new URL('/admin', request.url));
-    } else if (session.community_joined) {
+    } else if (!isCommunityVerificationRequired || session.community_joined) {
       return NextResponse.redirect(new URL('/library', request.url));
     } else {
       return NextResponse.redirect(new URL('/community', request.url));
@@ -151,8 +152,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // 4. Community verification check
-  // Admin and owner bypass community verification restriction
-  if (!session.community_joined && !effectiveIsAdmin) {
+  // Admin and owner bypass community verification restriction.
+  // When global community verification is OFF, any logged-in user can access library/dashboard/materials!
+  if (isCommunityVerificationRequired && !session.community_joined && !effectiveIsAdmin) {
     if (
       pathname.startsWith('/dashboard') || 
       pathname.startsWith('/library') ||

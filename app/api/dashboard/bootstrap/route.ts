@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
 
-    if (!session.community_joined && !session.isAdmin) {
+    const settings = await getAppSettings().catch(() => ({ allow_user_downloads: true, require_community_verification: true }));
+    const requireCommunity = settings.require_community_verification !== false;
+
+    if (requireCommunity && !session.community_joined && !session.isAdmin) {
       return NextResponse.json(
         { authenticated: true, user: session, community_required: true },
         { status: 403 }
@@ -31,7 +34,6 @@ export async function GET(req: NextRequest) {
 
     // Parallel server-side execution across in-memory cache and DB
     const [
-      settings,
       whatsNew,
       history,
       saved,
@@ -40,7 +42,6 @@ export async function GET(req: NextRequest) {
       recentMaterials,
       requests
     ] = await Promise.all([
-      getAppSettings().catch(() => ({ allow_user_downloads: true })),
       getWhatsNew(true).catch(() => []),
       getUserMaterialOpenHistory(session.userId, 8).catch(() => []),
       getUserSavedMaterials(session.userId, 12).catch(() => []),
@@ -68,6 +69,7 @@ export async function GET(req: NextRequest) {
         },
         settings: {
           allow_user_downloads: settings.allow_user_downloads,
+          require_community_verification: settings.require_community_verification ?? true,
         },
         whatsNew: Array.isArray(whatsNew) ? whatsNew : [],
         history: Array.isArray(history) ? history : [],

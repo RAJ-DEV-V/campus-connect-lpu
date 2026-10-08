@@ -117,6 +117,7 @@
   "community_verification_links": [],
   "app_settings": {
     "allow_user_downloads": false,
+    "require_community_verification": true,
     "updated_at": "2026-10-04T09:33:54.502Z",
     "updated_by": "mishra.rajvansh11@gmail.com"
   },

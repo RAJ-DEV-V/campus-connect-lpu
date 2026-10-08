@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
-import { getMaterialById, updateMaterial, deleteMaterial } from '@/lib/db';
+import { getMaterialById, updateMaterial, deleteMaterial, getAppSettings } from '@/lib/db';
 import { uploadStudyMaterialFile } from '@/lib/storage';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -10,7 +10,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    if (!session.community_joined && !session.isAdmin) {
+    const settings = await getAppSettings().catch(() => ({ require_community_verification: true } as any));
+    const requireCommunity = settings.require_community_verification !== false;
+
+    if (requireCommunity && !session.community_joined && !session.isAdmin) {
       return NextResponse.json({ error: 'Community membership required' }, { status: 403 });
     }
 

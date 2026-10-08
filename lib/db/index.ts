@@ -210,13 +210,23 @@ export async function getDownloadAnalytics() {
   return localDb.getDownloadAnalytics();
 }
 
-export async function getAppSettings(): Promise<{ allow_user_downloads: boolean; updated_at?: string; updated_by?: string }> {
+export async function getAppSettings(): Promise<{
+  allow_user_downloads: boolean;
+  require_community_verification: boolean;
+  updated_at?: string;
+  updated_by?: string;
+}> {
   if (supabaseDb) return await supabaseDb.getAppSettings();
   return localDb.getAppSettings();
 }
 
-export async function updateAppSettings(settings: Partial<{ allow_user_downloads: boolean; updated_by?: string }>): Promise<{
+export async function updateAppSettings(settings: Partial<{
   allow_user_downloads: boolean;
+  require_community_verification: boolean;
+  updated_by?: string;
+}>): Promise<{
+  allow_user_downloads: boolean;
+  require_community_verification: boolean;
   updated_at: string;
   updated_by?: string;
 }> {

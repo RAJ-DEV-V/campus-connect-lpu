@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getSupabaseConfig } from '@/lib/supabase/config';
-import { upsertUser, isAdmin as checkIsAdmin, getUserRole } from '@/lib/db';
+import { upsertUser, isAdmin as checkIsAdmin, getUserRole, getAppSettings } from '@/lib/db';
 import { signSession, SESSION_COOKIE_NAME } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -109,16 +109,29 @@ export async function GET(request: NextRequest) {
         const isAdmin = userRole === 'owner' || userRole === 'admin';
         const sessionToken = await signSession(unifiedUser, isAdmin, userRole);
 
+        const settings = await getAppSettings().catch(() => ({ require_community_verification: true } as any));
+        const requireCommunity = settings.require_community_verification !== false;
+
         // Determine destination based on role and community status:
         // - Admin/Owner -> /admin (or redirectTarget if specifically requested)
-        // - Verified Student -> /library
-        // - Unverified Student -> /community
-        let destination = isAdmin ? '/admin' : (communityJoined ? '/library' : '/community');
+        // - If community verification is OFF -> /library
+        // - If community verification is ON and verified -> /library
+        // - If community verification is ON and unverified -> /community
+        let destination = isAdmin ? '/admin' : ((!requireCommunity || communityJoined) ? '/library' : '/community');
         if (redirectTarget) {
           destination = redirectTarget;
         }
 
         const response = NextResponse.redirect(new URL(destination, origin));
+
+        response.cookies.set({
+          name: 'cc_comm_req',
+          value: requireCommunity ? 'true' : 'false',
+          path: '/',
+          httpOnly: false,
+          sameSite: 'lax',
+          maxAge: 31536000,
+        });
 
         // CRITICAL: Propagate all Supabase SSR session cookies to the redirect response!
         cookiesToSetLater.forEach(({ name, value, options }) => {

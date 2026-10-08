@@ -13,8 +13,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const isAdminOrOwner = Boolean(session.isAdmin || session.isOwner);
+    const settings = await getAppSettings().catch(() => ({ allow_user_downloads: true, require_community_verification: true }));
+    const requireCommunity = settings.require_community_verification !== false;
 
-    if (!session.community_joined && !isAdminOrOwner) {
+    if (requireCommunity && !session.community_joined && !isAdminOrOwner) {
       return NextResponse.json(
         { error: 'Community confirmation required to access study materials' },
         { status: 403 }
@@ -55,7 +57,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // When allow_user_downloads = false, PDF/previewable documents cannot be downloaded by normal students.
     // HOWEVER: Files that cannot be previewed in the document viewer (e.g. .zip, .rar, .7z, archives, or oversize files > 30MB)
     // are EXEMPT and permitted for normal students to download so they can access the material.
-    const settings = await getAppSettings();
     const canBePreviewed = isMaterialPreviewable({
       file_url: targetFileUrl,
       file_name: targetTitle,

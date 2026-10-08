@@ -30,6 +30,7 @@ interface DatabaseSchema {
   feedback_requests?: StudentFeedbackRequest[];
   app_settings?: {
     allow_user_downloads: boolean;
+    require_community_verification: boolean;
     updated_at?: string;
     updated_by?: string;
   };
@@ -74,6 +75,7 @@ function getDefaultData(): DatabaseSchema {
 
   const app_settings = {
     allow_user_downloads: true,
+    require_community_verification: true,
     updated_at: new Date().toISOString(),
     updated_by: 'system',
   };
@@ -768,31 +770,53 @@ export class LocalDatabaseStore {
     };
   }
 
-  // --- App Settings (Global Document Access Control) ---
-  getAppSettings(): { allow_user_downloads: boolean; updated_at?: string; updated_by?: string } {
+  // --- App Settings (Global Document Access & Community Control) ---
+  getAppSettings(): {
+    allow_user_downloads: boolean;
+    require_community_verification: boolean;
+    updated_at?: string;
+    updated_by?: string;
+  } {
     try {
       if (fs.existsSync(DB_PATH)) {
         const raw = fs.readFileSync(DB_PATH, 'utf-8');
         const parsed = JSON.parse(raw);
         if (parsed?.app_settings) {
-          this.data.app_settings = parsed.app_settings;
-          return { ...parsed.app_settings };
+          const settingObj = {
+            allow_user_downloads: parsed.app_settings.allow_user_downloads ?? true,
+            require_community_verification: parsed.app_settings.require_community_verification ?? true,
+            updated_at: parsed.app_settings.updated_at,
+            updated_by: parsed.app_settings.updated_by,
+          };
+          this.data.app_settings = settingObj;
+          return { ...settingObj };
         }
       }
     } catch {}
     if (!this.data.app_settings) {
       this.data.app_settings = {
         allow_user_downloads: true,
+        require_community_verification: true,
         updated_at: new Date().toISOString(),
         updated_by: 'system',
       };
       this.save();
     }
-    return { ...this.data.app_settings };
+    return {
+      allow_user_downloads: this.data.app_settings.allow_user_downloads ?? true,
+      require_community_verification: this.data.app_settings.require_community_verification ?? true,
+      updated_at: this.data.app_settings.updated_at,
+      updated_by: this.data.app_settings.updated_by,
+    };
   }
 
-  updateAppSettings(settings: Partial<{ allow_user_downloads: boolean; updated_by?: string }>): {
+  updateAppSettings(settings: Partial<{
     allow_user_downloads: boolean;
+    require_community_verification: boolean;
+    updated_by?: string;
+  }>): {
+    allow_user_downloads: boolean;
+    require_community_verification: boolean;
     updated_at: string;
     updated_by?: string;
   } {
@@ -800,6 +824,8 @@ export class LocalDatabaseStore {
     const updated = {
       allow_user_downloads:
         settings.allow_user_downloads !== undefined ? settings.allow_user_downloads : current.allow_user_downloads,
+      require_community_verification:
+        settings.require_community_verification !== undefined ? settings.require_community_verification : current.require_community_verification,
       updated_at: new Date().toISOString(),
       updated_by: settings.updated_by || current.updated_by || 'admin',
     };

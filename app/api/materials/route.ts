@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
-import { getMaterials, MaterialFilters, touchUserActivity } from '@/lib/db';
+import { getMaterials, MaterialFilters, touchUserActivity, getAppSettings } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,7 +9,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    if (!session.community_joined && !session.isAdmin) {
+    const settings = await getAppSettings().catch(() => ({ require_community_verification: true } as any));
+    const requireCommunity = settings.require_community_verification !== false;
+
+    if (requireCommunity && !session.community_joined && !session.isAdmin) {
       return NextResponse.json(
         { error: 'Community membership required to access study materials' },
         { status: 403 }

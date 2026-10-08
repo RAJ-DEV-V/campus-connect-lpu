@@ -128,6 +128,7 @@ export interface AdminStats {
 
 export interface AppSettings {
   allow_user_downloads: boolean;
+  require_community_verification: boolean;
   updated_at?: string;
   updated_by?: string;
 }

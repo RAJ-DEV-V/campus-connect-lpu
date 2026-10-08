@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loginWithGoogleProfile, signSession, SESSION_COOKIE_NAME } from '@/lib/auth';
-import { getUserByEmail, getUserById, upsertUser, isAdmin as checkIsAdmin } from '@/lib/db';
+import { getUserByEmail, getUserById, upsertUser, isAdmin as checkIsAdmin, getAppSettings } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,11 +24,17 @@ export async function POST(req: NextRequest) {
       avatar_url: avatar_url,
     });
 
+    const settings = await getAppSettings().catch(() => ({ require_community_verification: true } as any));
+    const requireCommunity = settings.require_community_verification !== false;
+
     // Destination routing:
     // If admin or owner -> /admin
-    // If community_joined = true -> Study Material Library
-    // If community_joined = false -> Community Verification
-    const destination = (isAdmin || isOwner) ? '/admin' : (user.community_joined ? '/library' : '/community');
+    // If community verification is OFF -> /library directly
+    // If community verification is ON and community_joined = true -> /library
+    // If community verification is ON and community_joined = false -> /community
+    const destination = (isAdmin || isOwner) 
+      ? '/admin' 
+      : ((!requireCommunity || user.community_joined) ? '/library' : '/community');
 
     const response = NextResponse.json({
       success: true,
@@ -37,6 +43,15 @@ export async function POST(req: NextRequest) {
       isOwner,
       role,
       redirectUrl: destination,
+    });
+
+    response.cookies.set({
+      name: 'cc_comm_req',
+      value: requireCommunity ? 'true' : 'false',
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 31536000,
     });
 
     response.cookies.set({

@@ -10,7 +10,7 @@ export async function GET() {
     }
 
     const settings = await getAppSettings();
-    return NextResponse.json(
+    const res = NextResponse.json(
       {
         success: true,
         settings,
@@ -24,6 +24,17 @@ export async function GET() {
         },
       }
     );
+
+    res.cookies.set({
+      name: 'cc_comm_req',
+      value: settings.require_community_verification ? 'true' : 'false',
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 31536000,
+    });
+
+    return res;
   } catch (error: any) {
     console.error('Settings GET error:', error);
     return NextResponse.json({ error: error.message || 'Failed to fetch settings' }, { status: 500 });
@@ -38,24 +49,55 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { allow_user_downloads } = body;
+    const { allow_user_downloads, require_community_verification } = body;
 
-    if (typeof allow_user_downloads !== 'boolean') {
+    if (allow_user_downloads !== undefined && typeof allow_user_downloads !== 'boolean') {
       return NextResponse.json({ error: 'allow_user_downloads must be a boolean' }, { status: 400 });
     }
 
-    const updated = await updateAppSettings({
-      allow_user_downloads,
-      updated_by: session.email || session.userId,
-    });
+    if (require_community_verification !== undefined && typeof require_community_verification !== 'boolean') {
+      return NextResponse.json({ error: 'require_community_verification must be a boolean' }, { status: 400 });
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: allow_user_downloads 
+    const updatePayload: any = {
+      updated_by: session.email || session.userId,
+    };
+    if (allow_user_downloads !== undefined) {
+      updatePayload.allow_user_downloads = allow_user_downloads;
+    }
+    if (require_community_verification !== undefined) {
+      updatePayload.require_community_verification = require_community_verification;
+    }
+
+    const updated = await updateAppSettings(updatePayload);
+
+    let message = 'Global settings updated successfully.';
+    if (require_community_verification !== undefined && allow_user_downloads === undefined) {
+      message = require_community_verification
+        ? 'Global Community Verification Enabled: All students must complete community verification before accessing materials.'
+        : 'Global Community Verification Disabled: Anyone signed in can now access study materials without verification.';
+    } else if (allow_user_downloads !== undefined && require_community_verification === undefined) {
+      message = allow_user_downloads
         ? 'Global setting updated: Users can preview and download study materials.'
-        : 'Global setting updated: Users can preview study materials but cannot download them.',
+        : 'Global setting updated: Users can preview study materials but cannot download them.';
+    }
+
+    const res = NextResponse.json({
+      success: true,
+      message,
       settings: updated,
     });
+
+    res.cookies.set({
+      name: 'cc_comm_req',
+      value: updated.require_community_verification ? 'true' : 'false',
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 31536000,
+    });
+
+    return res;
   } catch (error: any) {
     console.error('Settings PATCH error:', error);
     return NextResponse.json({ error: error.message || 'Failed to update settings' }, { status: 500 });

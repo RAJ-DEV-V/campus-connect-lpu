@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
-import { getMaterialById, recordMaterialOpen } from '@/lib/db';
+import { getMaterialById, recordMaterialOpen, getAppSettings } from '@/lib/db';
 import { supabase } from '@/lib/db/supabase';
 import {
   extractDriveFileId,
@@ -17,8 +17,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const isAdminOrOwner = Boolean(session.isAdmin || session.isOwner);
+    const settings = await getAppSettings().catch(() => ({ require_community_verification: true } as any));
+    const requireCommunity = settings.require_community_verification !== false;
 
-    if (!session.community_joined && !isAdminOrOwner) {
+    if (requireCommunity && !session.community_joined && !isAdminOrOwner) {
       return NextResponse.json(
         { error: 'Community confirmation required to access study materials' },
         { status: 403 }

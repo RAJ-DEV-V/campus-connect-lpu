@@ -41,7 +41,12 @@ export class SupabaseDatabaseStore {
   private academicYearsCacheTime: number = 0;
   private materialsCache: Material[] | null = null;
   private materialsCacheTime: number = 0;
-  private settingsCache: { allow_user_downloads: boolean; updated_at?: string; updated_by?: string } | null = null;
+  private settingsCache: {
+    allow_user_downloads: boolean;
+    require_community_verification: boolean;
+    updated_at?: string;
+    updated_by?: string;
+  } | null = null;
   private settingsCacheTime: number = 0;
   private adminStatsCache: AdminStats | null = null;
   private adminStatsCacheTime: number = 0;
@@ -1179,7 +1184,12 @@ export class SupabaseDatabaseStore {
     }
   }
 
-  async getAppSettings(): Promise<{ allow_user_downloads: boolean; updated_at?: string; updated_by?: string }> {
+  async getAppSettings(): Promise<{
+    allow_user_downloads: boolean;
+    require_community_verification: boolean;
+    updated_at?: string;
+    updated_by?: string;
+  }> {
     const nowTime = Date.now();
     if (this.settingsCache && nowTime - this.settingsCacheTime < 60000) {
       return this.settingsCache;
@@ -1188,15 +1198,17 @@ export class SupabaseDatabaseStore {
     try {
       const { data, error } = await this.client
         .from('app_settings')
-        .select('*')
-        .eq('key', 'allow_user_downloads')
-        .maybeSingle();
+        .select('*');
 
-      if (!error && data) {
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const downloadRow = data.find((r: any) => r.key === 'allow_user_downloads');
+        const commRow = data.find((r: any) => r.key === 'require_community_verification');
+
         const res = {
-          allow_user_downloads: data.value === true || data.value === 'true',
-          updated_at: data.updated_at,
-          updated_by: data.updated_by,
+          allow_user_downloads: downloadRow ? (downloadRow.value === true || downloadRow.value === 'true') : true,
+          require_community_verification: commRow !== undefined ? (commRow.value === true || commRow.value === 'true') : true,
+          updated_at: commRow?.updated_at || downloadRow?.updated_at,
+          updated_by: commRow?.updated_by || downloadRow?.updated_by,
         };
         this.settingsCache = res;
         this.settingsCacheTime = nowTime;
@@ -1209,8 +1221,13 @@ export class SupabaseDatabaseStore {
     return fallbackSettings;
   }
 
-  async updateAppSettings(settings: Partial<{ allow_user_downloads: boolean; updated_by?: string }>): Promise<{
+  async updateAppSettings(settings: Partial<{
     allow_user_downloads: boolean;
+    require_community_verification: boolean;
+    updated_by?: string;
+  }>): Promise<{
+    allow_user_downloads: boolean;
+    require_community_verification: boolean;
     updated_at: string;
     updated_by?: string;
   }> {
@@ -1218,15 +1235,31 @@ export class SupabaseDatabaseStore {
     this.settingsCacheTime = 0;
     const local = this.localFallback.updateAppSettings(settings);
     try {
+      const now = new Date().toISOString();
+      const updatedBy = settings.updated_by || 'admin';
+      const upserts: any[] = [];
+
       if (settings.allow_user_downloads !== undefined) {
+        upserts.push({
+          key: 'allow_user_downloads',
+          value: settings.allow_user_downloads,
+          updated_at: now,
+          updated_by: updatedBy,
+        });
+      }
+      if (settings.require_community_verification !== undefined) {
+        upserts.push({
+          key: 'require_community_verification',
+          value: settings.require_community_verification,
+          updated_at: now,
+          updated_by: updatedBy,
+        });
+      }
+
+      for (const item of upserts) {
         await this.client
           .from('app_settings')
-          .upsert({
-            key: 'allow_user_downloads',
-            value: settings.allow_user_downloads,
-            updated_at: new Date().toISOString(),
-            updated_by: settings.updated_by || 'admin',
-          }, { onConflict: 'key' });
+          .upsert(item, { onConflict: 'key' });
       }
     } catch {}
     return local;

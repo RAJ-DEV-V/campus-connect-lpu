@@ -130,6 +130,7 @@ export default function AdminDashboardPage() {
 
   // Platform Global Settings
   const [allowUserDownloads, setAllowUserDownloads] = useState<boolean>(true);
+  const [requireCommunityVerification, setRequireCommunityVerification] = useState<boolean>(true);
   const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
   const [updatingSettings, setUpdatingSettings] = useState<boolean>(false);
   const [settingsMessage, setSettingsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -320,6 +321,9 @@ export default function AdminDashboardPage() {
         const d = await res.json();
         if (d.settings) {
           setAllowUserDownloads(d.settings.allow_user_downloads);
+          if (typeof d.settings.require_community_verification === 'boolean') {
+            setRequireCommunityVerification(d.settings.require_community_verification);
+          }
         }
       }
     } catch (e) {
@@ -354,6 +358,37 @@ export default function AdminDashboardPage() {
       setSettingsMessage({
         type: 'error',
         text: err.message || 'Failed to update access mode',
+      });
+    } finally {
+      setUpdatingSettings(false);
+    }
+  };
+
+  const handleToggleCommunityVerification = async (newValue: boolean) => {
+    setUpdatingSettings(true);
+    setSettingsMessage(null);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ require_community_verification: newValue }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update community verification setting');
+      }
+      setRequireCommunityVerification(data.settings.require_community_verification);
+      setSettingsMessage({
+        type: 'success',
+        text: newValue 
+          ? 'Community Verification Enforced: All students must complete community verification to access study materials.' 
+          : 'Open Access Enabled: Anyone signed in can now access study materials without verification. Unverified members will need to verify once re-enabled.',
+      });
+      setTimeout(() => setSettingsMessage(null), 6000);
+    } catch (err: any) {
+      setSettingsMessage({
+        type: 'error',
+        text: err.message || 'Failed to update community verification setting',
       });
     } finally {
       setUpdatingSettings(false);
@@ -2370,6 +2405,61 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
+            {/* Global Community Verification Quick Controller */}
+            <div className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+              requireCommunityVerification
+                ? 'bg-orange-50/50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800/60'
+                : 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  requireCommunityVerification
+                    ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400'
+                    : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                }`}>
+                  {requireCommunityVerification ? <ShieldCheck className="w-5 h-5" /> : <Users className="w-5 h-5" />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-slate-900 dark:text-white">
+                      Global Community Verification:
+                    </span>
+                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                      requireCommunityVerification
+                        ? 'bg-orange-100 dark:bg-orange-950/80 text-orange-800 dark:text-orange-300'
+                        : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
+                    }`}>
+                      {requireCommunityVerification ? 'Verification Required (ON)' : 'Open Access (OFF)'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                    {requireCommunityVerification
+                      ? 'Students must complete WhatsApp/community verification to browse and access study materials.'
+                      : 'Students can freely access all materials just by signing in. Verification step is bypassed.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                <button
+                  type="button"
+                  disabled={updatingSettings || settingsLoading}
+                  onClick={() => handleToggleCommunityVerification(!requireCommunityVerification)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                    requireCommunityVerification
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-orange-600 hover:bg-orange-700 text-white'
+                  }`}
+                >
+                  {updatingSettings
+                    ? 'Saving...'
+                    : requireCommunityVerification
+                    ? 'Turn OFF (Open Access)'
+                    : 'Turn ON (Require Verification)'}
+                </button>
+              </div>
+            </div>
+
             {/* Secondary row: Materials & Downloads */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
@@ -4351,6 +4441,117 @@ export default function AdminDashboardPage() {
                 <div>
                   <strong className="text-slate-900 dark:text-white">Administrator Immunity: </strong>
                   Platform Owners and Admins (<code className="text-slate-800 dark:text-slate-200 font-mono">mishra.rajvansh11@gmail.com</code> and authorized staff) can <strong className="text-slate-900 dark:text-white">ALWAYS</strong> download documents regardless of this setting.
+                </div>
+              </div>
+            </div>
+
+            {/* Global Community Verification Setting Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-6">
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                      Global Community Verification
+                    </h3>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      requireCommunityVerification
+                        ? 'bg-orange-100 dark:bg-orange-950/50 text-orange-800 dark:text-orange-300'
+                        : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
+                    }`}>
+                      {requireCommunityVerification ? 'Verification Required' : 'Open Access'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
+                    Control whether students must complete the community verification check before accessing study materials and the library.
+                  </p>
+                </div>
+
+                {/* Primary Toggle Switch */}
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300 hidden sm:inline">
+                    {requireCommunityVerification ? 'Verification ON' : 'Verification OFF'}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={requireCommunityVerification}
+                    disabled={updatingSettings || settingsLoading}
+                    onClick={() => handleToggleCommunityVerification(!requireCommunityVerification)}
+                    className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-lpu-500 focus:ring-offset-2 disabled:opacity-50 ${
+                      requireCommunityVerification ? 'bg-orange-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        requireCommunityVerification ? 'translate-x-7' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Comparison Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Option 1: Enforced Mode */}
+                <div 
+                  onClick={() => !updatingSettings && handleToggleCommunityVerification(true)}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                    requireCommunityVerification 
+                      ? 'border-orange-500 bg-orange-50/40 dark:bg-orange-950/30' 
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <ShieldCheck className={`w-4 h-4 ${requireCommunityVerification ? 'text-orange-600 dark:text-orange-400' : 'text-slate-400'}`} />
+                      Enforced Mode (Verification Required)
+                    </span>
+                    {requireCommunityVerification && (
+                      <CheckCircle2 className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Students <strong className="text-slate-900 dark:text-white">MUST</strong> complete WhatsApp/Community verification to access the Study Library and materials. Unverified students are redirected to verify.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
+                    Access Gate: Active (Full Verification)
+                  </div>
+                </div>
+
+                {/* Option 2: Open Access Mode */}
+                <div 
+                  onClick={() => !updatingSettings && handleToggleCommunityVerification(false)}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                    !requireCommunityVerification 
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30' 
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Users className={`w-4 h-4 ${!requireCommunityVerification ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`} />
+                      Open Access Mode (Verification Bypassed)
+                    </span>
+                    {!requireCommunityVerification && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Any student signed in can browse and access all study materials immediately <strong className="text-slate-900 dark:text-white">without</strong> community verification.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
+                    Access Gate: Bypassed for Signed-in Students
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Safety / Preservation Rule Notice */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex items-start gap-2.5 text-xs text-slate-600 dark:text-slate-300">
+                <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-slate-900 dark:text-white">Data Preservation & Security: </strong>
+                  Unverified students who access materials when verification is turned <strong className="text-slate-900 dark:text-white">OFF</strong> are <strong className="text-slate-900 dark:text-white">NOT</strong> permanently marked verified in the database. When you turn verification back <strong className="text-slate-900 dark:text-white">ON</strong>, they must complete verification to continue accessing materials. Existing verified students remain untouched.
                 </div>
               </div>
             </div>
